@@ -21,11 +21,11 @@
 package de.unisb.cs.st.evosuite.testcase;
 
 import java.util.HashMap;
-import java.util.Map;
 
 import org.apache.log4j.Logger;
 import org.objectweb.asm.Opcodes;
 import org.objectweb.asm.util.AbstractVisitor;
+
 
 /**
  * This class collects information about chosen branches/paths at runtime
@@ -45,6 +45,8 @@ public class ExecutionTracer {
 	private boolean killSwitch = false;
 	
 	private int num_statements = 0;
+	
+	private int duCounter = 0;
 	
 	public static void disable() {
 		ExecutionTracer tracer = ExecutionTracer.getExecutionTracer();
@@ -80,6 +82,7 @@ public class ExecutionTracer {
 	public void clear() {
 		trace = new ExecutionTrace();
 		num_statements = 0;
+		duCounter = 0;
 	}
 	
 	/**
@@ -410,6 +413,35 @@ public class ExecutionTracer {
 		tracer.trace.branchPassed(branch, bytecode_id, distance_true, distance_false);
 	}
 	
+	public static void passedFieldDefinition(String className, String fieldName, String methodName, int branchID, int defID) {
+		
+		ExecutionTracer tracer = getExecutionTracer();
+		if(!tracer.disabled) {
+			HashMap<Integer,Integer> defs = tracer.trace.passedDefs.get(fieldName);
+			if(defs == null)
+				defs = new HashMap<Integer,Integer>();
+			
+			defs.put(tracer.duCounter,defID);
+			tracer.trace.passedDefs.put(fieldName,defs);
+		}
+		
+		tracer.duCounter++;
+	}
+	
+	public static void passedFieldUse(String className, String fieldName, String methodName, int branchID, int useID) {
+		ExecutionTracer tracer = getExecutionTracer();
+		if(!tracer.disabled) {
+			HashMap<Integer,Integer> uses = tracer.trace.passedUses.get(fieldName);
+			if(uses == null)
+				uses = new HashMap<Integer,Integer>();
+			
+			uses.put(tracer.duCounter,useID);
+			tracer.trace.passedUses.put(fieldName,uses);
+		}
+		
+		tracer.duCounter++;
+	}
+
 	public static void statementExecuted() {
 		ExecutionTracer tracer = getExecutionTracer();
 		if(!tracer.disabled)
@@ -424,6 +456,5 @@ public class ExecutionTracer {
 	private ExecutionTracer() {
 		trace = new ExecutionTrace();
 	}
-	
 	
 }
