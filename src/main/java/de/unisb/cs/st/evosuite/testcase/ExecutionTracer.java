@@ -25,6 +25,9 @@ import org.apache.log4j.Logger;
 import org.objectweb.asm.Opcodes;
 import org.objectweb.asm.util.AbstractVisitor;
 
+import de.unisb.cs.st.evosuite.Properties;
+import de.unisb.cs.st.evosuite.javaagent.TestabilityTransformation;
+
 /**
  * This class collects information about chosen branches/paths at runtime
  * 
@@ -54,6 +57,16 @@ public class ExecutionTracer {
 	private int objectCounter = 0;
 	public HashMap<Integer,Object> knownObjects = new HashMap<Integer,Object>();
 	
+
+	/**
+	 * If a thread of a test case survives for some reason (e.g. long call to
+	 * external library), then we don't want its data in the current trace
+	 */
+	private static Thread currentThread = null;
+
+	public static void setThread(Thread thread) {
+		currentThread = thread;
+	}
 
 	public static void disable() {
 		ExecutionTracer tracer = ExecutionTracer.getExecutionTracer();
@@ -100,9 +113,11 @@ public class ExecutionTracer {
 	 */
 	public ExecutionTrace getTrace() {
 		trace.finishCalls();
-		ExecutionTrace copy = trace.clone();
-		// copy.finishCalls();
-		return copy;
+		return trace;
+
+		//ExecutionTrace copy = trace.clone();
+		//// copy.finishCalls();
+		//return copy;
 	}
 
 	/**
@@ -113,6 +128,13 @@ public class ExecutionTracer {
 	 */
 	public static void enteredMethod(String classname, String methodname)
 	        throws TestCaseExecutor.TimeoutExceeded {
+		if (Thread.currentThread() != currentThread)
+			return;
+
+		if (Properties.TRANSFORM_BOOLEAN) {
+			TestabilityTransformation.methodEntered();
+		}
+
 		ExecutionTracer tracer = getExecutionTracer();
 		if (tracer.killSwitch) {
 			logger.info("Raising TimeoutException as kill switch is active - enteredMethod");
@@ -132,8 +154,10 @@ public class ExecutionTracer {
 	 * @param methodname
 	 * @param value
 	 */
-	public static void returnValue(int value, String className,
-	        String methodName) {
+	public static void returnValue(int value, String className, String methodName) {
+		if (Thread.currentThread() != currentThread)
+			return;
+
 		ExecutionTracer tracer = getExecutionTracer();
 		if (tracer.disabled)
 			return;
@@ -149,8 +173,10 @@ public class ExecutionTracer {
 	 * @param methodname
 	 * @param value
 	 */
-	public static void returnValue(Object value, String className,
-	        String methodName) {
+	public static void returnValue(Object value, String className, String methodName) {
+		if (Thread.currentThread() != currentThread)
+			return;
+
 		if (!ExecutionTracer.isEnabled())
 			return;
 
@@ -176,8 +202,7 @@ public class ExecutionTracer {
 		char c = ' ';
 		// quite fast method to detect memory addresses in Strings.
 		while ((position = tmp.indexOf("@", index)) > 0) {
-			for (index = position + 1; index < position + 17
-			        && index < tmp.length(); index++) {
+			for (index = position + 1; index < position + 17 && index < tmp.length(); index++) {
 				c = tmp.charAt(index);
 				if ((c >= '0' && c <= '9') || (c >= 'a' && c <= 'f')
 				        || (c >= 'A' && c <= 'F')) {
@@ -201,6 +226,13 @@ public class ExecutionTracer {
 	 * @param methodname
 	 */
 	public static void leftMethod(String classname, String methodname) {
+		if (Thread.currentThread() != currentThread)
+			return;
+
+		if (Properties.TRANSFORM_BOOLEAN) {
+			TestabilityTransformation.methodLeft();
+		}
+
 		ExecutionTracer tracer = getExecutionTracer();
 		if (tracer.disabled)
 			return;
@@ -215,6 +247,9 @@ public class ExecutionTracer {
 	 * @param line
 	 */
 	public static void passedLine(String className, String methodName, int line) {
+		if (Thread.currentThread() != currentThread)
+			return;
+
 		ExecutionTracer tracer = getExecutionTracer();
 		if (tracer.killSwitch) {
 			logger.info("Raising TimeoutException as kill switch is active - passedLine");
@@ -234,8 +269,10 @@ public class ExecutionTracer {
 	 * @param opcode
 	 * @param line
 	 */
-	public static void passedBranch(int val, int opcode, int branch,
-	        int bytecode_id) {
+	public static void passedBranch(int val, int opcode, int branch, int bytecode_id) {
+		if (Thread.currentThread() != currentThread)
+			return;
+
 		ExecutionTracer tracer = getExecutionTracer();
 		// logger.info("passedBranch val="+val+", opcode="+opcode+", branch="+branch+", bytecode_id="+bytecode_id);
 		if (tracer.disabled)
@@ -287,8 +324,7 @@ public class ExecutionTracer {
 		logger.trace("Branch distance false: " + distance_false);
 
 		// Add current branch to control trace
-		tracer.trace.branchPassed(branch, bytecode_id, distance_true,
-		                          distance_false);
+		tracer.trace.branchPassed(branch, bytecode_id, distance_true, distance_false);
 	}
 
 	/**
@@ -301,13 +337,16 @@ public class ExecutionTracer {
 	 */
 	public static void passedBranch(int val1, int val2, int opcode, int branch,
 	        int bytecode_id) {
+		if (Thread.currentThread() != currentThread)
+			return;
+
 		ExecutionTracer tracer = getExecutionTracer();
 		if (tracer.disabled)
 			return;
 
 		logger.trace("Called passedBranch2 with opcode "
-		        + AbstractVisitor.OPCODES[opcode] + ", val1=" + val1
-		        + ", val2=" + val2 + " in branch " + branch);
+		        + AbstractVisitor.OPCODES[opcode] + ", val1=" + val1 + ", val2=" + val2
+		        + " in branch " + branch);
 		double distance_true = 0;
 		double distance_false = 0;
 		switch (opcode) {
@@ -334,28 +373,20 @@ public class ExecutionTracer {
 			                                                 // leads to NE
 			break;
 		case Opcodes.IF_ICMPLT: // val1 < val2?
-			distance_true = val1 >= val2 ? (double) val1 - (double) val2 + 1.0
-			        : 0.0; // The greater, the further away from < 0
-			distance_false = val1 < val2 ? (double) val2 - (double) val1 + 1.0
-			        : 0.0; // The smaller, the further away from < 0
+			distance_true = val1 >= val2 ? (double) val1 - (double) val2 + 1.0 : 0.0; // The greater, the further away from < 0
+			distance_false = val1 < val2 ? (double) val2 - (double) val1 + 1.0 : 0.0; // The smaller, the further away from < 0
 			break;
 		case Opcodes.IF_ICMPGE:
-			distance_false = val1 >= val2 ? (double) val1 - (double) val2 + 1.0
-			        : 0.0; // The greater, the further away from < 0
-			distance_true = val1 < val2 ? (double) val2 - (double) val1 + 1.0
-			        : 0.0; // The smaller, the further away from < 0
+			distance_false = val1 >= val2 ? (double) val1 - (double) val2 + 1.0 : 0.0; // The greater, the further away from < 0
+			distance_true = val1 < val2 ? (double) val2 - (double) val1 + 1.0 : 0.0; // The smaller, the further away from < 0
 			break;
 		case Opcodes.IF_ICMPGT:
-			distance_false = val1 > val2 ? (double) val1 - (double) val2 + 1.0
-			        : 0.0; // The greater, the further away from < 0
-			distance_true = val1 <= val2 ? (double) val2 - (double) val1 + 1.0
-			        : 0.0; // The smaller, the further away from < 0
+			distance_false = val1 > val2 ? (double) val1 - (double) val2 + 1.0 : 0.0; // The greater, the further away from < 0
+			distance_true = val1 <= val2 ? (double) val2 - (double) val1 + 1.0 : 0.0; // The smaller, the further away from < 0
 			break;
 		case Opcodes.IF_ICMPLE:
-			distance_true = val1 > val2 ? (double) val1 - (double) val2 + 1.0
-			        : 0.0; // The greater, the further away from < 0
-			distance_false = val1 <= val2 ? (double) val2 - (double) val1 + 1.0
-			        : 0.0; // The smaller, the further away from < 0
+			distance_true = val1 > val2 ? (double) val1 - (double) val2 + 1.0 : 0.0; // The greater, the further away from < 0
+			distance_false = val1 <= val2 ? (double) val2 - (double) val1 + 1.0 : 0.0; // The smaller, the further away from < 0
 			break;
 		default:
 			logger.error("Unknown opcode: " + opcode);
@@ -364,8 +395,7 @@ public class ExecutionTracer {
 		logger.trace("Branch distance false: " + distance_false);
 
 		// Add current branch to control trace
-		tracer.trace.branchPassed(branch, bytecode_id, distance_true,
-		                          distance_false);
+		tracer.trace.branchPassed(branch, bytecode_id, distance_true, distance_false);
 		// tracer.trace.branchPassed(branch, distance_true, distance_false);
 
 	}
@@ -378,8 +408,11 @@ public class ExecutionTracer {
 	 * @param opcode
 	 * @param line
 	 */
-	public static void passedBranch(Object val1, Object val2, int opcode,
-	        int branch, int bytecode_id) {
+	public static void passedBranch(Object val1, Object val2, int opcode, int branch,
+	        int bytecode_id) {
+		if (Thread.currentThread() != currentThread)
+			return;
+
 		ExecutionTracer tracer = getExecutionTracer();
 		if (tracer.disabled)
 			return;
@@ -427,8 +460,7 @@ public class ExecutionTracer {
 		distance_false = distance_true == 0 ? 1.0 : 0.0;
 
 		// Add current branch to control trace
-		tracer.trace.branchPassed(branch, bytecode_id, distance_true,
-		                          distance_false);
+		tracer.trace.branchPassed(branch, bytecode_id, distance_true, distance_false);
 	}
 
 	/**
@@ -438,8 +470,10 @@ public class ExecutionTracer {
 	 * @param opcode
 	 * @param line
 	 */
-	public static void passedBranch(Object val, int opcode, int branch,
-	        int bytecode_id) {
+	public static void passedBranch(Object val, int opcode, int branch, int bytecode_id) {
+		if (Thread.currentThread() != currentThread)
+			return;
+
 		ExecutionTracer tracer = getExecutionTracer();
 		if (tracer.disabled)
 			return;
@@ -463,12 +497,13 @@ public class ExecutionTracer {
 		logger.trace("Branch distance false: " + distance_false);
 
 		// Add current branch to control trace
-		tracer.trace.branchPassed(branch, bytecode_id, distance_true,
-		                          distance_false);
+		tracer.trace.branchPassed(branch, bytecode_id, distance_true, distance_false);
 	}
 
 	public static void passedDefinition(String className, String varName, 
 			String methodName, Object caller, int branchID, int defID) {
+		if (Thread.currentThread() != currentThread)
+			return;
 
 		if(caller==null)
 			logger.error("null caller");
@@ -495,6 +530,8 @@ public class ExecutionTracer {
 	public static void passedUse(String className, String varName, String methodName, 
 			Object caller, int branchID, int useID) {
 		
+		if (Thread.currentThread() != currentThread)
+			return;
 		ExecutionTracer tracer = getExecutionTracer();
 		if (!tracer.disabled) {
 
@@ -531,6 +568,9 @@ public class ExecutionTracer {
 	}
 
 	public static void statementExecuted() {
+		if (Thread.currentThread() != currentThread)
+			return;
+
 		ExecutionTracer tracer = getExecutionTracer();
 		if (!tracer.disabled)
 			tracer.num_statements++;

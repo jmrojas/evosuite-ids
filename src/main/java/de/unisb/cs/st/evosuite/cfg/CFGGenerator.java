@@ -122,6 +122,10 @@ public class CFGGenerator extends Analyzer {
 			return (node instanceof TableSwitchInsnNode);
 		}
 
+		public boolean isLookupSwitch() {
+			return (node instanceof LookupSwitchInsnNode);
+		}
+
 		public void setMutation(long id) {
 			mutations.add(id);
 		}
@@ -486,7 +490,7 @@ public class CFGGenerator extends Analyzer {
 						v.setMutationBranch();
 					}
 				}
-			} else if (v.isBranch()) {
+			} else if (v.isBranch() || v.isTableSwitch() || v.isLookupSwitch()) {
 				for (DefaultEdge e : graph.incomingEdgesOf(v)) {
 					CFGVertex v2 = graph.getEdgeSource(e);
 					if (v2.isMethodCall("touch")) {
@@ -511,6 +515,8 @@ public class CFGGenerator extends Analyzer {
 			else if (graph.outDegreeOf(vertex) == 0)
 				min_graph.addVertex(vertex);
 			else if (vertex.isJump() && !vertex.isGoto()) {
+				min_graph.addVertex(vertex);
+			} else if (vertex.isTableSwitch() || vertex.isLookupSwitch()) {
 				min_graph.addVertex(vertex);
 			} else if (vertex.isMutation())
 				min_graph.addVertex(vertex);
