@@ -10,25 +10,29 @@ import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
-
-import org.apache.log4j.Logger;
+import java.util.concurrent.Future;
+import java.util.concurrent.FutureTask;
 
 import de.unisb.cs.st.evosuite.assertion.Assertion;
 import de.unisb.cs.st.evosuite.ga.ConstructionFailedException;
+import de.unisb.cs.st.evosuite.testcase.ExecutionResult;
 import de.unisb.cs.st.evosuite.testcase.Scope;
 import de.unisb.cs.st.evosuite.testcase.Statement;
-import de.unisb.cs.st.evosuite.testcase.DefaultTestCase;
 import de.unisb.cs.st.evosuite.testcase.TestCase;
 import de.unisb.cs.st.evosuite.testcase.TestFitnessFunction;
-import de.unisb.cs.st.evosuite.testcase.TestRunner;
+import de.unisb.cs.st.evosuite.testcase.TestRunnable;
 import de.unisb.cs.st.evosuite.testcase.VariableReference;
 
 /**
+ * A concurrentTestCase wraps a BasicTestCase and enriches it with some additional information.
+ *  - the schedule (which is a list of thread ids)
+ *  - a set of all schedulers, which have been given to other objects
+ *  	- used to invalidate said schedulers at appropriate times.
+ *   	- a set of seenThreadIDs. Which is used to generate new thread ids.
+ *   
  * @author sebastian steenbuck
- * #TODO in an ideal world TestCase would be an interface
  */
 public class ConcurrentTestCase implements TestCase{
-	private static Logger logger = Logger.getLogger(ConcurrentTestCase.class);
 	
 	//A list of thread IDs
 	private List<Integer> schedule;
@@ -47,6 +51,11 @@ public class ConcurrentTestCase implements TestCase{
 		generatedSchedules = new HashSet<Scheduler>();
 	}
 
+	/**
+	 * Returns the schedule of this thread.
+	 * Note that this schedule is unbounded (new thread ids are generated as needed)
+	 * @return
+	 */
 	public Schedule getSchedule(){
 		Scheduler s = new Scheduler(schedule, seenThreadIDs, generatedSchedules);
 		generatedSchedules.add(s);
@@ -147,15 +156,19 @@ public class ConcurrentTestCase implements TestCase{
 		b.toString() + "\n" +
 		"public void test"+id+"(){\n"+
 		"	Triangle var0 = new Triangle();\n"+
-		"	FutureTask<Void> c = new FutureTask<Void>(new ControllerRuntime(new SimpleScheduler(schedule"+id+"), 2));\n"+
-		"	FutureTask<Void> f1 = new FutureTask<Void>(new TestThread"+id+"(var0, 0));\n"+
-		"	FutureTask<Void> f2 = new FutureTask<Void>(new TestThread"+id+"(var0, 1));\n"+
-		"	new Thread(c).start();\n"+
-		"	new Thread(f1).start();\n"+
-		"	new Thread(f2).start();\n"+
-		"	try{\n"+
-		"    f1.get();\n"+
-		"    f2.get();\n"+
+		"	FutureTask<Void> c = new FutureTask<Void>(new ControllerRuntime(new SimpleScheduler(schedule"+id+"), " + ConcurrencyCoverageFactory.THREAD_COUNT + "));\n"+
+		"Set<FutureTask<Void>> testFutures = new HashSet<FutureTask<Void>>();\n" +
+		"for(int i=0 ; i<" + ConcurrencyCoverageFactory.THREAD_COUNT + " ; i++){\n" +
+		"	FutureTask<Void> testFuture = new FutureTask<Void>(new TestThread"+id+"(var0,i));\n"+
+		"	Thread testThread = new Thread(testFuture);\n" +
+		"	testThread.start();\n" +
+		"	testFutures.add(testFuture);\n" +
+		"}\n\n" +
+		
+		"	try{\n\n"+		
+		"		for(FutureTask<Void> testFuture : testFutures){\n"+
+		"		testFuture.get();\n"+
+		"		}\n\n"+
 		"    c.get();\n"+
 		"	}catch(Exception e){\n"+
 		"    e.printStackTrace();\n"+
@@ -333,7 +346,7 @@ public class ConcurrentTestCase implements TestCase{
 	 */
 	@Override
 	public boolean isPrefix(TestCase t) {
-		return isPrefix(t);
+		return test.isPrefix(t);
 	}
 
 
