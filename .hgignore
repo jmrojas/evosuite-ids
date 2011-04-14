@@ -1,0 +1,17 @@
+syntax: glob
+*~
+target/*
+evosuite-files
+evosuite-report
+evosuite-tests
+build
+.DS_Store
+.project
+.settings
+.classpath
+examples/mine/
+examples/plot/
+examples/indi_plot/
+
+syntax: regexp
+^lib/evosuite\.jar$
