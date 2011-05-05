@@ -102,6 +102,7 @@ public class TestCaseExecutor implements ThreadFactory {
 		} catch (Exception e) {
 			System.out.println("TG: Exception caught: " + e);
 			e.printStackTrace();
+			logger.fatal("TG: Exception caught: ", e);
 			System.exit(1);
 		}
 
@@ -196,7 +197,7 @@ public class TestCaseExecutor implements ThreadFactory {
 			Sandbox.tearDownEverything();
 			ExecutionResult result = new ExecutionResult(tc, null);
 			result.exceptions = callable.getExceptionsThrown();
-			result.trace = ExecutionTracer.getExecutionTracer().getTrace();
+			result.setTrace(ExecutionTracer.getExecutionTracer().getTrace());
 			ExecutionTracer.getExecutionTracer().clear();
 			return result;
 
@@ -205,14 +206,14 @@ public class TestCaseExecutor implements ThreadFactory {
 			logger.info("InterruptedException");
 			ExecutionResult result = new ExecutionResult(tc, null);
 			result.exceptions = callable.getExceptionsThrown();
-			result.trace = ExecutionTracer.getExecutionTracer().getTrace();
+			result.setTrace(ExecutionTracer.getExecutionTracer().getTrace());
 			ExecutionTracer.getExecutionTracer().clear();
 			return result;
 		} catch (ExecutionException e1) {
 			if (e1.getCause() instanceof AssertionError
 			        && e1.getCause().getStackTrace()[0].getClassName().contains("de.unisb.cs.st.evosuite")) {
 				//e1.printStackTrace();
-				logger.warn("Assertion Error in evosuitecode");
+				logger.warn("Assertion Error in evosuitecode", e1);
 				throw (AssertionError) e1.getCause();
 			}
 			Sandbox.tearDownEverything();
@@ -220,7 +221,7 @@ public class TestCaseExecutor implements ThreadFactory {
 			logger.info("ExecutionException");
 			ExecutionResult result = new ExecutionResult(tc, null);
 			result.exceptions = callable.getExceptionsThrown();
-			result.trace = ExecutionTracer.getExecutionTracer().getTrace();
+			result.setTrace(ExecutionTracer.getExecutionTracer().getTrace());
 			ExecutionTracer.getExecutionTracer().clear();
 			return result;
 		} catch (TimeoutException e1) {
@@ -267,7 +268,7 @@ public class TestCaseExecutor implements ThreadFactory {
 			ExecutionResult result = new ExecutionResult(tc, null);
 			result.exceptions = callable.getExceptionsThrown();
 			result.exceptions.put(tc.size(), new TestCaseExecutor.TimeoutExceeded());
-			result.trace = ExecutionTracer.getExecutionTracer().getTrace();
+			result.setTrace(ExecutionTracer.getExecutionTracer().getTrace());
 			ExecutionTracer.getExecutionTracer().clear();
 			ExecutionTracer.setKillSwitch(false);
 			ExecutionTracer.enable();

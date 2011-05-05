@@ -176,10 +176,10 @@ public class MutationGoal extends TestCoverageGoal {
 			logger.debug("Mutation was touched");
 			return d;
 		}
-
+		
 		if (cfg == null) {
 			logger.warn("Have no cfg for method " + className + "." + methodName);
-			for (MethodCall call : result.trace.finished_calls) {
+			for (MethodCall call : result.getTrace().finished_calls) {
 				if (call.class_name.equals(""))
 					continue;
 				if ((call.class_name + "." + call.method_name).equals(methodName)) {
@@ -194,7 +194,7 @@ public class MutationGoal extends TestCoverageGoal {
 
 		// Minimal distance between target node and path
 		boolean method_executed = false;
-		for (MethodCall call : result.trace.finished_calls) {
+		for (MethodCall call : result.getTrace().finished_calls) {
 			if (call.class_name.equals(className) && call.method_name.equals(methodName)) {
 				logger.debug("Found target call for mutant " + mutation.getId()
 				        + " in method " + className + "." + methodName);
