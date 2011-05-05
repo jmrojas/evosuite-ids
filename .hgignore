@@ -1,0 +1,20 @@
+syntax: glob
+*~
+target/*
+evosuite-files
+evosuite-report
+evosuite-tests
+build
+.DS_Store
+.project
+.settings
+.classpath
+examples/mine/
+examples/plot/
+examples/indi_plot/
+
+syntax: regexp
+^lib/evosuite\.jar$
+
+syntax: regexp
+^src/main/java/de/unisb/cs/st/evosuite/cfg/CFGPrinter\.java$
