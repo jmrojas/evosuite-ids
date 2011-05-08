@@ -29,7 +29,7 @@ import org.apache.log4j.Logger;
 
 import de.unisb.cs.st.evosuite.cfg.CFGMethodAdapter;
 import de.unisb.cs.st.evosuite.cfg.ControlFlowGraph;
-import de.unisb.cs.st.evosuite.cfg.CFGGenerator.CFGVertex;
+import de.unisb.cs.st.evosuite.cfg.BytecodeInstruction;
 import de.unisb.cs.st.evosuite.coverage.TestFitnessFactory;
 import de.unisb.cs.st.evosuite.testcase.TestFitnessFunction;
 
@@ -132,13 +132,15 @@ public class DefUseCoverageFactory implements TestFitnessFactory {
 				for (String fieldName : DefUsePool.def_map.get(className).get(methodName).keySet()) 
 					for (Entry<Integer, List<Definition>> entry : DefUsePool.def_map.get(className).get(methodName).get(fieldName).entrySet()) {
 						ControlFlowGraph cfg = CFGMethodAdapter.getCompleteCFG(className, methodName);
-						CFGVertex v = cfg.getVertex(entry.getKey());
+						if(cfg==null)
+							throw new IllegalStateException("Expect CFG to exist for "+methodName);
+						BytecodeInstruction v = cfg.getVertex(entry.getKey());
 						if (entry.getKey() != -1 && v == null) 
 							 throw new IllegalStateException("no CFG for branch "+entry.getKey()+" in method "+methodName);
 						for (Definition def : entry.getValue()) {
-							Set<CFGVertex> uses = cfg.getUsesForDef(def.getCFGVertex());
-							for(CFGVertex use : uses)
-								r.add(createGoal(def, DefUsePool.getUseByDefUseId(use.defuseId)));
+							Set<Use> uses = cfg.getUsesForDef(def);
+							for(Use use : uses)
+								r.add(createGoal(def, DefUsePool.getUseByDefUseId(use.getDefUseId())));
 						}
 					}
 		logger.info("# DU-Pairs within methods: "+r.size());
@@ -161,11 +163,11 @@ public class DefUseCoverageFactory implements TestFitnessFactory {
 						ControlFlowGraph cfg = CFGMethodAdapter.getCompleteCFG(className, methodName);
 						if(cfg == null) 
 							throw new IllegalStateException("Didnt find complete cfg for "+className+"."+methodName);
-						CFGVertex v = cfg.getVertex(entry.getKey());
+						BytecodeInstruction v = cfg.getVertex(entry.getKey());
 						if (entry.getKey() != -1 && v == null)
 							 throw new IllegalStateException("no CFG for branch "+entry.getKey()+" in method "+methodName);
 						for (Definition def : entry.getValue()) {
-							if (cfg.hasDefClearPathToMethodEnd(def.getCFGVertex())) {
+							if (cfg.hasDefClearPathToMethodEnd(def)) {
 								r.add(def);
 							}
 						}
@@ -186,7 +188,7 @@ public class DefUseCoverageFactory implements TestFitnessFactory {
 		Set<Use> r = new HashSet<Use>();
 		for (Use use : allUses) {
 			ControlFlowGraph cfg = CFGMethodAdapter.getCompleteCFG(use.getClassName(), use.getMethodName());
-			if (cfg.hasDefClearPathFromMethodStart(use.getCFGVertex()))
+			if (cfg.hasDefClearPathFromMethodStart(use))
 				r.add(use);
 		}
 		logger.info("# Uses with clear path from start "+r.size());
@@ -209,7 +211,7 @@ public class DefUseCoverageFactory implements TestFitnessFactory {
 				for (String varName : DefUsePool.use_map.get(className).get(methodName).keySet()) 
 					for (Entry<Integer, List<Use>> entry : DefUsePool.use_map.get(className).get(methodName).get(varName).entrySet()) {
 						ControlFlowGraph cfg = CFGMethodAdapter.getCompleteCFG(className, methodName);
-						CFGVertex v = cfg.getVertex(entry.getKey());
+						BytecodeInstruction v = cfg.getVertex(entry.getKey());
 						if (entry.getKey() != -1 && v == null)
 							 throw new IllegalStateException("no CFG for branch "+entry.getKey()+" in method "+methodName);
 						for (Use use : entry.getValue())

@@ -1,7 +1,6 @@
 package de.unisb.cs.st.evosuite.coverage.branch;
 
-import de.unisb.cs.st.evosuite.cfg.CFGGenerator.CFGVertex;
-import de.unisb.cs.st.evosuite.coverage.CFGVertexHolder;
+import de.unisb.cs.st.evosuite.cfg.BytecodeInstruction;
 
 /**
  * An object of this class corresponds to a Branch inside the class under test.
@@ -11,18 +10,13 @@ import de.unisb.cs.st.evosuite.coverage.CFGVertexHolder;
  * 
  * @author Andre Mis
  */
-public class Branch extends CFGVertexHolder {
+public class Branch extends BytecodeInstruction {
 
-	public Branch(CFGVertex v) {
-		super(v);
-		if (!isActualBranch(v))
-			throw new IllegalArgumentException("Vertex of a branch expected");
-
-		this.v = v;
+	public Branch(BytecodeInstruction wrapper) {
+		super(wrapper);
+		if(!isActualBranch())
+			throw new IllegalArgumentException("only actual branch instructions are accepted");
+		
 	}
-
-	public static boolean isActualBranch(CFGVertex v) {
-		return v.isBranch() || v.isLookupSwitch() || v.isTableSwitch();
-	}
-
+	
 }

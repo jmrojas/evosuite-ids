@@ -69,7 +69,7 @@ public abstract class TestSuiteFitnessFunction extends FitnessFunction {
 			System.out.println("TG: Exception caught: " + e);
 			try {
 				Thread.sleep(1000);
-				result.trace = ExecutionTracer.getExecutionTracer().getTrace();
+				result.setTrace(ExecutionTracer.getExecutionTracer().getTrace());
 			} catch (Exception e1) {
 				e.printStackTrace();
 				// TODO: Do some error recovery?
@@ -111,13 +111,7 @@ public abstract class TestSuiteFitnessFunction extends FitnessFunction {
 
 		for (TestChromosome test : suite.tests) {
 			// Only execute test if it hasn't been changed
-			if (test.isChanged() || test.last_result == null) { // ||
-				                                                // !result_cache.containsKey(test.test))
-				                                                // {
-				// logger.info("Executing test with length "+test.size());
-
-				// logger.debug("Executing test with length "+test.size()+", Cache size: "+result_cache.size());
-				// logger.trace(test.test.toCode());
+			if (test.isChanged() || test.last_result == null) {
 				ExecutionResult result = runTest(test.test);
 				results.add(result);
 

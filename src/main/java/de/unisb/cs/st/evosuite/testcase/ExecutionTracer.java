@@ -23,6 +23,7 @@ import org.objectweb.asm.Opcodes;
 import org.objectweb.asm.util.AbstractVisitor;
 
 import de.unisb.cs.st.evosuite.Properties;
+import de.unisb.cs.st.evosuite.Properties.Criterion;
 import de.unisb.cs.st.evosuite.coverage.concurrency.ConcurrencyTracer;
 import de.unisb.cs.st.evosuite.coverage.concurrency.LockRuntime;
 import de.unisb.cs.st.evosuite.javaagent.BooleanHelper;
@@ -49,6 +50,8 @@ public class ExecutionTracer {
 	private boolean killSwitch = false;
 
 	private int num_statements = 0;
+
+	private static final boolean testabilityTransformation = Properties.TT;
 
 	/**
 	 * If a thread of a test case survives for some reason (e.g. long call to
@@ -98,7 +101,7 @@ public class ExecutionTracer {
 		num_statements = 0;
 
 		//#TODO steenbuck: We should be able to register us somewhere, so that we're called before run is executed
-		if(Properties.CRITERION.equals(Properties.CRITERIA.CONCURRENCY)){
+		if (Properties.CRITERION == Criterion.CONCURRENCY) {
 			trace.concurrencyTracer = new ConcurrencyTracer();
 			LockRuntime.tracer = trace.concurrencyTracer;
 		}
@@ -111,8 +114,8 @@ public class ExecutionTracer {
 	 * 
 	 * @return
 	 */
-	private static boolean isThreadNeqCurrentThread(){
-		if(Properties.CRITERION.equals(Properties.CRITERIA.CONCURRENCY)){
+	private static boolean isThreadNeqCurrentThread() {
+		if (Properties.CRITERION== Criterion.CONCURRENCY) {
 			return false;
 		} else {
 			return (Thread.currentThread() != currentThread);
@@ -144,7 +147,7 @@ public class ExecutionTracer {
 		if (isThreadNeqCurrentThread())
 			return;
 
-		if (Properties.TRANSFORM_BOOLEAN) {
+		if (testabilityTransformation) {
 			BooleanHelper.methodEntered();
 		}
 
@@ -242,7 +245,7 @@ public class ExecutionTracer {
 		if (isThreadNeqCurrentThread())
 			return;
 
-		if (Properties.TRANSFORM_BOOLEAN) {
+		if (testabilityTransformation) {
 			BooleanHelper.methodLeft();
 		}
 
@@ -273,6 +276,28 @@ public class ExecutionTracer {
 			return;
 
 		tracer.trace.linePassed(className, methodName, line);
+	}
+
+	/**
+	 * Called by the instrumented code each time an unconditional branch is
+	 * taken. This is not enabled by default, only some coverage criteria (e.g.,
+	 * LCSAJ) use it.
+	 * 
+	 * 
+	 * @param opcode
+	 * @param branch
+	 * @param btyecode_id
+	 */
+	public static void passedUnconditionalBranch(int opcode, int branch, int bytecode_id) {
+		if (isThreadNeqCurrentThread())
+			return;
+
+		ExecutionTracer tracer = getExecutionTracer();
+		if (tracer.disabled)
+			return;
+
+		// Add current branch to control trace
+		tracer.trace.branchPassed(branch, bytecode_id, 0.0, 0.0);
 	}
 
 	/**

@@ -38,7 +38,7 @@ import org.objectweb.asm.tree.MethodNode;
 import org.objectweb.asm.tree.analysis.AnalyzerException;
 
 import de.unisb.cs.st.evosuite.Properties;
-import de.unisb.cs.st.evosuite.cfg.CFGGenerator.CFGVertex;
+import de.unisb.cs.st.evosuite.Properties.Criterion;
 import de.unisb.cs.st.evosuite.coverage.branch.BranchPool;
 import de.unisb.cs.st.evosuite.coverage.concurrency.ConcurrencyInstrumentation;
 import de.unisb.cs.st.javalanche.mutation.bytecodeMutations.AbstractMutationAdapter;
@@ -128,16 +128,20 @@ public class CFGMethodAdapter extends AbstractMutationAdapter {
 
 		List<MethodInstrumentation> instrumentations = new ArrayList<MethodInstrumentation>();
 
-		instrumentations.add(new BranchInstrumentation());
-
-		if (Properties.CRITERION.equals(Properties.CRITERIA.CONCURRENCY)) {
+		if (Properties.CRITERION == Criterion.CONCURRENCY) {
 			instrumentations.add(new ConcurrencyInstrumentation());
-		} else if (Properties.CRITERION.equals(Properties.CRITERIA.LCSAJ)) {
+			instrumentations.add(new BranchInstrumentation());
+		} else if (Properties.CRITERION ==Criterion.LCSAJ) {
 			instrumentations.add(new LCSAJsInstrumentation());
-		} else if (Properties.CRITERION.equals(Properties.CRITERIA.DEFUSE)) {
+			instrumentations.add(new BranchInstrumentation());
+		} else if (Properties.CRITERION ==Criterion.DEFUSE) {
+			instrumentations.add(new BranchInstrumentation());
 			instrumentations.add(new DefUseInstrumentation());
-		} else if (Properties.CRITERION.equals(Properties.CRITERIA.PATH)) {
+		} else if (Properties.CRITERION ==Criterion.PATH) {
 			instrumentations.add(new PrimePathInstrumentation());
+			instrumentations.add(new BranchInstrumentation());
+		} else {
+			instrumentations.add(new BranchInstrumentation());
 		}
 
 		boolean executeOnMain = false;
@@ -160,29 +164,33 @@ public class CFGMethodAdapter extends AbstractMutationAdapter {
 			// MethodNode mn = new CFGMethodNode((MethodNode)mv);
 			// System.out.println("Generating CFG for "+ className+"."+mn.name +
 			// " ("+mn.desc +")");
-			CFGGenerator cfgGenerator = new CFGGenerator(mutants);
+			BytecodeAnalyzer cfgGenerator = new BytecodeAnalyzer(mutants);
 			logger.info("Generating CFG for method " + methodName);
 
 			try {
 				cfgGenerator.analyze(className, methodName, mn);
 				logger.trace("Method graph for " + className + "." + methodName
 				        + " contains "
-				        + cfgGenerator.getCompleteGraph().vertexSet().size()
+				        + cfgGenerator.retrieveCFGGenerator().getCompleteGraph().vertexSet().size()
 				        + " nodes for " + cfgGenerator.getFrames().length
 				        + " instructions");
 			} catch (AnalyzerException e) {
-				logger.warn("Analyzer exception while analyzing " + className + "."
+				logger.error("Analyzer exception while analyzing " + className + "."
 				        + methodName);
 				e.printStackTrace();
 			}
 
-			// non-minimized cfg needed for defuse-coverage and control dependence
+			// non-minimized cfg needed for defuse-coverage and control
+			// dependence
 			// calculation
-			addCompleteCFG(className, methodName, cfgGenerator.getCompleteGraph());
-			addMinimizedCFG(className, methodName, cfgGenerator.getMinimalGraph());
+			addCompleteCFG(className, methodName, cfgGenerator
+					.retrieveCFGGenerator().getCompleteGraph());
+			addMinimizedCFG(className, methodName, cfgGenerator
+					.retrieveCFGGenerator().getMinimalGraph());
 			logger.info("Created CFG for method " + methodName);
 
-			Graph<CFGVertex, DefaultEdge> completeGraph = cfgGenerator.getCompleteGraph();
+			Graph<BytecodeInstruction, DefaultEdge> completeGraph = cfgGenerator
+					.retrieveCFGGenerator().getCompleteGraph();
 
 			//add the actual instrumentation
 			for (MethodInstrumentation instrumentation : instrumentations) {
@@ -232,7 +240,7 @@ public class CFGMethodAdapter extends AbstractMutationAdapter {
 	}
 
 	private static void addMinimizedCFG(String classname, String methodname,
-	        DirectedMultigraph<CFGVertex, DefaultEdge> graph) {
+	        DirectedMultigraph<BytecodeInstruction, DefaultEdge> graph) {
 		if (!minimizedCFGs.containsKey(classname)) {
 			minimizedCFGs.put(classname, new HashMap<String, ControlFlowGraph>());
 			diameters.put(classname, new HashMap<String, Double>());
@@ -240,14 +248,14 @@ public class CFGMethodAdapter extends AbstractMutationAdapter {
 		Map<String, ControlFlowGraph> methods = minimizedCFGs.get(classname);
 		logger.debug("Added CFG for class " + classname + " and method " + methodname);
 		methods.put(methodname, new ControlFlowGraph(graph, true));
-		FloydWarshall<CFGVertex, DefaultEdge> f = new FloydWarshall<CFGVertex, DefaultEdge>(
+		FloydWarshall<BytecodeInstruction, DefaultEdge> f = new FloydWarshall<BytecodeInstruction, DefaultEdge>(
 		        graph);
 		diameters.get(classname).put(methodname, f.getDiameter());
 		logger.debug("Calculated diameter for " + classname + ": " + f.getDiameter());
 	}
 
 	private static void addCompleteCFG(String classname, String methodname,
-	        DefaultDirectedGraph<CFGVertex, DefaultEdge> graph) {
+	        DefaultDirectedGraph<BytecodeInstruction, DefaultEdge> graph) {
 		if (!completeCFGs.containsKey(classname)) {
 			completeCFGs.put(classname, new HashMap<String, ControlFlowGraph>());
 		}
@@ -262,8 +270,9 @@ public class CFGMethodAdapter extends AbstractMutationAdapter {
 	public static ControlFlowGraph getMinimizedCFG(String classname, String methodname) {
 		logger.debug("Getting minimzed CFG for class " + classname + " and method "
 		        + methodname);
-		if (minimizedCFGs.get(classname) == null)
+		if (minimizedCFGs.get(classname).get(methodname) == null) {
 			return null;
+		}
 		return minimizedCFGs.get(classname).get(methodname);
 	}
 

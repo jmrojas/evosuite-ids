@@ -21,7 +21,7 @@ import de.unisb.cs.st.evosuite.sandbox.Sandbox;
  */
 public class TestRunnable implements InterfaceTestRunnable {
 
-	private static Logger logger = Logger.getLogger(TestRunner.class);
+	private static Logger logger = Logger.getLogger(TestRunnable.class);
 
 	private final TestCase test;
 
@@ -33,9 +33,8 @@ public class TestRunnable implements InterfaceTestRunnable {
 
 	private static ByteArrayOutputStream byteStream = new ByteArrayOutputStream();
 
-	private static boolean print_to_system = Properties.getPropertyOrDefault("print_to_system", false);
-	
-	private static PrintStream out = (print_to_system?System.out:new PrintStream(byteStream));
+	private static PrintStream out = (Properties.PRINT_TO_SYSTEM ? System.out
+	        : new PrintStream(byteStream));
 
 	public Map<Integer, Throwable> exceptionsThrown = new HashMap<Integer, Throwable>();
 
@@ -53,13 +52,13 @@ public class TestRunnable implements InterfaceTestRunnable {
 	 */
 	@Override
 	public ExecutionResult call() {
-		
+
 		runFinished = false;
 		ExecutionResult result = new ExecutionResult(test, null);
 
 		int num = 0;
 		try {
-			
+
 			Sandbox.setUpMocks();
 			// exceptionsThrown = test.execute(scope, observers, !log);
 			for (StatementInterface s : test) {
@@ -87,7 +86,7 @@ public class TestRunnable implements InterfaceTestRunnable {
 				if (!s.getReturnValue().equals(returnValue)) {
 					for (int pos = num; pos < test.size(); pos++) {
 						test.getStatement(pos).replace(returnValue,
-						                                 s.getReturnValue().clone());
+						                               s.getReturnValue().clone());
 					}
 				}
 
@@ -107,13 +106,13 @@ public class TestRunnable implements InterfaceTestRunnable {
 				}
 				num++;
 			}
-			result.trace = ExecutionTracer.getExecutionTracer().getTrace();
+			result.setTrace(ExecutionTracer.getExecutionTracer().getTrace());
 
 		} catch (ThreadDeath e) {// can't stop these guys
 			Sandbox.tearDownEverything();
 			logger.info("Found error:");
 			logger.info(test.toCode());
-			e.printStackTrace();
+			logger.warn("Found error in " + test.toCode(), e);
 			runFinished = true;
 			throw e;
 		} catch (TimeoutException e) {
@@ -125,23 +124,29 @@ public class TestRunnable implements InterfaceTestRunnable {
 			logger.info(test.toCode());
 			if (e instanceof java.lang.reflect.InvocationTargetException) {
 				logger.info("Cause: ");
-				logger.info(e.getCause());
+				logger.info(e.getCause(),e);
 				e = e.getCause();
 			}
+			if (e instanceof AssertionError
+			        && e.getStackTrace()[0].getClassName().contains("de.unisb.cs.st.evosuite")) {
+				//e1.printStackTrace();
+				logger.error("Assertion Error in evosuitecode, for statement \n" + test.getStatement(num).getCode() + " \n which is number: " + num + " testcase \n"  + test.toCode(), e);
+				throw (AssertionError) e;
+			}
 			// exceptionThrown = e;
-			e.printStackTrace();
+			logger.warn("Error while executing statement ", e);
 			// System.exit(1);
 
 		} // finally {
 		runFinished = true;
 		Sandbox.tearDownMocks();
-
+		
 		result.exceptions = exceptionsThrown;
 
 		return result;
 		//}
 	}
-	
+
 	/* (non-Javadoc)
 	 * @see de.unisb.cs.st.evosuite.testcase.InterfaceTestRunnable#getExceptionsThrown()
 	 */
@@ -149,8 +154,6 @@ public class TestRunnable implements InterfaceTestRunnable {
 	public Map<Integer, Throwable> getExceptionsThrown() {
 		return exceptionsThrown;
 	}
-
-
 
 	/* (non-Javadoc)
 	 * @see de.unisb.cs.st.evosuite.testcase.InterfaceTestRunnable#isRunFinished()

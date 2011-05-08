@@ -64,7 +64,7 @@ public class TestCallStatement extends Statement {
 			Scope scope = new Scope();
 			// logger.info("Starting test call " + test.toCode());
 			// logger.info("Original test was: " + testCall.testCase.toCode());
-			executor.run(test, scope);
+			executor.execute(test, scope);
 			executor.setLogging(true);
 
 			// TODO: Count as 1 or length?
@@ -207,7 +207,7 @@ public class TestCallStatement extends Statement {
 	}
 
 	@Override
-	public boolean equals(StatementInterface s) {
+	public boolean equals(Object s) {
 		if (this == s)
 			return true;
 		if (s == null)
