@@ -397,7 +397,7 @@ public abstract class EvoSuiteGraph<V, E extends DefaultEdge> {
 	
 	private String toFileString(String name) {
 	
-		return name.replaceAll("\\(","_").replaceAll("\\)", "_");
+		return name.replaceAll("\\(","_").replaceAll("\\)", "_").replaceAll(";", "_").replaceAll("/", "_");
 	}
 
 	private void createGraphDirectory() {
@@ -412,7 +412,7 @@ public abstract class EvoSuiteGraph<V, E extends DefaultEdge> {
 
 	private void createToPNGScript(File graphDir) {
 		
-		// TODO: for f in *; do dot -Tpng $f -o img_$f ; done
+		// TODO: for f in *.dot; do dot -Tpng $f -o $f.png ; done
 	}
 
 	public String getName() {

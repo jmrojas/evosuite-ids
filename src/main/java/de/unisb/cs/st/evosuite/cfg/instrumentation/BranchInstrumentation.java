@@ -45,15 +45,17 @@ public class BranchInstrumentation implements MethodInstrumentation {
 			AbstractInsnNode in = j.next();
 			for (BytecodeInstruction v : graph.vertexSet()) {
 				// updating some information in the CFGVertex
-				if (in.equals(v.getASMNode())) {
-					if (v.isLineNumber()) {
-						currentLineNumber = v.getLineNumber();
-					}
-//					v.setClassName(className);
-//					v.setMethodName(methodName);
-					if(currentLineNumber != -1)
-						v.setLineNumber(currentLineNumber);
-				}
+				// lineNumberSetting now done in BytecodeInstructionPool
+//				if (in.equals(v.getASMNode())) {
+//					if (v.isLineNumber()) {
+//						currentLineNumber = v.getLineNumber();
+//					}
+////					v.setClassName(className);
+////					v.setMethodName(methodName);
+//					if(currentLineNumber != -1)
+//						v.setLineNumber(currentLineNumber);
+//				}
+				
 				// If this is in the CFG and it's a branch...
 				if (in.equals(v.getASMNode())) {
 					if (v.isBranch() && !v.isMutation() && !v.isMutationBranch()) {
@@ -62,7 +64,7 @@ public class BranchInstrumentation implements MethodInstrumentation {
 						                                          v.getId(), className,
 						                                          methodName));
 
-						BranchPool.addBranch(v);
+//						BranchPool.addBranch(v);
 					} else if (v.isTableSwitch()) {
 						mn.instructions.insertBefore(v.getASMNode(),
 						                             getInstrumentation(v, mn, className,
@@ -112,7 +114,7 @@ public class BranchInstrumentation implements MethodInstrumentation {
 				        "de/unisb/cs/st/evosuite/testcase/ExecutionTracer",
 				        "passedBranch", "(IIIII)V"));
 				BranchPool.countBranch(methodID);
-				BranchPool.addBranch(v);
+//				BranchPool.addBranch(v);
 				num++;
 			}
 			// Default branch is covered if the last case is false
@@ -133,7 +135,7 @@ public class BranchInstrumentation implements MethodInstrumentation {
 				        "de/unisb/cs/st/evosuite/testcase/ExecutionTracer",
 				        "passedBranch", "(IIIII)V"));
 				BranchPool.countBranch(methodID);
-				BranchPool.addBranch(v);
+//				BranchPool.addBranch(v);
 			}
 			// Default branch is covered if the last case is false
 			break;

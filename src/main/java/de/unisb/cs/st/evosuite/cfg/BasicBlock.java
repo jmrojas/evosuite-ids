@@ -143,6 +143,25 @@ public class BasicBlock implements Mutateable {
 		return instructions.get(instructions.size()-1);
 	}
 	
+	public int getFirstLine() {
+		for(BytecodeInstruction ins : instructions)
+			if(ins.hasLineNumberSet())
+				return ins.getLineNumber();
+		
+		return -1;
+	}
+	
+	public int getLastLine() {
+		
+		int r = -1;
+		
+		for(BytecodeInstruction ins : instructions)
+			if(ins.hasLineNumberSet())
+				r = ins.getLineNumber();
+		
+		return r;
+	}
+	
 	public String getName() {
 		return (isAuxiliaryBlock?"aux":"")+"BasicBlock "+id;
 //		+" - "+methodName;
@@ -199,24 +218,39 @@ public class BasicBlock implements Mutateable {
 		return !getMutationIds().isEmpty();
 	}
 	
+	public String explain() {
+		StringBuilder r = new StringBuilder();
+		r.append(getName() + ":\n");
+
+		int i = 0;
+		for (BytecodeInstruction instruction : instructions) {
+			i++;
+			r.append("\t" + i + ")\t" + instruction.toString() + "\n");
+		}
+
+		return r.toString();
+	}
+	
 	// inherited from Object
 	
 	@Override
 	public String toString() {
 	
-		return getName();
+		String r = "BB"+id;
 		
-		// for now due to graph-visualization .. TODO make explain() or something
-//		StringBuilder r = new StringBuilder();
-//		r.append(getName() + ":\n");
-//
-//		int i = 0;
-//		for (BytecodeInstruction instruction : instructions) {
-//			i++;
-//			r.append("\t" + i + ")\t" + instruction.toString() + "\n");
-//		}
-//
-//		return r.toString();
+		if (instructions.size() < 5)
+			for (BytecodeInstruction ins : instructions)
+				r = r.trim() + " " + ins.getInstructionType();
+		else
+			r += " " + getFirstInstruction().getInstructionType()
+					+ " \\[...\\] " + getLastInstruction().getInstructionType();
+
+		int startLine = getFirstLine();
+		int endLine = getLastLine();
+		r += " l" + (startLine==-1?"?":startLine+"");
+		r += "-l" + (endLine==-1?"?":endLine+"");
+		
+		return r;
 	}
 	
 	@Override
@@ -257,13 +291,18 @@ public class BasicBlock implements Mutateable {
 		logger.debug("checking sanity of "+toString());
 		
 		// TODO
+	
+		// not true, there are branches that don't really jump
+		// for example if you have no statement in a then-part:
+		//  if (exp) { ; }
+		// you will not have a second outgoing edge for that if
 		
-		for(BytecodeInstruction instruction : instructions) {
-			if (!instruction.equals(getLastInstruction())
-					&& instruction.isActualBranch())
-				throw new IllegalStateException(
-						"expect actual branches to always end a basic block");
-		}
+//		for(BytecodeInstruction instruction : instructions) {
+//			if (!instruction.equals(getLastInstruction())
+//					&& instruction.isActualBranch())
+//				throw new IllegalStateException(
+//						"expect actual branches to always end a basic block: "+instruction.toString()+" \n"+explain());
+//		}
 		
 		// TODO handle specialBlocks
 	}
