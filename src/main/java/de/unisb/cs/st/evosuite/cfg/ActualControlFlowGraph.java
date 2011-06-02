@@ -168,10 +168,10 @@ public class ActualControlFlowGraph extends ControlFlowGraph<BasicBlock> {
 			if (!belongsToMethod(branch))
 				throw new IllegalArgumentException(
 						"branch does not belong to this CFGs method");
-			if (!branch.isActualBranch())
-				throw new IllegalArgumentException(
-						"unexpected branch byteCode instruction type: "
-								+ branch.getInstructionType());
+//			if (!branch.isActualBranch()) // TODO this happens if your in a try-catch ... handle!
+//				throw new IllegalArgumentException(
+//						"unexpected branch byteCode instruction type: "
+//								+ branch.getInstructionType());
 			
 			// TODO the following doesn't work at this point
 			//		 because the BranchPool is not yet filled yet
@@ -226,7 +226,7 @@ public class ActualControlFlowGraph extends ControlFlowGraph<BasicBlock> {
 	
 	private void addAuxiliaryBlocks() {
 		
-		// TODO clean up mess: exit/entry POINTs versus BLOCKs
+		// TODO clean up mess: exit-/entry- POINTs versus BLOCKs
 		
 		EntryBlock entry = new EntryBlock(className, methodName);
 		ExitBlock exit = new ExitBlock(className, methodName);
@@ -520,9 +520,30 @@ public class ActualControlFlowGraph extends ControlFlowGraph<BasicBlock> {
 
 		checkNodeSanity();
 		
+		checkInstructionsContainedOnceConstraint();
+		
 		logger.debug(".. CFG sanity ensured");
 	}
 	
+	private void checkInstructionsContainedOnceConstraint() {
+		
+		for(BytecodeInstruction ins : rawGraph.vertexSet()) {
+			if(!knowsInstruction(ins))
+				throw new IllegalStateException("expect all instructions ins underlying RawCFG to be known by Actual CFG");
+			
+			BasicBlock insBlock = getBlockOf(ins);
+			if(insBlock == null)
+				throw new IllegalStateException("expect ActualCFG.getBlockOf() to return non-null BasicBlocks for all instructions it knows");
+			
+			for(BasicBlock block : vertexSet()) {
+				if(!block.equals(insBlock) && block.containsInstruction(ins))
+					throw new IllegalStateException("expect ActualCFG to contain exactly one BasicBlock for each original bytecode instruction, not more!");
+			}
+		}
+			
+		
+	}
+
 	void checkNodeSanity() {
 		// ensure graph is connected and isEntry and isExitBlock() work as
 		// expected
