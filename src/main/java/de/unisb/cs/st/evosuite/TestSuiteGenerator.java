@@ -96,7 +96,7 @@ import de.unisb.cs.st.evosuite.testsuite.TestSuiteChromosomeFactory;
 import de.unisb.cs.st.evosuite.testsuite.TestSuiteFitnessFunction;
 import de.unisb.cs.st.evosuite.testsuite.TestSuiteMinimizer;
 import de.unisb.cs.st.evosuite.testsuite.TestSuiteReplacementFunction;
-import de.unisb.cs.st.utils.Utils;
+import de.unisb.cs.st.evosuite.utils.Utils;
 
 /**
  * Main entry point
@@ -133,13 +133,16 @@ public class TestSuiteGenerator {
 
 		if (Properties.CRITERION == Criterion.MUTATION) {
 			MutationAssertionGenerator asserter = new MutationAssertionGenerator();
-			Set<Long> killed = new HashSet<Long>();
+			Set<Long> tkilled = new HashSet<Long>();
 			for (TestCase test : tests) {
+				Set<Long> killed = new HashSet<Long>();
 				asserter.addAssertions(test, killed);
+				tkilled.addAll(killed);
 			}
 			asserter.writeStatistics();
-			System.out.println("Killed: " + killed.size() + "/" + asserter.numMutants());
+			System.out.println("Killed: " + tkilled.size() + "/" + asserter.numMutants());
 		} else if (Properties.ASSERTIONS) {
+
 			AssertionGenerator asserter = AssertionGenerator.getDefaultGenerator();
 			for (TestCase test : tests) {
 				asserter.addAssertions(test);

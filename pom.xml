@@ -41,6 +41,18 @@
     <dependencyManagement/>
 
     <dependencies>
+      <dependency>
+	<groupId>cvc3</groupId>
+	<artifactId>cvc3</artifactId>
+	<version>2.1.1</version>
+      </dependency>
+
+      <dependency>
+	<groupId>org.smtlib</groupId>
+	<artifactId>smtlib</artifactId>
+	<version>0.1</version>
+      </dependency>
+
 	<dependency>
 	   <groupId>mockit</groupId>
 	   <artifactId>jmockit</artifactId>
@@ -243,9 +255,10 @@
       <dependency>
 	<groupId>mysql</groupId>
 	<artifactId>mysql-connector-java</artifactId>
+	
 	<version>5.1.9</version>
-	<!--	
-	<version>5.1.13</version>
+	<!--
+	<version>5.1.16</version>
 	-->	
       </dependency>
       <dependency>
