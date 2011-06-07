@@ -26,7 +26,6 @@ import org.apache.log4j.Logger;
 import de.unisb.cs.st.evosuite.Properties;
 import de.unisb.cs.st.evosuite.coverage.TestFitnessFactory;
 import de.unisb.cs.st.evosuite.testcase.TestFitnessFunction;
-import de.unisb.cs.st.testability.TransformationHelper;
 
 /**
  * @author Gordon Fraser, Andre Mis
@@ -66,15 +65,6 @@ public class BranchCoverageFactory implements TestFitnessFactory {
 					continue;
 				}
 
-				if (Properties.TESTABILITY_TRANSFORMATION) {
-					String vname = methodName.replace("(", "|(");
-					if (TransformationHelper.hasValkyrieMethod(className, vname)) {
-						logger.info("Skipping branch in transformed method: " + vname);
-						continue;
-					} else {
-						logger.info("Keeping branch in untransformed method: " + vname);
-					}
-				}
 
 				for (Branch b : BranchPool.retrieveBranchesInMethod(className,methodName)) {
 

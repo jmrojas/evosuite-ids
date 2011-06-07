@@ -284,6 +284,9 @@ public class Properties {
 	@Parameter(key = "test_dir", group = "Output", description = "Directory in which to place JUnit tests")
 	public static String TEST_DIR = "evosuite-tests";
 
+	@Parameter(key = "write_cfg", group = "Output", description = "Create CFG graphs")
+	public static boolean WRITE_CFG = false;
+
 	//---------------------------------------------------------------
 	// Sandbox
 	@Parameter(key = "sandbox", group = "Sandbox", description = "Execute tests in a sandbox environment")
@@ -406,6 +409,9 @@ public class Properties {
 
 	@Parameter(key = "PROJECT_PREFIX", group = "Runtime", description = "Package name of target package")
 	public static String PROJECT_PREFIX = null;
+
+	@Parameter(key = "PROJECT_DIR", group = "Runtime", description = "Directory name of target package")
+	public static String PROJECT_DIR = null;
 
 	/** Package name of target class (might be a subpackage) */
 	public static String CLASS_PREFIX = "";
@@ -636,7 +642,7 @@ public class Properties {
 		if (!parameterMap.containsKey(key))
 			throw new NoSuchParameterException(key);
 
-		return parameterMap.get(key).get(null).toString();
+		return parameterMap.get(key).toString();
 	}
 
 	/**
