@@ -65,7 +65,7 @@ public class CVC3Solver extends Thread implements Solver {
 		initializeSolver();
 		vc.push();
 		Expr cvc3Expr = cvc3.convert(constraints);
-		logger.info("Checking new expression: " + cvc3Expr);
+		logger.debug("Checking new expression: " + cvc3Expr);
 		SatResult result = vc.checkUnsat(cvc3Expr);
 		deinitialize();
 		if (result == SatResult.SATISFIABLE)

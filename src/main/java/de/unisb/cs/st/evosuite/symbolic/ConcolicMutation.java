@@ -230,7 +230,8 @@ public class ConcolicMutation {
 	}
 
 	@SuppressWarnings("unchecked")
-	private boolean mutate(BranchCondition condition, List<PrimitiveStatement<?>> statements) {
+	private boolean mutate(BranchCondition condition,
+	        List<PrimitiveStatement<?>> statements) {
 		HashSet<Constraint<?>> constraints = new HashSet<Constraint<?>>();
 		constraints.addAll(condition.reachingConstraints);
 		//constraints.addAll(condition.localConstraints);
@@ -259,7 +260,9 @@ public class ConcolicMutation {
 					if (val instanceof Long) {
 						Long value = (Long) val;
 						logger.info("New value is " + value);
-						((PrimitiveStatement<Long>) statements.get(num)).setValue(value);
+						@SuppressWarnings("rawtypes")
+						PrimitiveStatement p = statements.get(num);
+						p.setValue(value.intValue());
 					} else {
 						logger.info("New value is not long " + val);
 					}
@@ -284,70 +287,7 @@ public class ConcolicMutation {
 		if (conditions.isEmpty())
 			return false;
 
-		//for (BranchCondition condition : conditions) {
-		//	logger.info("Branch has bytecode index: "
-		//	        + condition.ins.getInstructionIndex());
-		//}
 		BranchCondition condition = Randomness.choice(conditions);
 		return mutate(condition, statements);
-
-		/*
-
-		jpf.mytest.generator.execution.TestCase jpfTest = new jpf.mytest.generator.execution.TestCase(
-		        new IntegerNextChoiceProvider(), new IntegerNextChoiceProvider(),
-		        className, classPath, null);
-		PathConstraintGathererParent pcg = jpfTest.getPCG();
-		for (gov.nasa.jpf.Error error : jpfTest.getErrors()) {
-			logger.info("Found error: " + error.getDescription());
-			logger.info(error.getDetails());
-		}
-		int num_constraints = pcg.getNumberOfPathConstraints();
-		if (num_constraints <= 0) {
-			logger.info("Empty Constraint<?> set");
-			return false;
-		}
-
-		Random random = new Random();
-		int c = random.nextInt(num_constraints);
-		if (!pcg.isNegatable(c)) {
-			logger.info("Is not negatable");
-			return false;
-		}
-
-		// pcg.getCondition(...).getName()
-
-		Map<String, Object> values = jpfTest.getPCG().getAlternativePath(c);
-		logger.info("Concolic execution done.");
-		if (values != null && !values.isEmpty()) {
-			int num = 0;
-
-			for (Object val : values.values()) {
-				//			Object val = values.values().toArray()[0];
-				if (val != null) {
-					if (val instanceof Long) {
-						Long value = (Long) val;
-						logger.info("New value is " + value);
-						statements.get(num).setValue(value.intValue());
-					} else {
-						logger.info("New value is not long " + val);
-					}
-				} else {
-					logger.info("New value is null");
-
-				}
-				num++;
-			}
-			return true;
-			//logger.info("Created value: " + values.values().toArray()[0]);
-		} else {
-			if (values == null) {
-				logger.info("Return value is null");
-			} else {
-				logger.info("Return value is empty");
-				return false;
-			}
-		}
-		return false;
-		*/
 	}
 }

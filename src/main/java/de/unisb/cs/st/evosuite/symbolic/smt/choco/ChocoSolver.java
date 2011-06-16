@@ -159,16 +159,16 @@ public class ChocoSolver implements de.unisb.cs.st.evosuite.symbolic.Solver {
 		private CPModel2 getModel(Collection<Constraint<?>> constraints)
 		        throws MyUnsupportedException {
 			CPModel2 model = new CPModel2();
-			for (Constraint c : constraints) {
+			for (Constraint<?> c : constraints) {
 				logger.info("Adding constraint: " + c);
 
 				if (c instanceof IntegerConstraint) {
-					choco.kernel.model.constraints.Constraint cc = getChocoConstraintInt(c);
+					choco.kernel.model.constraints.Constraint cc = getChocoConstraintInt((Constraint<Long>) c);
 					if (cc != null) {
 						model.addConstraint(cc);
 					}
 				} else {
-					choco.kernel.model.constraints.Constraint cc = getChocoConstraintReal(c);
+					choco.kernel.model.constraints.Constraint cc = getChocoConstraintReal((Constraint<Double>) c);
 					if (cc != null) {
 						model.addConstraint(cc);
 					}

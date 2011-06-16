@@ -144,4 +144,9 @@ public class TestSuiteChromosome extends AbstractTestSuiteChromosome<TestChromos
 		}
 		return testcases;
 	}
+
+	public void applyDSE() {
+		TestSuiteDSE dse = new TestSuiteDSE();
+		dse.applyDSE(this);
+	}
 }
