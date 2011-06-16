@@ -21,6 +21,7 @@ import gov.nasa.jpf.jvm.JVM;
 import gov.nasa.jpf.search.Search;
 
 import java.util.HashMap;
+import java.util.Map;
 
 import org.apache.log4j.Logger;
 
@@ -51,10 +52,9 @@ public class PathConstraint {
 	}
 
 	private HashTableSet<Constraint<?>> pathConstraints;
-	private final HashMap<Integer, HashTableSet<Constraint<?>>> storedStateMap;
+	private final Map<Integer, HashTableSet<Constraint<?>>> storedStateMap;
 
 	public static void init() {
-		logger.info("Setting up path constraints");
 		ins = new PathConstraint();
 	}
 
