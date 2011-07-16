@@ -26,12 +26,13 @@ import org.apache.log4j.Logger;
 import de.unisb.cs.st.evosuite.Properties;
 import de.unisb.cs.st.evosuite.coverage.TestFitnessFactory;
 import de.unisb.cs.st.evosuite.testcase.TestFitnessFunction;
+import de.unisb.cs.st.evosuite.testsuite.AbstractFitnessFactory;
 
 /**
  * @author Gordon Fraser, Andre Mis
  * 
  */
-public class BranchCoverageFactory implements TestFitnessFactory {
+public class BranchCoverageFactory extends AbstractFitnessFactory {
 
 	private static Logger logger = Logger.getLogger(BranchCoverageFactory.class);
 
@@ -55,7 +56,7 @@ public class BranchCoverageFactory implements TestFitnessFactory {
 				        class_name, method.substring(method.lastIndexOf(".") + 1))));
 		}
 		// Branches
-		logger.info("Getting branches");
+		//logger.info("Getting branches");
 		for (String className : BranchPool.knownClasses()) {
 			for (String methodName : BranchPool.knownMethods(className)) {
 

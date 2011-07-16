@@ -317,6 +317,9 @@ public class Properties {
 
 	@Parameter(key = "write_cfg", group = "Output", description = "Create CFG graphs")
 	public static boolean WRITE_CFG = false;
+	
+	@Parameter(key = "write_excel", group = "Output", description = "Create Excel workbook")
+	public static boolean WRITE_EXCEL = false;
 
 	//---------------------------------------------------------------
 	// Sandbox
@@ -475,7 +478,7 @@ public class Properties {
 
 	@Parameter(key = "criterion", group = "Runtime", description = "Coverage criterion")
 	public static Criterion CRITERION = Criterion.BRANCH;
-
+	
 	public enum Strategy {
 		ONEBRANCH, EVOSUITE
 	}

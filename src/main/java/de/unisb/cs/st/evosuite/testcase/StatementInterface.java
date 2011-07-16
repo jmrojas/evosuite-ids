@@ -40,6 +40,19 @@ public interface StatementInterface {
 	 */
 	public void replace(VariableReference var1, VariableReference var2);
 
+	/**
+	 * This method executes the statement under the given scope. 
+	 * If execution of the statement is aborted abnormally (i.e. an exception is thrown.) The exception is returned.  
+	 * Otherwise the return value is null. 
+	 * 
+	 * @param scope the scope under which the statement is executed
+	 * @param out 
+	 * @return if an exception was thrown during execution this is the exception
+	 * @throws InvocationTargetException
+	 * @throws IllegalArgumentException
+	 * @throws IllegalAccessException
+	 * @throws InstantiationException
+	 */
 	public Throwable execute(Scope scope, PrintStream out)
 	        throws InvocationTargetException, IllegalArgumentException,
 	        IllegalAccessException, InstantiationException;
@@ -193,7 +206,13 @@ public interface StatementInterface {
 	 */
 	public boolean same(StatementInterface s);
 
-	public boolean isValidException(Throwable t);
+	/**
+	 * Tests if the throwable defined by t is declared to be thrown by the underlying type. 
+	 * Obviously this can only return true for methods and constructors.
+	 * @param t
+	 * @return
+	 */
+	public boolean isDeclaredException(Throwable t);
 
 	public boolean mutate(TestCase test, AbstractTestFactory factory);
 

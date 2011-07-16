@@ -94,23 +94,26 @@ public class LCSAJCoverageTestFitness extends TestFitnessFunction {
 							found = true;
 						currentFitness -= 1.0;
 						if (actualBranch == lcsaj_finalBranchID) {
-							currentFitness += normalize(false_distance);
+							currentFitness += normalize(true_distance);
 
 							if (currentFitness < savedFitness) {
 								savedFitness = currentFitness;
 							}
-
+							if (lcsaj_position > lcsaj.getdPositionReached())
+								lcsaj.setPositionReached(lcsaj_position);
 							lcsaj_position = 0;
 							currentFitness = approach;
 							continue;
-						} else if (true_distance > 0) {
+						} else if ( false_distance > 0) {
 							logger.debug("Took a wrong turn with false distance "
 							        + true_distance);
-							currentFitness += normalize(true_distance);
+							currentFitness += normalize(false_distance);
 
 							if (currentFitness < savedFitness)
 								savedFitness = currentFitness;
-
+							if (lcsaj_position > lcsaj.getdPositionReached())
+								lcsaj.setPositionReached(lcsaj_position);
+							
 							lcsaj_position = 0;
 							currentFitness = approach;
 							continue;
@@ -124,6 +127,8 @@ public class LCSAJCoverageTestFitness extends TestFitnessFunction {
 							//						logger.debug("Skipping pseudo branch");
 							continue;
 						}
+						if (lcsaj_position > lcsaj.getdPositionReached())
+							lcsaj.setPositionReached(lcsaj_position);
 						lcsaj_position = 0;
 						currentFitness = approach;
 					}
@@ -174,5 +179,9 @@ public class LCSAJCoverageTestFitness extends TestFitnessFunction {
 	@Override
 	public String toString() {
 		return lcsaj.toString();
+	}
+	
+	public LCSAJ getLcsaj(){
+		return this.lcsaj;
 	}
 }
