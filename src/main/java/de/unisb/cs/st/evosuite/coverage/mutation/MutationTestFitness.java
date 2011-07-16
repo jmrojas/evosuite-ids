@@ -284,7 +284,7 @@ public class MutationTestFitness extends TestFitnessFunction {
 
 			// If infected check if it is also killed
 			if (fitness <= 0) {
-				ExecutionResult mutationResult = runTest(individual.test, mutation);
+				ExecutionResult mutationResult = runTest(individual.getTestCase(), mutation);
 
 				if (TestCoverageGoal.hasTimeout(mutationResult)) {
 					logger.debug("Found timeout in mutant!");

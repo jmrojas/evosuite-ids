@@ -4,6 +4,9 @@
 package de.unisb.cs.st.evosuite.testcase;
 
 import java.lang.reflect.Field;
+import java.lang.reflect.Modifier;
+
+import de.unisb.cs.st.evosuite.contracts.NullPointerExceptionContract;
 
 /**
  * @author fraser
@@ -21,6 +24,8 @@ public class FieldReference extends VariableReferenceImpl {
 	 */
 	public FieldReference(TestCase testCase, Field field, VariableReference source) {
 		super(testCase, field.getGenericType());
+		assert(field!=null);
+		assert(source!=null || Modifier.isStatic(field.getModifiers())) : "No source object was supplied, therefore we assumed the field to be static. However asking the field if it was static, returned false";
 		this.field = field;
 		this.source = source;
 		//		logger.info("Creating new field assignment for field " + field + " of object "
@@ -63,22 +68,29 @@ public class FieldReference extends VariableReferenceImpl {
 	 *            The scope of the test case execution
 	 */
 	@Override
-	public Object getObject(Scope scope) {
-		try {
-			if (source != null) {
-				Object s = source.getObject(scope);
-				return field.get(s);
-			} else {
-				return field.get(null);
-			}
+	public Object getObject(Scope scope) throws CodeUnderTestException {
+
+		Object s;
+		if(Modifier.isStatic(field.getModifiers())){
+			s = null;
+		}else{
+			s = source.getObject(scope);
+		}
+
+		try{
+			return field.get(s);
 		} catch (IllegalArgumentException e) {
 			logger.error("Error accessing field " + field + " of object " + source + ": "
-			        + e);
-			return null;
+					+ e, e);
+			throw e;
 		} catch (IllegalAccessException e) {
-			logger.info("Error accessing field " + field + " of object " + source + ": "
-			        + e);
-			return null;
+			logger.error("Error accessing field " + field + " of object " + source + ": "
+					+ e, e);
+			throw new EvosuiteError(e);
+		} catch (NullPointerException e){
+			throw new CodeUnderTestException(e);
+		}catch (ExceptionInInitializerError e){
+			throw new CodeUnderTestException(e);
 		}
 	}
 
@@ -91,14 +103,22 @@ public class FieldReference extends VariableReferenceImpl {
 	 *            The value to be assigned
 	 */
 	@Override
-	public void setObject(Scope scope, Object value) {
+	public void setObject(Scope scope, Object value) throws CodeUnderTestException {
 		Object sourceObject = null;
 		try {
 
 			if (source != null) {
 				sourceObject = source.getObject(scope);
-				if (sourceObject == null)
+				if (sourceObject == null){
+					/*
+					 * #FIXME this is dangerously far away from the java semantics
+					 *	That means we can have a testcase
+					 *  SomeObject var1 = null;
+					 *  var1.someAttribute = test;
+					 *  and the testcase will execute in evosuite, executing it with junit will however lead to a nullpointer exception
+					 */
 					return;
+				}
 			}
 			if (field.getType().equals(int.class))
 				field.setInt(sourceObject, (Integer) value);
@@ -117,29 +137,35 @@ public class FieldReference extends VariableReferenceImpl {
 			else if (field.getType().equals(short.class))
 				field.setShort(sourceObject, (Short) value);
 			else {
-				if (!field.getType().isAssignableFrom(value.getClass())) {
+				if (value!=null && !field.getType().isAssignableFrom(value.getClass())) {
 					logger.error("Not assignable: " + value + " of class "
-					        + value.getClass() + " to field " + field + " of variable "
-					        + source);
+							+ value.getClass() + " to field " + field + " of variable "
+							+ source);
 				}
-				assert (field.getType().isAssignableFrom(value.getClass()));
+				assert (value==null || field.getType().isAssignableFrom(value.getClass()));
 				if (!field.getDeclaringClass().isAssignableFrom(sourceObject.getClass())) {
 					logger.error("Field " + field + " defined in class "
-					        + field.getDeclaringClass());
+							+ field.getDeclaringClass());
 					logger.error("Source object " + sourceObject + " has class "
-					        + sourceObject.getClass());
+							+ sourceObject.getClass());
 					logger.error("Value object " + value + " has class "
-					        + value.getClass());
+							+ value.getClass());
 				}
 				assert (field.getDeclaringClass().isAssignableFrom(sourceObject.getClass()));
 				field.set(sourceObject, value);
 			}
 		} catch (IllegalArgumentException e) {
-			logger.info("Error while assigning field: " + getName() + " with value "
-			        + value + " on object " + sourceObject + ": " + e);
+			logger.error("Error while assigning field: " + getName() + " with value "
+					+ value + " on object " + sourceObject + ": " + e, e);
 			e.printStackTrace();
+			throw e;
 		} catch (IllegalAccessException e) {
-			logger.info("Error while assigning field: " + e);
+			logger.error("Error while assigning field: " + e, e);
+			throw new EvosuiteError(e);
+		} catch (NullPointerException e) {
+			throw new CodeUnderTestException(e);
+		} catch (ExceptionInInitializerError e){
+			throw new CodeUnderTestException(e);
 		}
 	}
 
@@ -160,7 +186,7 @@ public class FieldReference extends VariableReferenceImpl {
 	@Override
 	public void setAdditionalVariableReference(VariableReference var) {
 		if (source != null
-		        && !field.getDeclaringClass().isAssignableFrom(var.getVariableClass())) {
+				&& !field.getDeclaringClass().isAssignableFrom(var.getVariableClass())) {
 			logger.info("Not assignable: " + field.getDeclaringClass() + " and " + var);
 			assert (false);
 		}
@@ -172,7 +198,7 @@ public class FieldReference extends VariableReferenceImpl {
 	 */
 	@Override
 	public void replaceAdditionalVariableReference(VariableReference var1,
-	        VariableReference var2) {
+			VariableReference var2) {
 		if (source != null) {
 			if (source.equals(var1))
 				source = var2;
@@ -197,7 +223,7 @@ public class FieldReference extends VariableReferenceImpl {
 				}
 			}
 			throw new AssertionError(
-			        "A VariableReferences position is only defined if the VariableReference is defined by a statement in the testCase.");
+			"A VariableReferences position is only defined if the VariableReference is defined by a statement in the testCase.");
 		}
 
 		//			return 0;

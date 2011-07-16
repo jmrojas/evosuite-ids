@@ -268,11 +268,13 @@ public class TestTaskGenerator {
 	 * @return Returns true is method is accessible and not a special case
 	 */
 	public static boolean canUse(Method m) {
+		/*
 		if (m.isBridge()) {
 			logger.debug("Will not use: " + m.toString());
 			logger.debug("  reason: it's a bridge method");
 			return false;
 		}
+		*/
 
 		if (m.isSynthetic()) {
 			logger.debug("Will not use: " + m.toString());

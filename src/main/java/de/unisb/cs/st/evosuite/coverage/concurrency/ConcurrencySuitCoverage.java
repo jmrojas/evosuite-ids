@@ -24,8 +24,8 @@ import java.util.HashSet;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
-import java.util.Map.Entry;
 import java.util.Set;
+import java.util.Map.Entry;
 
 import org.apache.log4j.Logger;
 
@@ -44,6 +44,7 @@ import de.unisb.cs.st.evosuite.testsuite.TestSuiteFitnessFunction;
 public class ConcurrencySuitCoverage extends TestSuiteFitnessFunction {
 	private static final long serialVersionUID = 1L;
 
+	@SuppressWarnings("hiding")
 	private static Logger logger = Logger.getLogger(TestSuiteFitnessFunction.class);
 
 	public final int total_branches = BranchPool.getBranchCounter();
@@ -330,7 +331,9 @@ public class ConcurrencySuitCoverage extends TestSuiteFitnessFunction {
 			String className = LockRuntime.fieldAccToConcInstr.get(nextTuple.scheduleID).getClassName();
 			String methodName = LockRuntime.fieldAccToConcInstr.get(nextTuple.scheduleID).getMethodName();
 			RawControlFlowGraph completeCFG = CFGPool.getRawCFG(className, methodName);
-			if (isAfter(nextTuple, history, completeCFG)) {
+			assert(LockRuntime.fieldAccessIDToCFGVertex.containsKey(nextTuple.scheduleID));
+			if (completeCFG.containsVertex(LockRuntime.fieldAccessIDToCFGVertex.get(nextTuple.scheduleID)) || //in this case the two accesses are in different methods
+					isAfter(nextTuple, history, completeCFG)) {
 				SchedulingDecisionList newList = history.clone();
 				newList.add(nextTuple);
 				result.add(newList);
@@ -408,7 +411,7 @@ public class ConcurrencySuitCoverage extends TestSuiteFitnessFunction {
 	 * 
 	 * @param branchID1
 	 * @param branchID2
-	 * @param minimizedCFG
+	 * @param completeCFG
 	 * @return
 	 */
 	private final boolean isBefore(final int scheduleID1, final int scheduleID2,

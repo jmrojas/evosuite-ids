@@ -24,7 +24,6 @@ import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
 import java.lang.reflect.Modifier;
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
@@ -47,7 +46,7 @@ public class MethodStatement extends AbstractStatement {
 	public List<VariableReference> parameters;
 
 	public MethodStatement(TestCase tc, Method method, VariableReference callee,
-	        java.lang.reflect.Type type, List<VariableReference> parameters) {
+			java.lang.reflect.Type type, List<VariableReference> parameters) {
 		super(tc, type);
 		assert (Modifier.isStatic(method.getModifiers()) || callee != null);
 		assert (parameters != null);
@@ -70,7 +69,7 @@ public class MethodStatement extends AbstractStatement {
 	 * @param parameters
 	 */
 	public MethodStatement(TestCase tc, Method method, VariableReference callee,
-	        VariableReference retvar, List<VariableReference> parameters) {
+			VariableReference retvar, List<VariableReference> parameters) {
 		super(tc, retvar);
 		assert (tc.size() > retvar.getStPosition()); //as an old statement should be replaced by this statement
 		assert (Modifier.isStatic(method.getModifiers()) || callee != null);
@@ -101,39 +100,71 @@ public class MethodStatement extends AbstractStatement {
 		return !Modifier.isStatic(method.getModifiers());
 	}
 
+	/*	
+	} catch (CodeUnderTestException e) {
+		throw CodeUnderTestException.throwException(e);
+	} catch(Throwable e){
+		throw new EvosuiteError(e);
+	}
+	 */
+
 	@Override
-	public Throwable execute(Scope scope, PrintStream out)
-	        throws InvocationTargetException, IllegalArgumentException,
-	        IllegalAccessException {
+	public Throwable execute(final Scope scope, PrintStream out)
+	throws InvocationTargetException, IllegalArgumentException,
+	IllegalAccessException, InstantiationException {
 		logger.trace("Executing method " + method.getName());
-		exceptionThrown = null;
-		Object[] inputs = new Object[parameters.size()];
+		final Object[] inputs = new Object[parameters.size()];
 		PrintStream old_out = System.out;
 		PrintStream old_err = System.err;
 		System.setOut(out);
 		System.setErr(out);
 
 		try {
-			for (int i = 0; i < parameters.size(); i++) {
-				inputs[i] = parameters.get(i).getObject(scope);
-			}
+			return super.exceptionHandler(new Executer() {
 
-			Object callee_object = null;
-			if (!Modifier.isStatic(method.getModifiers())) {
-				callee_object = callee.getObject(scope);
-			}
+				@Override
+				public void execute() throws InvocationTargetException,
+				IllegalArgumentException, IllegalAccessException,
+				InstantiationException, CodeUnderTestException {
+					Object callee_object;
+					try{
+						for (int i = 0; i < parameters.size(); i++) {
+							inputs[i] = parameters.get(i).getObject(scope);
+						}
 
-			Object ret = this.method.invoke(callee_object, inputs);
-			retval.setObject(scope, ret);
-		} catch (Throwable e) {
-			if (e instanceof java.lang.reflect.InvocationTargetException) {
-				e = e.getCause();
-			}
-			if (e instanceof EvosuiteError) {
-				throw (EvosuiteError) e;
-			}
-			logger.debug("Exception thrown in method " + method.getName() + ": " + e);
-			exceptionThrown = e;
+						callee_object = (Modifier.isStatic(method.getModifiers()))?null:callee.getObject(scope);
+						if (!Modifier.isStatic(method.getModifiers()) && callee_object==null) {
+							throw new CodeUnderTestException(new NullPointerException());
+						}
+					} catch (CodeUnderTestException e) {
+						throw CodeUnderTestException.throwException(e.getCause());
+					} catch(Throwable e){
+						throw new EvosuiteError(e);
+					}
+
+					Object ret = method.invoke(callee_object, inputs);
+
+					try{
+						retval.setObject(scope, ret);
+					} catch (CodeUnderTestException e) {
+						throw CodeUnderTestException.throwException(e);
+					} catch(Throwable e){
+						throw new EvosuiteError(e);
+					}
+				}
+
+				@Override
+				public Set<Class<? extends Throwable>> throwableExceptions(){
+					Set<Class<? extends Throwable>> t = new HashSet<Class<? extends Throwable>>();
+					t.add(InvocationTargetException.class);
+					return t;
+				}
+			});
+
+
+		} catch (InvocationTargetException e) {
+			exceptionThrown = e.getCause();
+			logger.debug("Exception thrown in method " + method.getName() + ": " + exceptionThrown);
 		} finally {
 			System.setOut(old_out);
 			System.setErr(old_err);
@@ -142,8 +173,12 @@ public class MethodStatement extends AbstractStatement {
 	}
 
 	@Override
-	public boolean isValidException(Throwable t) {
-		return Arrays.asList(method.getExceptionTypes()).contains(t);
+	public boolean isDeclaredException(Throwable t) {
+		for(Class<?> declaredException : method.getExceptionTypes()){
+			if(declaredException.isAssignableFrom(t.getClass()))
+				return true;
+		}
+		return true;
 	}
 
 	@Override
@@ -151,18 +186,18 @@ public class MethodStatement extends AbstractStatement {
 
 		String result = "";
 
-		if (exception != null && isValidException(exception)) {
+		if (exception != null && isDeclaredException(exception)) {
 			result += "// Undeclared exception!\n";
 		}
 
 		boolean lastStatement = getPosition() == tc.size() - 1;
 
 		if (retval.getType() != Void.TYPE
-		        && retval.getAdditionalVariableReference() == null) {
+				&& retval.getAdditionalVariableReference() == null) {
 			if (exception != null) {
 				if (!lastStatement)
 					result += retval.getSimpleClassName() + " " + retval.getName()
-					        + " = " + retval.getDefaultValueString() + ";\n";
+					+ " = " + retval.getDefaultValueString() + ";\n";
 			} else
 				result += retval.getSimpleClassName() + " ";
 		}
@@ -174,16 +209,16 @@ public class MethodStatement extends AbstractStatement {
 			if (!method.getParameterTypes()[0].equals(parameters.get(0).getVariableClass()))
 				//			        && parameters.get(0) instanceof ArrayIndex)
 				parameter_string += "("
-				        + new GenericClass(method.getParameterTypes()[0]).getSimpleName()
-				        + ") ";
+					+ new GenericClass(method.getParameterTypes()[0]).getSimpleName()
+					+ ") ";
 			parameter_string += parameters.get(0).getName();
 			for (int i = 1; i < parameters.size(); i++) {
 				parameter_string += ", ";
 				if (!method.getParameterTypes()[i].equals(parameters.get(i).getVariableClass()))
 					//				        && parameters.get(i) instanceof ArrayIndex)
 					parameter_string += "("
-					        + new GenericClass(method.getParameterTypes()[i]).getSimpleName()
-					        + ") ";
+						+ new GenericClass(method.getParameterTypes()[i]).getSimpleName()
+						+ ") ";
 				parameter_string += parameters.get(i).getName();
 			}
 		}
@@ -230,11 +265,11 @@ public class MethodStatement extends AbstractStatement {
 			// FIXXME: If callee is an array index, this will return an invalid
 			// copy of the cloned variable!
 			m = new MethodStatement(newTestCase, method, null, retval.getType(),
-			        new_params);
+					new_params);
 		} else {
 			VariableReference newCallee = callee.clone(newTestCase);
 			m = new MethodStatement(newTestCase, method, newCallee, retval.getType(),
-			        new_params);
+					new_params);
 
 		}
 
@@ -315,7 +350,7 @@ public class MethodStatement extends AbstractStatement {
 			return false;
 
 		if ((callee == null && ms.callee != null)
-		        || (callee != null && ms.callee == null)) {
+				|| (callee != null && ms.callee == null)) {
 			return false;
 		} else {
 			if (callee == null)
@@ -344,7 +379,7 @@ public class MethodStatement extends AbstractStatement {
 	 */
 	@Override
 	public void getBytecode(GeneratorAdapter mg, Map<Integer, Integer> locals,
-	        Throwable exception) {
+			Throwable exception) {
 		Label start = mg.newLabel();
 		Label end = mg.newLabel();
 
@@ -361,7 +396,7 @@ public class MethodStatement extends AbstractStatement {
 				if (!method.getParameterTypes()[num].equals(parameter.getVariableClass())) {
 					logger.debug("Types don't match - casting!");
 					mg.cast(Type.getType(parameter.getVariableClass()),
-					        Type.getType(method.getParameterTypes()[num]));
+							Type.getType(method.getParameterTypes()[num]));
 				}
 			}
 			num++;
@@ -374,14 +409,14 @@ public class MethodStatement extends AbstractStatement {
 		// }
 		if (isStatic())
 			mg.invokeStatic(Type.getType(method.getDeclaringClass()),
-			                org.objectweb.asm.commons.Method.getMethod(method));
+					org.objectweb.asm.commons.Method.getMethod(method));
 		else {
 			if (!callee.getVariableClass().isInterface()) {
 				mg.invokeVirtual(Type.getType(callee.getVariableClass()),
-				                 org.objectweb.asm.commons.Method.getMethod(method));
+						org.objectweb.asm.commons.Method.getMethod(method));
 			} else {
 				mg.invokeInterface(Type.getType(callee.getVariableClass()),
-				                   org.objectweb.asm.commons.Method.getMethod(method));
+						org.objectweb.asm.commons.Method.getMethod(method));
 			}
 		}
 
@@ -501,7 +536,7 @@ public class MethodStatement extends AbstractStatement {
 			return false;
 
 		if ((callee == null && ms.callee != null)
-		        || (callee != null && ms.callee == null)) {
+				|| (callee != null && ms.callee == null)) {
 			return false;
 		} else {
 			if (callee == null)
