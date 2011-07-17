@@ -380,7 +380,6 @@ public class TestChromosome extends ExecutableChromosome {
 							changed = true;
 						assert (test.isValid());
 					}
-
 					//					} else if (statement.getReturnValue() instanceof ArrayReference) {
 				}
 			}
@@ -437,7 +436,8 @@ public class TestChromosome extends ExecutableChromosome {
 	}
 
 	@Override
-	public ExecutionResult executeForFitnessFunction(TestSuiteFitnessFunction testSuiteFitnessFunction) {
+	public ExecutionResult executeForFitnessFunction(
+	        TestSuiteFitnessFunction testSuiteFitnessFunction) {
 		return testSuiteFitnessFunction.runTest(this.test);
 	}
 }

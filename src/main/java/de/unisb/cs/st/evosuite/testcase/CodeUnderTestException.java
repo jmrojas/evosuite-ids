@@ -27,7 +27,7 @@ public class CodeUnderTestException extends Exception{
 	/**
 	 * Used by code calling VariableReference.setObject/2 and .getObject()/1 
 	 * @param e
-	 * @return only there to make the compiler happy, this method always throws and exception
+	 * @return only there to make the compiler happy, this method always throws an exception
 	 * @throws IllegalAccessException
 	 * @throws IllegalArgumentException
 	 * @throws NullPointerException
@@ -44,6 +44,8 @@ public class CodeUnderTestException extends Exception{
 			throw (IllegalArgumentException)e;
 		}else if(e instanceof NullPointerException){
 			throw (NullPointerException)e;
+		}else if(e instanceof ArrayIndexOutOfBoundsException){
+			throw (ArrayIndexOutOfBoundsException)e;
 		}else if(e instanceof ExceptionInInitializerError){
 			throw (ExceptionInInitializerError)e;
 		}else{

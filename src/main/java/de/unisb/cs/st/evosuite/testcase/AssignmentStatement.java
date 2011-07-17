@@ -95,7 +95,11 @@ public class AssignmentStatement extends AbstractStatement {
 					final Object value = parameter.getObject(scope);
 					retval.setObject(scope, value);
 				} catch (CodeUnderTestException e) {
-					throw CodeUnderTestException.throwException(e);
+					throw CodeUnderTestException.throwException(e.getCause());
+				} catch(IllegalArgumentException e) {
+					// FIXXME: IllegalArgumentException may happen when we only have generators
+					// for an abstract supertype and not the concrete type that we need!
+					throw e;
 				} catch (Throwable e){
 					throw new EvosuiteError(e);
 				}
@@ -258,10 +262,11 @@ public class AssignmentStatement extends AbstractStatement {
 	@Override
 	public boolean mutate(TestCase test, AbstractTestFactory factory) {
 		assert (isValid());
+		
 		// Either mutate parameter, or source
 		if (Randomness.nextDouble() < 0.5) {
 			// TODO: Should we restrict to field and array assignments?
-			List<VariableReference> objects = test.getObjects(retval.getType(),
+			List<VariableReference> objects = test.getObjects(parameter.getType(),
 					retval.getStPosition());
 			objects.remove(retval);
 			objects.remove(parameter);
@@ -283,12 +288,14 @@ public class AssignmentStatement extends AbstractStatement {
 				}
 			}
 			if (!objects.isEmpty()) {
-				retval = Randomness.choice(objects);
+				VariableReference newRetVal = Randomness.choice(objects);
+				retval = newRetVal;
 				assert (isValid());
-				test.clone();
+				//test.clone();
 
 				return true;
 			}
+			
 		} else {
 			List<VariableReference> objects = test.getObjects(parameter.getType(),
 					parameter.getStPosition());
@@ -302,7 +309,6 @@ public class AssignmentStatement extends AbstractStatement {
 			}
 		}
 		return false;
-
 	}
 
 	@Override
