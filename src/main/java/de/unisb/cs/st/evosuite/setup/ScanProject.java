@@ -171,14 +171,15 @@ public class ScanProject {
 		return classes;
 	}
 
-	private static Set<Class<?>> loadClass(File file, String packageName)
+	private static Set<Class<?>> loadClass(File file, String packageName, boolean printOutput)
 	        throws ClassNotFoundException {
 		Set<Class<?>> set = new HashSet<Class<?>>();
 		if (file.isDirectory()) {
 			assert !file.getName().contains(".");
 			set.addAll(findClasses(file, packageName + "." + file.getName()));
 		} else if (file.getName().endsWith(".class")) {
-			System.out.println("    "
+			if(printOutput)
+				System.out.println("    "
 			        + file.toString().replace(".class", "").replace("/", "."));
 			if (Properties.STUBS) {
 				Class<?> clazz = Class.forName(file.toString().replace(".class", "").replace("/",
@@ -204,7 +205,33 @@ public class ScanProject {
 		}
 		return set;
 	}
-
+		
+	/**
+	 * Generate mocks for the classes from <class_name>.CIs file.
+	 * 
+	 * @param className 
+	 */
+	private static void generateMocksAndStubs(String className){
+		Set<String> classNames = new HashSet<String>();
+		classNames.addAll(Utils.readFile(
+					"evosuite-files/" + className.replace("/", ".").replace("class", "") + "CIs"));
+		Set<Class<?>> classes = new HashSet<Class<?>>();
+		try {
+			for(String cn : classNames){
+				classes.addAll(loadClass(new File(cn.replace("/", ".") + ".class"), cn.split("/")[0], false));
+			}
+		} catch (ClassNotFoundException e) {
+			e.printStackTrace();
+		}
+		ClassFactory cf = new ClassFactory();
+		for(Class<?> c : classes){
+			String packageName = c.getPackage().getName();
+			if(packageName.startsWith("java") || packageName.startsWith("sun"))
+				continue;
+			cf.createClass(c);
+		}
+			
+	}
 	/**
 	 * Analyze all classes of a given package prefix that can be found in the
 	 * classpath
@@ -218,7 +245,8 @@ public class ScanProject {
 		Collection<String> list = ResourceList.getResources(Pattern.compile(packageName
 		        + "/.*\\.class$"));
 		for (String name : list) {
-			set.addAll(loadClass(new File(name), packageName));
+			set.addAll(loadClass(new File(name), packageName, true));
+			generateMocksAndStubs(name);
 		}
 
 		return set;
@@ -312,7 +340,7 @@ public class ScanProject {
 		return set;
 
 	}
-
+	
 	/**
 	 * Entry point - generate task files
 	 * 
