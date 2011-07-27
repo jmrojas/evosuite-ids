@@ -1,0 +1,34 @@
+<assembly xmlns="http://maven.apache.org/plugins/maven-assembly-plugin/assembly/1.1.0" 
+  xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+  xsi:schemaLocation="http://maven.apache.org/plugins/maven-assembly-plugin/assembly/1.1.0 http://maven.apache.org/xsd/assembly-1.1.0.xsd">
+  <id>dependencies</id>
+  <formats>
+    <format>jar</format>
+  </formats>
+  <includeBaseDirectory>false</includeBaseDirectory>
+  <dependencySets>
+    <dependencySet>
+      <outputDirectory>/</outputDirectory>
+      <useProjectArtifact>true</useProjectArtifact>
+      <excludes>
+        <exclude>jpf:jpf-annotations</exclude>
+        <exclude>jpf:jpf-classes</exclude>
+        <exclude>org.eclipse.jdt:*</exclude>
+      </excludes>
+      <unpack>true</unpack>
+      <unpackOptions>
+        <excludes>
+          <exclude>log4j.xml</exclude>
+          <exclude>log4j.properties</exclude>
+          <exclude>META-INF/*.SF</exclude>
+          <exclude>META-INF/*.sf</exclude>
+          <exclude>META-INF/*.RSA</exclude>
+          <exclude>META-INF/*.rsa</exclude>
+          <exclude>META-INF/*.INF</exclude>
+          <exclude>META-INF/*.inf</exclude>
+        </excludes>
+      </unpackOptions>
+      <scope>runtime</scope>
+    </dependencySet>
+  </dependencySets>
+</assembly>
