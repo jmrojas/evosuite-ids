@@ -1207,9 +1207,11 @@ public class TestCluster {
 				}
 
 			} catch (ClassNotFoundException e) {
+
+				if(e.getCause()!=null)
+					e.getCause().printStackTrace();
 				logger.error("Error loading class: " + classname + ": " + e.getCause()
 				        + " -  ignoring for tests");
-				e.getCause().printStackTrace();
 				continue;
 			} catch (ExceptionInInitializerError e) {
 				logger.error("Error in static constructor while trying to load class "
