@@ -45,14 +45,20 @@ public class TestSuiteChromosomeFactory implements ChromosomeFactory<TestSuiteCh
 			// it.
 			testChromosomeFactory = new ConcurrencyTestCaseFactory();
 		}
+	}
+
+	public TestSuiteChromosomeFactory(ChromosomeFactory<TestChromosome> testFactory) {
+		testChromosomeFactory = testFactory;
+
+		if (Properties.CRITERION == Criterion.CONCURRENCY) {
+			// #TODO steenbuck we should wrap the original factory not replace
+			// it.
+			testChromosomeFactory = new ConcurrencyTestCaseFactory();
+		}
 
 		// test_factory = new RandomLengthTestFactory();
 		// test_factory = new AllMethodsChromosomeFactory();
 		// test_factory = new OUMTestChromosomeFactory();
-	}
-
-	public TestSuiteChromosomeFactory(ChromosomeFactory<TestChromosome> test_factory) {
-		this.testChromosomeFactory = test_factory;
 	}
 
 	public void setTestFactory(ChromosomeFactory<TestChromosome> factory) {
@@ -62,7 +68,8 @@ public class TestSuiteChromosomeFactory implements ChromosomeFactory<TestSuiteCh
 	@Override
 	public TestSuiteChromosome getChromosome() {
 
-		TestSuiteChromosome chromosome = new TestSuiteChromosome(testChromosomeFactory);
+		TestSuiteChromosome chromosome = new TestSuiteChromosome(
+		        new RandomLengthTestFactory());
 		chromosome.tests.clear();
 		CurrentChromosomeTracker<?> tracker = CurrentChromosomeTracker.getInstance();
 		tracker.modification(chromosome);

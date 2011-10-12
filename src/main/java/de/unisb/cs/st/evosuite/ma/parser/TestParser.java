@@ -77,7 +77,7 @@ public class TestParser {
 
 	private TestCase newTestCase;
 
-	private TestCluster testCluster = TestCluster.getInstance();
+	private final TestCluster testCluster = TestCluster.getInstance();
 
 	public TestParser(Editor editor) {
 		this.editor = editor;
@@ -176,7 +176,7 @@ public class TestParser {
 	 * @throws ParseException
 	 */
 	private AbstractStatement createVarSttm(VariableDeclarationExpr varDeclExpr)
-			throws ParseException {
+	        throws ParseException {
 		Type parserType = varDeclExpr.getType();
 		VariableDeclarator varDecl = varDeclExpr.getVars().get(0);
 
@@ -205,7 +205,7 @@ public class TestParser {
 	 * @throws ParseException
 	 */
 	private PrimitiveStatement<?> createPrimitiveStatement(
-			VariableDeclarationExpr varDeclExpr) throws ParseException {
+	        VariableDeclarationExpr varDeclExpr) throws ParseException {
 
 		PrimitiveType primType = (PrimitiveType) varDeclExpr.getType();
 		String init = varDeclExpr.getVars().get(0).getInit().toString();
@@ -216,22 +216,17 @@ public class TestParser {
 		case Byte:
 			return new BytePrimitiveStatement(newTestCase, Byte.parseByte(init));
 		case Short:
-			return new ShortPrimitiveStatement(newTestCase,
-					Short.parseShort(init));
+			return new ShortPrimitiveStatement(newTestCase, Short.parseShort(init));
 		case Int:
-			return new IntPrimitiveStatement(newTestCase,
-					Integer.parseInt(init));
+			return new IntPrimitiveStatement(newTestCase, Integer.parseInt(init));
 		case Long:
 			return new LongPrimitiveStatement(newTestCase, Long.parseLong(init));
 		case Float:
-			return new FloatPrimitiveStatement(newTestCase,
-					Float.parseFloat(init));
+			return new FloatPrimitiveStatement(newTestCase, Float.parseFloat(init));
 		case Double:
-			return new DoublePrimitiveStatement(newTestCase,
-					Double.parseDouble(init));
+			return new DoublePrimitiveStatement(newTestCase, Double.parseDouble(init));
 		case Boolean:
-			return new BooleanPrimitiveStatement(newTestCase,
-					Boolean.parseBoolean(init));
+			return new BooleanPrimitiveStatement(newTestCase, Boolean.parseBoolean(init));
 		default:
 			throw new ParseException(null, "Can't obtain primitive type.");
 		}
@@ -245,8 +240,8 @@ public class TestParser {
 	 * @return
 	 * @throws ParseException
 	 */
-	private AbstractStatement createReferenceType(
-			VariableDeclarationExpr varDeclExpr) throws ParseException {
+	private AbstractStatement createReferenceType(VariableDeclarationExpr varDeclExpr)
+	        throws ParseException {
 		AbstractStatement res = null;
 		Expression initExpr = varDeclExpr.getVars().get(0).getInit();
 		Type parsType = varDeclExpr.getType();
@@ -312,7 +307,7 @@ public class TestParser {
 		List<VariableReference> paramReferences = getVarRefs(args);
 
 		return new MethodStatement(newTestCase, method, callee,
-				method.getGenericReturnType(), paramReferences);
+		        method.getGenericReturnType(), paramReferences);
 	}
 
 	/**
@@ -322,7 +317,7 @@ public class TestParser {
 	 * @throws ParseException
 	 */
 	private AbstractStatement createAssignSttm(AssignExpr assignExpr)
-			throws ParseException {
+	        throws ParseException {
 		VariableReference varRef = getVarRef(assignExpr.getTarget());
 		VariableReference valRef = getVarRef(assignExpr.getValue());
 
@@ -347,13 +342,13 @@ public class TestParser {
 	 * @throws ParseException
 	 */
 	private void addNewVarToTT(VariableDeclarationExpr varDeclExpr,
-			AbstractStatement newStatement) throws ParseException {
+	        AbstractStatement newStatement) throws ParseException {
 		ArrayList<VariableReference> varRefArray = new ArrayList<VariableReference>();
 		varRefArray.addAll(newStatement.getVariableReferences());
 		VariableReference varRef = newStatement.getReturnValue();
 
 		tt.addVar(new Var(varDeclExpr.getVars().get(0).getId().getName(),
-				varDeclExpr.getType(), varRef));
+		        varDeclExpr.getType(), varRef));
 	}
 
 	/**
@@ -364,7 +359,7 @@ public class TestParser {
 	 * @throws ParseException
 	 */
 	private List<VariableReference> getVarRefs(List<Expression> args)
-			throws ParseException {
+	        throws ParseException {
 		List<VariableReference> res = new ArrayList<VariableReference>();
 		if (args != null) {
 			for (Expression expr : args) {
@@ -398,8 +393,7 @@ public class TestParser {
 		} else if (expr instanceof ArrayAccessExpr) {
 			ArrayAccessExpr arrayAccExpr = (ArrayAccessExpr) expr;
 
-			ArrayReference arrayRef = (ArrayReference) tt
-					.getVarReference(arrayAccExpr.getName().toString());
+			ArrayReference arrayRef = (ArrayReference) tt.getVarReference(arrayAccExpr.getName().toString());
 			int arrayInd = Integer.parseInt(arrayAccExpr.getIndex().toString());
 
 			return new ArrayIndex(newTestCase, arrayRef, arrayInd);
@@ -416,8 +410,7 @@ public class TestParser {
 	 * @return
 	 * @throws ParseException
 	 */
-	private Class<?>[] getVarClasses(List<Expression> args)
-			throws ParseException {
+	private Class<?>[] getVarClasses(List<Expression> args) throws ParseException {
 		List<Class<?>> tmpRes = new ArrayList<Class<?>>();
 
 		if (args != null) {
@@ -603,8 +596,8 @@ public class TestParser {
 			throw new ParseException(null, "Can not load class for VoidType.");
 		}
 		if (parsType instanceof WildcardType) {
-			throw new ParseException(null,
-					"Can not load class for WildcardType: " + parsType);
+			throw new ParseException(null, "Can not load class for WildcardType: "
+			        + parsType);
 		}
 		return null;
 	}
@@ -615,7 +608,7 @@ public class TestParser {
 	 * @throws ParseException
 	 */
 	private Class<?> primitiveTypeToClass(PrimitiveType primitiveParamType)
-			throws ParseException {
+	        throws ParseException {
 		switch (primitiveParamType.getType()) {
 		case Char:
 			return Character.TYPE;
@@ -635,7 +628,7 @@ public class TestParser {
 			return Boolean.TYPE;
 		default:
 			throw new ParseException(null,
-					"convertParams(Type parsType) can't obtain primitive Type");
+			        "convertParams(Type parsType) can't obtain primitive Type");
 		}
 	}
 

@@ -49,7 +49,6 @@ import de.unisb.cs.st.evosuite.coverage.dataflow.AllDefsCoverageSuiteFitness;
 import de.unisb.cs.st.evosuite.coverage.dataflow.DefUseCoverageFactory;
 import de.unisb.cs.st.evosuite.coverage.dataflow.DefUseCoverageSuiteFitness;
 import de.unisb.cs.st.evosuite.coverage.dataflow.DefUseCoverageTestFitness;
-import de.unisb.cs.st.evosuite.coverage.dataflow.DefUseExecutionTraceAnalyzer;
 import de.unisb.cs.st.evosuite.coverage.dataflow.DefUseFitnessCalculator;
 import de.unisb.cs.st.evosuite.coverage.lcsaj.LCSAJ;
 import de.unisb.cs.st.evosuite.coverage.lcsaj.LCSAJCoverageFactory;
@@ -80,6 +79,7 @@ import de.unisb.cs.st.evosuite.ga.SinglePointFixedCrossOver;
 import de.unisb.cs.st.evosuite.ga.SinglePointRelativeCrossOver;
 import de.unisb.cs.st.evosuite.ga.StandardGA;
 import de.unisb.cs.st.evosuite.ga.SteadyStateGA;
+import de.unisb.cs.st.evosuite.ga.TournamentChromosomeFactory;
 import de.unisb.cs.st.evosuite.ga.TournamentSelection;
 import de.unisb.cs.st.evosuite.ga.stoppingconditions.GlobalTimeStoppingCondition;
 import de.unisb.cs.st.evosuite.ga.stoppingconditions.MaxFitnessEvaluationsStoppingCondition;
@@ -92,10 +92,12 @@ import de.unisb.cs.st.evosuite.ga.stoppingconditions.ZeroFitnessStoppingConditio
 import de.unisb.cs.st.evosuite.junit.TestSuite;
 import de.unisb.cs.st.evosuite.primitives.ObjectPool;
 import de.unisb.cs.st.evosuite.sandbox.PermissionStatistics;
+import de.unisb.cs.st.evosuite.testcase.AllMethodsTestChromosomeFactory;
 import de.unisb.cs.st.evosuite.testcase.ConstantInliner;
 import de.unisb.cs.st.evosuite.testcase.DefaultTestCase;
 import de.unisb.cs.st.evosuite.testcase.ExecutionResult;
 import de.unisb.cs.st.evosuite.testcase.ExecutionTrace;
+import de.unisb.cs.st.evosuite.testcase.JUnitTestChromosomeFactory;
 import de.unisb.cs.st.evosuite.testcase.RandomLengthTestFactory;
 import de.unisb.cs.st.evosuite.testcase.TestCase;
 import de.unisb.cs.st.evosuite.testcase.TestCaseExecutor;
@@ -151,16 +153,19 @@ public class TestSuiteGenerator {
 	 * of the top-function caller
 	 */
 	private GeneticAlgorithm ga;
-	
+
 	/**
 	 * Generate a test suite for the target class
 	 */
 	public String generateTestSuite(GeneticAlgorithm geneticAlgorithm) {
 		Utils.addURL(ClassFactory.getStubDir() + "/classes/");
 		ga = geneticAlgorithm;
-		
+
 		System.out.println("* Generating tests for class " + Properties.TARGET_CLASS);
 		printTestCriterion();
+
+		if (Properties.getTargetClass() == null)
+			return "";
 
 		if (Properties.CRITERION == Criterion.ANALYZE)
 			analyzeCriteria();
@@ -184,10 +189,10 @@ public class TestSuiteGenerator {
 	/*
 	 * return reference of the GA used in the most recent generateTestSuite()
 	 */
-	public GeneticAlgorithm getEmployedGeneticAlgorithm(){
+	public GeneticAlgorithm getEmployedGeneticAlgorithm() {
 		return ga;
 	}
-	
+
 	private void analyzeCriteria() {
 		analyzing = true;
 		for (Criterion criterion : CoverageStatistics.supportedCriteria) {
@@ -246,8 +251,8 @@ public class TestSuiteGenerator {
 			TestSuite suite = new TestSuite(tests);
 			String name = Properties.TARGET_CLASS.substring(Properties.TARGET_CLASS.lastIndexOf(".") + 1);
 			String testDir = Properties.TEST_DIR;
-			if(analyzing)
-			  testDir = testDir + "/" + Properties.CRITERION;
+			if (analyzing)
+				testDir = testDir + "/" + Properties.CRITERION;
 			System.out.println("* Writing JUnit test cases to " + testDir);
 			suite.writeTestSuite("Test" + name, testDir);
 		}
@@ -259,7 +264,9 @@ public class TestSuiteGenerator {
 			Criterion oldCriterion = Properties.CRITERION;
 			if (Properties.CRITERION != Criterion.MUTATION) {
 				Properties.CRITERION = Criterion.MUTATION;
+
 				TestCluster.getInstance().resetCluster();
+
 				// TODO: Now all existing test cases have reflection objects pointing to the wrong classloader
 				for (TestCase test : tests) {
 					DefaultTestCase dtest = (DefaultTestCase) test;
@@ -333,11 +340,12 @@ public class TestSuiteGenerator {
 		// What's the search target
 		FitnessFunction fitness_function = getFitnessFunction();
 		ga.setFitnessFunction(fitness_function);
+		ga.setChromosomeFactory(getChromosomeFactory(fitness_function));
 		if (Properties.SHOW_PROGRESS && !logger.isInfoEnabled())
 			ga.addListener(new ConsoleProgressBar());
 
 		if (Properties.CRITERION == Criterion.DEFUSE
-				|| Properties.CRITERION == Criterion.ALLDEFS
+		        || Properties.CRITERION == Criterion.ALLDEFS
 		        || Properties.CRITERION == Criterion.STATEMENT)
 			ExecutionTrace.enableTraceCalls();
 
@@ -458,7 +466,7 @@ public class TestSuiteGenerator {
 	public static TestFitnessFactory getFitnessFactory() {
 		return getFitnessFactory(Properties.CRITERION);
 	}
-	
+
 	public static TestFitnessFactory getFitnessFactory(Criterion crit) {
 		switch (crit) {
 		case MUTATION:
@@ -494,11 +502,12 @@ public class TestSuiteGenerator {
 	private TestSuiteChromosome bootstrapRandomSuite(FitnessFunction fitness,
 	        TestFitnessFactory goals) {
 
-		if (Properties.CRITERION == Criterion.DEFUSE || Properties.CRITERION == Criterion.ALLDEFS) {
+		if (Properties.CRITERION == Criterion.DEFUSE
+		        || Properties.CRITERION == Criterion.ALLDEFS) {
 			System.out.println("* Disabled random bootstraping for dataflow criterion");
 			Properties.RANDOM_TESTS = 0;
 		}
-		
+
 		if (Properties.RANDOM_TESTS > 0) {
 			System.out.println("* Bootstrapping initial random test suite");
 		} else
@@ -619,6 +628,7 @@ public class TestSuiteGenerator {
 
 				ga.resetStoppingConditions();
 				ga.clearPopulation();
+				ga.setChromosomeFactory(getChromosomeFactory(fitness_function));
 
 				if (Properties.PRINT_CURRENT_GOALS)
 					System.out.println("* Searching for goal " + num + ": "
@@ -781,7 +791,7 @@ public class TestSuiteGenerator {
 			minimizer.minimize(suite);
 			logger.info("Size after: " + suite.totalLengthOfTestCases());
 		}
-		
+
 		/*
 		 * if(Properties.MINIMIZE) { System.out.println("* Minimizing result");
 		 * TestSuiteMinimizer minimizer = new TestSuiteMinimizer();
@@ -911,10 +921,58 @@ public class TestSuiteGenerator {
 		}
 	}
 
-	protected static ChromosomeFactory<? extends Chromosome> getChromosomeFactory() {
+	protected static ChromosomeFactory<? extends Chromosome> getChromosomeFactory(
+	        FitnessFunction fitness) {
+
 		switch (Properties.STRATEGY) {
 		case EVOSUITE:
-			return new TestSuiteChromosomeFactory();
+			switch (Properties.TEST_FACTORY) {
+			case ALLMETHODS:
+				logger.info("Using all methods chromosome factory");
+				return new TestSuiteChromosomeFactory(
+				        new AllMethodsTestChromosomeFactory());
+			case RANDOM:
+				logger.info("Using random chromosome factory");
+				return new TestSuiteChromosomeFactory(new RandomLengthTestFactory());
+			case TOURNAMENT:
+				logger.info("Using tournament chromosome factory");
+				return new TournamentChromosomeFactory<TestSuiteChromosome>(fitness,
+				        new TestSuiteChromosomeFactory());
+			case SEEDING:
+				logger.info("Using seeding chromosome factory");
+				return new TestSuiteChromosomeFactory(new JUnitTestChromosomeFactory(
+				        "TODO", new RandomLengthTestFactory()));
+			default:
+				throw new RuntimeException("Unsupported test factory: "
+				        + Properties.TEST_FACTORY);
+			}
+		default:
+			switch (Properties.TEST_FACTORY) {
+			case ALLMETHODS:
+				logger.info("Using all methods chromosome factory");
+				return new AllMethodsTestChromosomeFactory();
+			case RANDOM:
+				logger.info("Using random chromosome factory");
+				return new RandomLengthTestFactory();
+			case TOURNAMENT:
+				logger.info("Using tournament chromosome factory");
+				return new TournamentChromosomeFactory<TestChromosome>(fitness,
+				        new RandomLengthTestFactory());
+			case SEEDING:
+				logger.info("Using seeding chromosome factory");
+				return new JUnitTestChromosomeFactory("TODO",
+				        new RandomLengthTestFactory());
+			default:
+				throw new RuntimeException("Unsupported test factory: "
+				        + Properties.TEST_FACTORY);
+			}
+		}
+	}
+
+	protected static ChromosomeFactory<? extends Chromosome> getDefaultChromosomeFactory() {
+		switch (Properties.STRATEGY) {
+		case EVOSUITE:
+			return new TestSuiteChromosomeFactory(new RandomLengthTestFactory());
 		default:
 			return new RandomLengthTestFactory();
 		}
@@ -998,7 +1056,7 @@ public class TestSuiteGenerator {
 	 */
 	public GeneticAlgorithm setup() {
 
-		ChromosomeFactory<? extends Chromosome> factory = getChromosomeFactory();
+		ChromosomeFactory<? extends Chromosome> factory = getDefaultChromosomeFactory();
 		GeneticAlgorithm ga = getGeneticAlgorithm(factory);
 
 		// How to select candidates for reproduction

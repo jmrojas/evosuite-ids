@@ -3,6 +3,8 @@
  */
 package de.unisb.cs.st.evosuite;
 
+import java.io.Serializable;
+
 import de.unisb.cs.st.evosuite.ga.Chromosome;
 import de.unisb.cs.st.evosuite.ga.GeneticAlgorithm;
 import de.unisb.cs.st.evosuite.ga.SearchListener;
@@ -10,10 +12,12 @@ import de.unisb.cs.st.evosuite.ga.stoppingconditions.StoppingCondition;
 import de.unisb.cs.st.evosuite.testsuite.TestSuiteChromosome;
 
 /**
- * @author fraser
+ * @author Gordon Fraser
  * 
  */
-public class ConsoleProgressBar implements SearchListener {
+public class ConsoleProgressBar implements SearchListener, Serializable {
+
+	private static final long serialVersionUID = 7303558940966638158L;
 
 	public static void printProgressBar(int percent, int coverage) {
 		StringBuilder bar = new StringBuilder("[Progress:");
