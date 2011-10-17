@@ -141,8 +141,8 @@ public class StaticTestCluster extends TestCluster {
 	//
 	// In setup script, add all jars / classes found in local dir to classpath?
 
-	@Override
-	public boolean isTargetClassName(String className) {
+	
+	public static boolean isTargetClassName(String className) {
 		if (!Properties.TARGET_CLASS_PREFIX.isEmpty()
 		        && className.startsWith(Properties.TARGET_CLASS_PREFIX)) {
 			return true;
@@ -1674,17 +1674,21 @@ public class StaticTestCluster extends TestCluster {
 	 */
 	@Override
 	public Class<?> getClass(String name) throws ClassNotFoundException {
-
 		// First try to find exact match
 		for (Class<?> clazz : analyzedClasses) {
-			if (clazz.getName().equals(name))
+			if (clazz.getName().equals(name)
+			        || clazz.getName().equals(Properties.CLASS_PREFIX + "." + name)
+			        || clazz.getName().equals(Properties.CLASS_PREFIX + "."
+			                                          + name.replace(".", "$"))) {
 				return clazz;
+			}
 		}
 
 		// Then try to match a postfix 
 		for (Class<?> clazz : analyzedClasses) {
-			if (clazz.getName().endsWith(name))
+			if (clazz.getName().endsWith("." + name)) {
 				return clazz;
+			}
 		}
 
 		throw new ClassNotFoundException(name);

@@ -45,23 +45,21 @@ public abstract class TestCluster {
 	 * @return
 	 */
 	public static TestCluster getInstance() {
-		if (instance == null) {
+	    if (instance == null) {
 			instance = new StaticTestCluster();
 			instance.init();
-		}
+	    }
 
 		// TODO: Need property to switch between test clusters
 
 		return instance;
 	}
 
-	protected void init() {}
+        protected void init() {}
 
 	private static List<String> finalClasses = new ArrayList<String>();
 
 	private static Set<Method> staticInitializers = new HashSet<Method>();
-
-	public abstract boolean isTargetClassName(String className);
 
 	public static void registerStaticInitializer(String className) {
 		finalClasses.add(className);
