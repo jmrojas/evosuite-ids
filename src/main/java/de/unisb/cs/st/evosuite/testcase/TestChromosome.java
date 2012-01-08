@@ -249,22 +249,24 @@ public class TestChromosome extends ExecutableChromosome {
 			P = 1d / 3d;
 		}
 
-		int which = Randomness.nextInt(3);
-		switch (which) {
-		case 0:
-			logger.debug("Mutation: delete");
+		logger.debug("Mutation: delete");
+		// Delete
+		if (Randomness.nextDouble() <= Properties.P_TEST_DELETE) {
 			changed = mutationDelete();
-			break;
-		case 1:
-			logger.debug("Mutation: change");
+		}
+
+		logger.debug("Mutation: change");
+		// Change
+		if (Randomness.nextDouble() <= Properties.P_TEST_CHANGE) {
 			if (mutationChange())
 				changed = true;
-			break;
-		case 2:
-			logger.debug("Mutation: insert");
+		}
+
+		logger.debug("Mutation: insert");
+		// Insert
+		if (Randomness.nextDouble() <= Properties.P_TEST_INSERT) {
 			if (mutationInsert())
 				changed = true;
-			break;
 		}
 
 		if (changed) {
@@ -425,7 +427,7 @@ public class TestChromosome extends ExecutableChromosome {
 	 */
 	private boolean mutationInsert() {
 		boolean changed = false;
-		final double ALPHA = 0.5;
+		final double ALPHA = Properties.P_STATEMENT_INSERTION; //0.5;
 		int count = 0;
 		DefaultTestFactory test_factory = DefaultTestFactory.getInstance();
 
