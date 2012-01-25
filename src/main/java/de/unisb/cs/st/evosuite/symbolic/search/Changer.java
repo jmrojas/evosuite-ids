@@ -280,7 +280,7 @@ public class Changer {
 
 		if (improvement) {
 			varsToChange.put(realVar.getName(), realVar.getConcreteValue());
-			log.info("Finished long local search with new value " + realVar);
+			log.debug("Finished long local search with new value " + realVar);
 			//if (oldDist <= 0) {
 			//	return true;
 			//}
