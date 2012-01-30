@@ -38,7 +38,7 @@ public class TestCodeVisitor implements TestVisitor {
 	protected TestCase test = null;
 
 	protected final Map<VariableReference, String> variableNames = new HashMap<VariableReference, String>();
-
+	
 	protected final Map<String, Integer> nextIndices = new HashMap<String, Integer>();
 
 	public String getCode() {
@@ -306,18 +306,24 @@ public class TestCodeVisitor implements TestVisitor {
 	}
 
 	private void addAssertions(StatementInterface statement) {
-		Throwable exception = getException(statement);
-
-		// TODO: Some assertions would be useful even with exception
-		if (exception != null)
-			return;
-
 		boolean assertionAdded = false;
-		for (Assertion assertion : statement.getAssertions()) {
-			if (assertion != null) {
-				visitAssertion(assertion);
-				testCode += "\n";
-				assertionAdded = true;
+		if (getException(statement) != null) {
+			// Assumption: The statement that throws an exception is the last statement of a test.
+			VariableReference returnValue = statement.getReturnValue();
+			for (Assertion assertion : statement.getAssertions()) {
+				if (assertion != null && !assertion.getReferencedVariables().contains(returnValue)) {
+					visitAssertion(assertion);
+					testCode += "\n";
+					assertionAdded = true;
+				}
+			}
+		} else {			
+			for (Assertion assertion : statement.getAssertions()) {
+				if (assertion != null) {
+					visitAssertion(assertion);
+					testCode += "\n";
+					assertionAdded = true;
+				}
 			}
 		}
 		if (assertionAdded)
@@ -442,7 +448,7 @@ public class TestCodeVisitor implements TestVisitor {
 		if (retval.getType() != Void.TYPE
 		        && retval.getAdditionalVariableReference() == null && !unused) {
 			if (exception != null) {
-				if (!lastStatement || statement.hasAssertions())
+//				if (!lastStatement)
 					result += retval.getSimpleClassName() + " " + getVariableName(retval)
 					        + " = " + retval.getDefaultValueString() + ";\n";
 			} else
@@ -488,9 +494,9 @@ public class TestCodeVisitor implements TestVisitor {
 		if (retval.getType() == Void.TYPE) {
 			result += callee_str + "." + method.getName() + "(" + parameter_string + ");";
 		} else {
-			//			if (exception == null || !lastStatement)
-			if (!unused)
-				result += getVariableName(retval) + " = ";
+//			if (exception == null || !lastStatement)
+				if (!unused)
+					result += getVariableName(retval) + " = ";
 
 			result += callee_str + "." + method.getName() + "(" + parameter_string + ");";
 		}
