@@ -43,7 +43,6 @@ import de.unisb.cs.st.evosuite.contracts.ContractChecker;
 import de.unisb.cs.st.evosuite.contracts.FailingTestSet;
 import de.unisb.cs.st.evosuite.coverage.FitnessLogger;
 import de.unisb.cs.st.evosuite.coverage.TestFitnessFactory;
-import de.unisb.cs.st.evosuite.coverage.behavioral.BehavioralCoverage;
 import de.unisb.cs.st.evosuite.coverage.branch.BranchCoverageFactory;
 import de.unisb.cs.st.evosuite.coverage.branch.BranchCoverageSuiteFitness;
 import de.unisb.cs.st.evosuite.coverage.branch.BranchPool;
@@ -121,6 +120,7 @@ import de.unisb.cs.st.evosuite.testcase.TestCluster;
 import de.unisb.cs.st.evosuite.testcase.TestFitnessFunction;
 import de.unisb.cs.st.evosuite.testcase.ValueMinimizer;
 import de.unisb.cs.st.evosuite.testsuite.AbstractFitnessFactory;
+import de.unisb.cs.st.evosuite.testsuite.CoverageCrossOver;
 import de.unisb.cs.st.evosuite.testsuite.CoverageStatistics;
 import de.unisb.cs.st.evosuite.testsuite.FixedSizeTestSuiteChromosomeFactory;
 import de.unisb.cs.st.evosuite.testsuite.MinimizeAverageLengthSecondaryObjective;
@@ -238,9 +238,7 @@ public class TestSuiteGenerator {
 			return new ArrayList<TestCase>();
 		}
 
-		if (Properties.CRITERION == Criterion.BEHAVIORAL)
-			tests = BehavioralCoverage.generateTestSuite();
-		else if (Properties.STRATEGY == Strategy.EVOSUITE)
+		if (Properties.STRATEGY == Strategy.EVOSUITE)
 			tests = generateWholeSuite();
 		else
 			tests = generateIndividualTests();
@@ -278,6 +276,14 @@ public class TestSuiteGenerator {
 
 		if (analyzing)
 			System.out.println();
+
+		/*
+		PUTGeneralizer generalizer = new PUTGeneralizer();
+		for (TestCase test : tests) {
+			generalizer.generalize(test);
+			//			ParameterizedTestCase put = new ParameterizedTestCase(test);
+		}
+		*/
 
 		return tests;
 	}
@@ -968,6 +974,12 @@ public class TestSuiteGenerator {
 			return new SinglePointRelativeCrossOver();
 		case SINGLEPOINT:
 			return new SinglePointCrossOver();
+		case COVERAGE:
+			if (Properties.STRATEGY != Properties.Strategy.EVOSUITE)
+				throw new RuntimeException(
+				        "Coverage crossover function requires test suite mode");
+
+			return new CoverageCrossOver();
 		default:
 			throw new RuntimeException("Unknown crossover function: "
 			        + Properties.CROSSOVER_FUNCTION);

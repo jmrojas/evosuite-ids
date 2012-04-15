@@ -316,7 +316,7 @@ public class Properties {
 	public static StoppingCondition STOPPING_CONDITION = StoppingCondition.MAXSTATEMENTS;
 
 	public enum CrossoverFunction {
-		SINGLEPOINTRELATIVE, SINGLEPOINTFIXED, SINGLEPOINT
+		SINGLEPOINTRELATIVE, SINGLEPOINTFIXED, SINGLEPOINT, COVERAGE
 	}
 
 	@Parameter(key = "crossover_function", group = "Search Algorithm", description = "Crossover function during search")
@@ -455,6 +455,9 @@ public class Properties {
 	@Parameter(key = "output_granularity", group = "Output", description = "Write all test cases for a class into a single file or to separate files.")
 	public static OutputGranularity OUTPUT_GRANULARITY = OutputGranularity.MERGED;
 
+	@Parameter(key = "max_coverage_depth", group = "Output", description = "Maximum depth in the calltree to count a branch as covered")
+	public static int MAX_COVERAGE_DEPTH = -1;
+
 	//---------------------------------------------------------------
 	// Sandbox
 	@Parameter(key = "sandbox", group = "Sandbox", description = "Execute tests in a sandbox environment")
@@ -586,13 +589,13 @@ public class Properties {
 
 	@Parameter(key = "replace_calls", group = "Test Execution", description = "Replace nondeterministic calls and System.exit")
 	public static boolean REPLACE_CALLS = false;
-	
+
 	// ---------------------------------------------------------------
 	// Debugging
-	
+
 	@Parameter(key = "debug", group = "Debugging", description = "Enables debugging support in the client VM")
 	public static boolean DEBUG = false;
-	
+
 	@Parameter(key = "port", group = "Debugging", description = "Port on localhost, to which the client VM will listen for a remote debugger; defaults to 1044")
 	@IntValue(min = 1024, max = 65535)
 	public static int PORT = 1044;
