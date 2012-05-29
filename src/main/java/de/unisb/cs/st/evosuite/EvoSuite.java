@@ -1,4 +1,21 @@
 /**
+ * Copyright (C) 2012 Gordon Fraser, Andrea Arcuri
+ *
+ * This file is part of EvoSuite.
+ *
+ * EvoSuite is free software: you can redistribute it and/or modify it under the
+ * terms of the GNU Lesser Public License as published by the Free Software
+ * Foundation, either version 3 of the License, or (at your option) any later
+ * version.
+ *
+ * EvoSuite is distributed in the hope that it will be useful, but WITHOUT ANY
+ * WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS FOR
+ * A PARTICULAR PURPOSE. See the GNU Lesser Public License for more details.
+ *
+ * You should have received a copy of the GNU Public License along with
+ * EvoSuite. If not, see <http://www.gnu.org/licenses/>.
+ */
+/**
  * 
  */
 package de.unisb.cs.st.evosuite;
@@ -13,6 +30,7 @@ import java.io.OutputStream;
 import java.net.URL;
 import java.net.URLClassLoader;
 import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
 
@@ -509,7 +527,6 @@ public class EvoSuite {
 		List<String> javaOpts = new ArrayList<String>();
 
 		Object result = null;
-		// TODO: Can we replace the version number automatically?
 		String version = EvoSuite.class.getPackage().getImplementationVersion();
 		if (version == null)
 			version = "";
@@ -526,7 +543,8 @@ public class EvoSuite {
 			 */
 
 			java.util.Properties properties = line.getOptionProperties("D");
-			Set<String> propertyNames = Properties.getParameters();
+			Set<String> propertyNames = new HashSet<String>(Properties.getParameters());
+			propertyNames.add("log.level"); // TODO: Maybe this should be an official parameter?
 			for (String propertyName : properties.stringPropertyNames()) {
 				if (!propertyNames.contains(propertyName)) {
 					System.err.println("* Unknown property: " + propertyName);

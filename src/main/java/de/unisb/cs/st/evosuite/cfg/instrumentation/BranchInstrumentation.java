@@ -1,4 +1,21 @@
 /**
+ * Copyright (C) 2012 Gordon Fraser, Andrea Arcuri
+ *
+ * This file is part of EvoSuite.
+ *
+ * EvoSuite is free software: you can redistribute it and/or modify it under the
+ * terms of the GNU Lesser Public License as published by the Free Software
+ * Foundation, either version 3 of the License, or (at your option) any later
+ * version.
+ *
+ * EvoSuite is distributed in the hope that it will be useful, but WITHOUT ANY
+ * WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS FOR
+ * A PARTICULAR PURPOSE. See the GNU Lesser Public License for more details.
+ *
+ * You should have received a copy of the GNU Public License along with
+ * EvoSuite. If not, see <http://www.gnu.org/licenses/>.
+ */
+/**
  * 
  */
 package de.unisb.cs.st.evosuite.cfg.instrumentation;
@@ -33,7 +50,7 @@ import de.unisb.cs.st.evosuite.javaagent.AnnotatedLabel;
  */
 public class BranchInstrumentation implements MethodInstrumentation {
 
-	private static Logger logger = LoggerFactory.getLogger(BranchInstrumentation.class);
+	protected static Logger logger = LoggerFactory.getLogger(BranchInstrumentation.class);
 
 	/*
 	 * (non-Javadoc)
@@ -86,7 +103,7 @@ public class BranchInstrumentation implements MethodInstrumentation {
 		mn.maxStack += 3;
 	}
 
-	private InsnList getInstrumentation(BytecodeInstruction instruction) {
+	protected InsnList getInstrumentation(BytecodeInstruction instruction) {
 		if (instruction == null)
 			throw new IllegalArgumentException("null given");
 		if (!instruction.isActualBranch())
@@ -181,7 +198,7 @@ public class BranchInstrumentation implements MethodInstrumentation {
 	 * directly. Symmetrically the new switch has a default case: holding a call
 	 * to the ExecutionTracer to indicate that the default will be hit directly.
 	 */
-	private InsnList getSwitchInstrumentation(BytecodeInstruction v, MethodNode mn,
+	protected InsnList getSwitchInstrumentation(BytecodeInstruction v, MethodNode mn,
 	        String className, String methodName) {
 		InsnList instrumentation = new InsnList();
 
@@ -199,7 +216,7 @@ public class BranchInstrumentation implements MethodInstrumentation {
 	 * For each actual case <key>: of a switch this method adds instrumentation
 	 * for the Branch corresponding to that case to the given instruction list.
 	 */
-	private void addInstrumentationForSwitchCases(BytecodeInstruction v,
+	protected void addInstrumentationForSwitchCases(BytecodeInstruction v,
 	        InsnList instrumentation, String className, String methodName) {
 
 		if (!v.isSwitch())
@@ -229,7 +246,7 @@ public class BranchInstrumentation implements MethodInstrumentation {
 		}
 	}
 
-	private void addInstrumentationForDefaultSwitchCase(BytecodeInstruction v,
+	protected void addInstrumentationForDefaultSwitchCase(BytecodeInstruction v,
 	        InsnList instrumentation) {
 
 		if (v.isTableSwitch())
@@ -240,7 +257,7 @@ public class BranchInstrumentation implements MethodInstrumentation {
 
 	}
 
-	private void addInstrumentationForDefaultTableswitchCase(BytecodeInstruction v,
+	protected void addInstrumentationForDefaultTableswitchCase(BytecodeInstruction v,
 	        InsnList instrumentation) {
 
 		if (!v.isTableSwitch())
@@ -268,7 +285,7 @@ public class BranchInstrumentation implements MethodInstrumentation {
 
 	}
 
-	private void addInstrumentationForDefaultLookupswitchCase(BytecodeInstruction v,
+	protected void addInstrumentationForDefaultLookupswitchCase(BytecodeInstruction v,
 	        InsnList instrumentation) {
 
 		if (!v.isLookupSwitch())
@@ -298,7 +315,7 @@ public class BranchInstrumentation implements MethodInstrumentation {
 
 	}
 
-	private void addDefaultCaseInstrumentation(BytecodeInstruction v,
+	protected void addDefaultCaseInstrumentation(BytecodeInstruction v,
 	        InsnList instrumentation, AbstractInsnNode mySwitch, LabelNode defaultLabel,
 	        LabelNode caseLabel, LabelNode endLabel) {
 
@@ -323,7 +340,7 @@ public class BranchInstrumentation implements MethodInstrumentation {
 
 	}
 
-	private void addDefaultCaseCoveredCall(BytecodeInstruction v,
+	protected void addDefaultCaseCoveredCall(BytecodeInstruction v,
 	        InsnList instrumentation, int defaultCaseBranchId) {
 
 		instrumentation.add(new LdcInsnNode(0));
@@ -336,7 +353,7 @@ public class BranchInstrumentation implements MethodInstrumentation {
 
 	}
 
-	private void addDefaultCaseNotCoveredCall(BytecodeInstruction v,
+	protected void addDefaultCaseNotCoveredCall(BytecodeInstruction v,
 	        InsnList instrumentation, int defaultCaseBranchId) {
 
 		instrumentation.add(new LdcInsnNode(0));
