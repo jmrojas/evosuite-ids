@@ -1,5 +1,6 @@
-/*
- * Copyright (C) 2010 Saarland University
+/**
+ * Copyright (C) 2011,2012 Gordon Fraser, Andrea Arcuri and EvoSuite
+ * contributors
  * 
  * This file is part of EvoSuite.
  * 
@@ -12,10 +13,9 @@
  * WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS FOR
  * A PARTICULAR PURPOSE. See the GNU Lesser Public License for more details.
  * 
- * You should have received a copy of the GNU Lesser Public License along with
+ * You should have received a copy of the GNU Public License along with
  * EvoSuite. If not, see <http://www.gnu.org/licenses/>.
  */
-
 package de.unisb.cs.st.evosuite.testcase;
 
 import java.io.Serializable;
@@ -101,7 +101,7 @@ public abstract class AbstractStatement implements StatementInterface, Serializa
 	/**
 	 * This method abstracts the exception handling away from the concrete
 	 * statements. Thereby hopefully enabling us to have a more consistent
-	 * approach to exeptions.
+	 * approach to exceptions.
 	 * 
 	 * @param code
 	 * @return
@@ -113,11 +113,12 @@ public abstract class AbstractStatement implements StatementInterface, Serializa
 	protected Throwable exceptionHandler(Executer code) throws InvocationTargetException,
 	        IllegalArgumentException, IllegalAccessException, InstantiationException {
 		try {
-			try {
-				code.execute();
-			} catch (CodeUnderTestException e) {
-				throw CodeUnderTestException.throwException(e);
-			}
+			code.execute();
+			// } catch (CodeUnderTestException e) {
+			// throw CodeUnderTestException.throwException(e);
+			//}
+		} catch (CodeUnderTestException e) {
+			return e;
 		} catch (EvosuiteError e) {
 			/*
 			 * Signal an error in evosuite code and are therefore always thrown
@@ -192,7 +193,7 @@ public abstract class AbstractStatement implements StatementInterface, Serializa
 	 * @see de.unisb.cs.st.evosuite.testcase.StatementInterface#SetRetval(de.unisb.cs.st.evosuite.testcase.VariableReference)
 	 */
 	@Override
-	public void SetRetval(VariableReference newRetVal) {
+	public void setRetval(VariableReference newRetVal) {
 		this.retval = newRetVal;
 	}
 

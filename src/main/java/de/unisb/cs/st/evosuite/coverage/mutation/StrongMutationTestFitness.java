@@ -1,4 +1,21 @@
 /**
+ * Copyright (C) 2011,2012 Gordon Fraser, Andrea Arcuri and EvoSuite contributors
+ *
+ * This file is part of EvoSuite.
+ *
+ * EvoSuite is free software: you can redistribute it and/or modify it under the
+ * terms of the GNU Lesser Public License as published by the Free Software
+ * Foundation, either version 3 of the License, or (at your option) any later
+ * version.
+ *
+ * EvoSuite is distributed in the hope that it will be useful, but WITHOUT ANY
+ * WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS FOR
+ * A PARTICULAR PURPOSE. See the GNU Lesser Public License for more details.
+ *
+ * You should have received a copy of the GNU Public License along with
+ * EvoSuite. If not, see <http://www.gnu.org/licenses/>.
+ */
+/**
  * 
  */
 package de.unisb.cs.st.evosuite.coverage.mutation;
@@ -76,8 +93,8 @@ public class StrongMutationTestFitness extends MutationTestFitness {
 				MutationObserver.deactivateMutation(mutant);
 
 			int num = test.size();
-			if (!result.exceptions.isEmpty()) {
-				num = result.exceptions.keySet().iterator().next();
+			if (!result.noThrownExceptions()) {
+				num = result.getFirstPositionOfThrownException();
 			}
 
 			//if (mutant == null)
@@ -107,8 +124,8 @@ public class StrongMutationTestFitness extends MutationTestFitness {
 			result.setHasTimeout(true);
 		}
 
-		if (!originalResult.exceptions.isEmpty()) {
-			if (mutationResult.exceptions.isEmpty())
+		if (!originalResult.noThrownExceptions()) {
+			if (mutationResult.noThrownExceptions())
 				result.setHasTimeout(true);
 		}
 
@@ -207,21 +224,21 @@ public class StrongMutationTestFitness extends MutationTestFitness {
 		                                               mutant_trace.coverage);
 		logger.debug("Coverage impact: " + coverage_impact);
 		logger.debug("Calculating data impact");
-		double data_impact = getCoverageDifference(orig_trace.return_data,
-		                                           mutant_trace.return_data);
+		double data_impact = getCoverageDifference(orig_trace.returnData,
+		                                           mutant_trace.returnData);
 		logger.debug("Data impact: " + data_impact);
 
 		double branch_impact = 0.0;
-		for (Integer predicate : orig_trace.covered_predicates.keySet()) {
-			if (mutant_trace.true_distances.containsKey(predicate)) {
-				branch_impact += normalize(Math.abs(orig_trace.true_distances.get(predicate)
-				        - mutant_trace.true_distances.get(predicate)));
+		for (Integer predicate : orig_trace.coveredPredicates.keySet()) {
+			if (mutant_trace.trueDistances.containsKey(predicate)) {
+				branch_impact += normalize(Math.abs(orig_trace.trueDistances.get(predicate)
+				        - mutant_trace.trueDistances.get(predicate)));
 			} else {
 				branch_impact += 1.0;
 			}
-			if (mutant_trace.false_distances.containsKey(predicate)) {
-				branch_impact += normalize(Math.abs(orig_trace.false_distances.get(predicate)
-				        - mutant_trace.false_distances.get(predicate)));
+			if (mutant_trace.falseDistances.containsKey(predicate)) {
+				branch_impact += normalize(Math.abs(orig_trace.falseDistances.get(predicate)
+				        - mutant_trace.falseDistances.get(predicate)));
 			} else {
 				branch_impact += 1.0;
 			}
@@ -282,10 +299,10 @@ public class StrongMutationTestFitness extends MutationTestFitness {
 		if (executionDistance <= 0) {
 			// Add infection distance
 			assert (result.getTrace() != null);
-			assert (result.getTrace().mutant_distances != null);
+			assert (result.getTrace().mutantDistances != null);
 			assert (mutation != null);
 			assert (result.getTrace().touchedMutants.contains(mutation.getId()));
-			infectionDistance = normalize(result.getTrace().mutant_distances.get(mutation.getId()));
+			infectionDistance = normalize(result.getTrace().mutantDistances.get(mutation.getId()));
 			logger.debug("Infection distance for mutation = " + infectionDistance);
 
 			// If infected check if it is also killed
@@ -334,5 +351,13 @@ public class StrongMutationTestFitness extends MutationTestFitness {
 			individual.getTestCase().addCoveredGoal(this);
 		}
 		return fitness;
+	}
+
+	/* (non-Javadoc)
+	 * @see java.lang.Object#toString()
+	 */
+	@Override
+	public String toString() {
+		return "Strong " + mutation.toString();
 	}
 }

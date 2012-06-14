@@ -1,5 +1,6 @@
-/*
- * Copyright (C) 2010 Saarland University
+/**
+ * Copyright (C) 2011,2012 Gordon Fraser, Andrea Arcuri and EvoSuite
+ * contributors
  * 
  * This file is part of EvoSuite.
  * 
@@ -12,10 +13,9 @@
  * WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS FOR
  * A PARTICULAR PURPOSE. See the GNU Lesser Public License for more details.
  * 
- * You should have received a copy of the GNU Lesser Public License along with
+ * You should have received a copy of the GNU Public License along with
  * EvoSuite. If not, see <http://www.gnu.org/licenses/>.
  */
-
 package de.unisb.cs.st.evosuite.testcase;
 
 import java.io.ByteArrayInputStream;
@@ -120,6 +120,7 @@ public class StaticTestCluster extends TestCluster {
 
 	@Override
 	protected void init() {
+		hierarchy = Hierarchy.readFromDefaultLocation();
 		populate();
 		addIncludes();
 		analyzeTarget();
@@ -259,27 +260,29 @@ public class StaticTestCluster extends TestCluster {
 				if (c.getParameterTypes().length < param) {
 					param = c.getParameterTypes().length;
 					num = new_num;
-				} else if (o instanceof Method) {
-					Method m = (Method) o;
-					int p = m.getParameterTypes().length;
-					if (!Modifier.isStatic(m.getModifiers()))
-						p++;
-					if (p < param) {
-						param = p;
-						num = new_num;
-					}
-				} else if (o instanceof Field) {
-					// param = 2;
-					// num = new_num;
-					Field f = (Field) o;
-					int p = 0;
-					if (!Modifier.isStatic(f.getModifiers()))
-						p++;
-					if (p < param) {
-						param = p;
-						num = new_num;
-					}
 				}
+			} else if (o instanceof Method) {
+				Method m = (Method) o;
+				int p = m.getParameterTypes().length;
+				if (!Modifier.isStatic(m.getModifiers()))
+					p++;
+				if (p < param) {
+					param = p;
+					num = new_num;
+				}
+
+			} else if (o instanceof Field) {
+				// param = 2;
+				// num = new_num;
+				Field f = (Field) o;
+				int p = 0;
+				if (!Modifier.isStatic(f.getModifiers()))
+					p++;
+				if (p < param) {
+					param = p;
+					num = new_num;
+				}
+
 			}
 		}
 		return choice.get(num);
@@ -639,6 +642,10 @@ public class StaticTestCluster extends TestCluster {
 			logger.debug("Skipping deprecated class " + c.getName());
 			return false;
 		}
+		if (c.getName().startsWith("com.sun") || c.getName().startsWith("sun.misc")) {
+			logger.debug("Skipping restricted class " + c.getName());
+			return false;
+		}
 
 		/*
 		 * if(Modifier.isAbstract(c.getModifiers())) return false;
@@ -740,7 +747,14 @@ public class StaticTestCluster extends TestCluster {
 			// return false;//handled here to avoid printing reasons
 		}
 
+		/*
 		if (m.getDeclaringClass().equals(java.lang.Enum.class)) {
+			return false;
+		}
+		*/
+		if (m.getDeclaringClass().isEnum()
+		        && (m.getName().equals("valueOf") || m.getName().equals("values"))) {
+			logger.debug("Excluding valueOf for Enum " + m.toString());
 			return false;
 		}
 
@@ -1659,7 +1673,9 @@ public class StaticTestCluster extends TestCluster {
 	 */
 	@Override
 	public void resetStaticClasses() {
-		ExecutionTracer.disable();
+		boolean tracerEnabled = ExecutionTracer.isEnabled();
+		if (tracerEnabled)
+			ExecutionTracer.disable();
 		for (Method m : static_initializers) {
 			// TODO: Which classes need to be reset? All?
 			if (!m.getDeclaringClass().equals(Properties.getTargetClass()))
@@ -1679,7 +1695,8 @@ public class StaticTestCluster extends TestCluster {
 			}
 			;
 		}
-		ExecutionTracer.enable();
+		if (tracerEnabled)
+			ExecutionTracer.enable();
 	}
 
 	/**
@@ -1895,6 +1912,16 @@ public class StaticTestCluster extends TestCluster {
 		testCalls.addAll(test_constructors);
 		testCalls.addAll(test_methods);
 		return testCalls;
+	}
+
+	/* (non-Javadoc)
+	 * @see de.unisb.cs.st.evosuite.testcase.TestCluster#addTestCalls(java.lang.reflect.AccessibleObject)
+	 */
+	@Override
+	public void addTestCall(AccessibleObject call) {
+		// For now, assume it is a method
+		assert (call instanceof Method);
+		test_methods.add((Method) call);
 	}
 
 	/*

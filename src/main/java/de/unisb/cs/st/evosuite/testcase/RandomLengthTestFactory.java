@@ -1,5 +1,6 @@
-/*
- * Copyright (C) 2010 Saarland University
+/**
+ * Copyright (C) 2011,2012 Gordon Fraser, Andrea Arcuri and EvoSuite
+ * contributors
  * 
  * This file is part of EvoSuite.
  * 
@@ -12,10 +13,9 @@
  * WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS FOR
  * A PARTICULAR PURPOSE. See the GNU Lesser Public License for more details.
  * 
- * You should have received a copy of the GNU Lesser Public License along with
+ * You should have received a copy of the GNU Public License along with
  * EvoSuite. If not, see <http://www.gnu.org/licenses/>.
  */
-
 package de.unisb.cs.st.evosuite.testcase;
 
 import org.slf4j.Logger;
@@ -41,7 +41,9 @@ public class RandomLengthTestFactory implements ChromosomeFactory<TestChromosome
 	 * @param size
 	 */
 	private TestCase getRandomTestCase(int size) {
-		ExecutionTracer.disable();
+		boolean tracerEnabled = ExecutionTracer.isEnabled();
+		if (tracerEnabled)
+			ExecutionTracer.disable();
 
 		TestCase test = getNewTestCase();
 		int num = 0;
@@ -61,7 +63,8 @@ public class RandomLengthTestFactory implements ChromosomeFactory<TestChromosome
 		if (logger.isDebugEnabled())
 			logger.debug("Randomized test case:" + test.toCode());
 
-		ExecutionTracer.enable();
+		if (tracerEnabled)
+			ExecutionTracer.enable();
 
 		return test;
 	}

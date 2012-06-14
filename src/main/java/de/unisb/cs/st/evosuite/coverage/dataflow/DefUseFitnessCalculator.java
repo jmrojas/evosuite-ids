@@ -1,3 +1,20 @@
+/**
+ * Copyright (C) 2011,2012 Gordon Fraser, Andrea Arcuri and EvoSuite contributors
+ *
+ * This file is part of EvoSuite.
+ *
+ * EvoSuite is free software: you can redistribute it and/or modify it under the
+ * terms of the GNU Lesser Public License as published by the Free Software
+ * Foundation, either version 3 of the License, or (at your option) any later
+ * version.
+ *
+ * EvoSuite is distributed in the hope that it will be useful, but WITHOUT ANY
+ * WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS FOR
+ * A PARTICULAR PURPOSE. See the GNU Lesser Public License for more details.
+ *
+ * You should have received a copy of the GNU Public License along with
+ * EvoSuite. If not, see <http://www.gnu.org/licenses/>.
+ */
 package de.unisb.cs.st.evosuite.coverage.dataflow;
 
 import java.util.HashMap;
@@ -37,8 +54,6 @@ public class DefUseFitnessCalculator {
 	private static Logger logger = LoggerFactory
 			.getLogger(DefUseFitnessCalculator.class);
 
-	// alternative fitness calculation - experiment failed
-	public static final boolean ENABLE_ALTERNATIVE_FITNESS_CALCULATION = Properties.ENABLE_ALTERNATIVE_FITNESS_CALCULATION;
 
 	// if alternative fitness calculation is disabled ignore the following
 	// valid modes: "sum", "min", "max", "avg", "single"
@@ -51,7 +66,7 @@ public class DefUseFitnessCalculator {
 	// ensure alternative fitness configuration is valid
 	static {
 		if (Properties.CRITERION == Criterion.DEFUSE)
-			if (ENABLE_ALTERNATIVE_FITNESS_CALCULATION) {
+			if (Properties.ENABLE_ALTERNATIVE_FITNESS_CALCULATION) {
 				System.out.println("* Alternative fitness calculation enabled");
 				// + Properties.ALTERNATIVE_FITNESS_CALCULATION_MODE);
 //				if (!Properties.ALTERNATIVE_FITNESS_CALCULATION_MODE
@@ -236,7 +251,7 @@ public class DefUseFitnessCalculator {
 					goal.setCovered(individual, objectTrace, objectId);
 				return 0.0;
 			} else {
-				if (ENABLE_ALTERNATIVE_FITNESS_CALCULATION) {
+				if (Properties.ENABLE_ALTERNATIVE_FITNESS_CALCULATION) {
 					
 					long start = System.currentTimeMillis();
 					

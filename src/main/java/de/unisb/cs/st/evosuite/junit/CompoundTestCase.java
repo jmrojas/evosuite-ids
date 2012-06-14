@@ -1,3 +1,20 @@
+/**
+ * Copyright (C) 2011,2012 Gordon Fraser, Andrea Arcuri and EvoSuite contributors
+ *
+ * This file is part of EvoSuite.
+ *
+ * EvoSuite is free software: you can redistribute it and/or modify it under the
+ * terms of the GNU Lesser Public License as published by the Free Software
+ * Foundation, either version 3 of the License, or (at your option) any later
+ * version.
+ *
+ * EvoSuite is distributed in the hope that it will be useful, but WITHOUT ANY
+ * WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS FOR
+ * A PARTICULAR PURPOSE. See the GNU Lesser Public License for more details.
+ *
+ * You should have received a copy of the GNU Public License along with
+ * EvoSuite. If not, see <http://www.gnu.org/licenses/>.
+ */
 package de.unisb.cs.st.evosuite.junit;
 
 import java.lang.reflect.Type;
@@ -61,6 +78,14 @@ public class CompoundTestCase implements TestCase {
 	@Override
 	public void addListener(Listener<Void> listener) {
 		listeners.add(listener);
+	}
+
+	/* (non-Javadoc)
+	 * @see de.unisb.cs.st.evosuite.testcase.TestCase#clearCoveredGoals()
+	 */
+	@Override
+	public void clearCoveredGoals() {
+		delegate.clearCoveredGoals();
 	}
 
 	@Override
@@ -191,6 +216,12 @@ public class CompoundTestCase implements TestCase {
 	public VariableReference getRandomObject(Type type, int position)
 	        throws ConstructionFailedException {
 		return delegate.getRandomObject(type, position);
+	}
+
+	@Override
+	public VariableReference getRandomNonNullObject(Type type, int position)
+	        throws ConstructionFailedException {
+		return delegate.getRandomNonNullObject(type, position);
 	}
 
 	@Override
@@ -347,5 +378,23 @@ public class CompoundTestCase implements TestCase {
 	public Set<VariableReference> getDependencies(VariableReference var) {
 		// TODO Auto-generated method stub
 		return null;
+	}
+
+	/* (non-Javadoc)
+	 * @see de.unisb.cs.st.evosuite.testcase.TestCase#getAccessedFiles()
+	 */
+	@Override
+	public List<String> getAccessedFiles() {
+		// TODO Auto-generated method stub
+		return null;
+	}
+
+	/* (non-Javadoc)
+	 * @see de.unisb.cs.st.evosuite.testcase.TestCase#setAccessedFiles(java.util.List)
+	 */
+	@Override
+	public void setAccessedFiles(List<String> files) {
+		// TODO Auto-generated method stub
+
 	}
 }

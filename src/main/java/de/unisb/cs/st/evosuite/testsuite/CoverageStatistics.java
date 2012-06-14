@@ -1,3 +1,20 @@
+/**
+ * Copyright (C) 2011,2012 Gordon Fraser, Andrea Arcuri and EvoSuite contributors
+ *
+ * This file is part of EvoSuite.
+ *
+ * EvoSuite is free software: you can redistribute it and/or modify it under the
+ * terms of the GNU Lesser Public License as published by the Free Software
+ * Foundation, either version 3 of the License, or (at your option) any later
+ * version.
+ *
+ * EvoSuite is distributed in the hope that it will be useful, but WITHOUT ANY
+ * WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS FOR
+ * A PARTICULAR PURPOSE. See the GNU Lesser Public License for more details.
+ *
+ * You should have received a copy of the GNU Public License along with
+ * EvoSuite. If not, see <http://www.gnu.org/licenses/>.
+ */
 package de.unisb.cs.st.evosuite.testsuite;
 
 import java.io.BufferedWriter;
@@ -17,9 +34,12 @@ import de.unisb.cs.st.evosuite.TestSuiteGenerator;
 import de.unisb.cs.st.evosuite.Properties.Criterion;
 import de.unisb.cs.st.evosuite.Properties.Strategy;
 import de.unisb.cs.st.evosuite.coverage.dataflow.DefUseCoverageSuiteFitness;
+import de.unisb.cs.st.evosuite.coverage.dataflow.DefUseCoverageTestFitness;
+import de.unisb.cs.st.evosuite.coverage.dataflow.DefUseCoverageTestFitness.DefUsePairType;
 import de.unisb.cs.st.evosuite.ga.ChromosomeFactory;
 import de.unisb.cs.st.evosuite.testcase.TestCase;
 import de.unisb.cs.st.evosuite.testcase.TestChromosome;
+import de.unisb.cs.st.evosuite.utils.LoggingUtils;
 import de.unisb.cs.st.evosuite.utils.ReportGenerator;
 import de.unisb.cs.st.evosuite.utils.ReportGenerator.StatisticEntry;
 
@@ -39,18 +59,18 @@ public class CoverageStatistics {
 	protected static String outputFile = REPORT_DIR.getAbsolutePath()
 			+ "/coverage.csv";
 
-	public static Criterion[] supportedCriteria = { Criterion.DEFUSE, Criterion.ALLDEFS,
-			Criterion.BRANCH, Criterion.STATEMENT };
+	public static Criterion[] supportedCriteria = { Criterion.DEFUSE,
+			Criterion.ALLDEFS, Criterion.BRANCH, Criterion.STATEMENT };
 
 	public static void analyzeCoverage(TestSuiteChromosome best) {
 
 		rememberTests(best.getTests());
 
-		System.out.println("* Measured Coverage:");
+		LoggingUtils.getEvoLogger().info("* Measured Coverage:");
 
 		for (Criterion criterion : supportedCriteria) {
 			TestSuiteFitnessFunction fitness = getFitness(criterion, best);
-			System.out.println("\t- "
+			LoggingUtils.getEvoLogger().info("\t- "
 					+ criterion
 					+ ": "
 					+ NumberFormat.getPercentInstance().format(
@@ -115,13 +135,13 @@ public class CoverageStatistics {
 
 				DefUseCoverageSuiteFitness duCoverage = defuseCoverage
 						.get(testCoverage);
-				out.write(duCoverage.coveredParamGoals + ",");
-				out.write(DefUseCoverageSuiteFitness.totalParamGoals + ",");
-				out.write(duCoverage.coveredIntraGoals + ",");
-				out.write(DefUseCoverageSuiteFitness.totalIntraGoals + ",");
-				out.write(duCoverage.coveredInterGoals + ",");
-				out.write(DefUseCoverageSuiteFitness.totalInterGoals + ",");
-
+				
+				for (DefUsePairType type : DefUseCoverageTestFitness.DefUsePairType
+						.values()) {
+					out.write(duCoverage.coveredGoals.get(type) + ",");
+					out.write(DefUseCoverageSuiteFitness.totalGoals.get(type) + ",");
+				}
+				
 				double combined = combinedCoverages.get(testCoverage);
 				out.write(formatCoverage(combined) + ",");
 				out.write(formatCoverage(combined
@@ -129,9 +149,10 @@ public class CoverageStatistics {
 						+ ",");
 
 				duCoverage = defuseCoverage.get(Criterion.ANALYZE);
-				out.write(duCoverage.coveredParamGoals + ",");
-				out.write(duCoverage.coveredIntraGoals + ",");
-				out.write(duCoverage.coveredInterGoals + ",");
+				for (DefUsePairType type : DefUseCoverageTestFitness.DefUsePairType
+						.values()) {
+					out.write(duCoverage.coveredGoals.get(type) + ",");
+				}
 
 				if (Properties.STRATEGY == Strategy.EVOSUITE)
 					out.write("suite,");
@@ -187,11 +208,22 @@ public class CoverageStatistics {
 		StatisticEntry dummyStat = SearchStatistics.getInstance()
 				.getLastStatisticEntry();
 
-		return "Class,TestCriterion,DefUse-Coverage,AllDefs-Coverage,Branch-Coverage,Statement-Coverage,"
-				+ "Covered param goals,Total param goals,Covered intra goals,Total intra goals,Covered inter goals,Total inter goals,"
-				+ "Combined-Coverage,Combined-Boost,Combined param goals,Combined intra goals,Combined inter goals,"
-				+ "Mode,Stopping Condition,Global Time,Timed Out,"
-				+ dummyStat.getCSVHeader();
+		String r = "Class,TestCriterion,DefUse-Coverage,AllDefs-Coverage,Branch-Coverage,Statement-Coverage,";
+
+		for (DefUsePairType type : DefUseCoverageTestFitness.DefUsePairType
+				.values()) {
+			r += "Covered " + type + " goals,";
+			r += "Total " + type + " goals,";
+		}
+		r += "Combined-Coverage,Combined-Boost,";
+		for (DefUsePairType type : DefUseCoverageTestFitness.DefUsePairType
+				.values()) {
+			r += "Combined " + type + " goals,";
+		}
+		r += "Mode,Stopping Condition,Global Time,Timed Out,";
+		r += dummyStat.getCSVHeader();
+
+		return r;
 	}
 
 	private static void setStatisticEntry(StatisticEntry lastStatisticEntry) {

@@ -1,21 +1,20 @@
-/*
- * Copyright (C) 2010 Saarland University
- * 
+/**
+ * Copyright (C) 2011,2012 Gordon Fraser, Andrea Arcuri and EvoSuite contributors
+ *
  * This file is part of EvoSuite.
- * 
+ *
  * EvoSuite is free software: you can redistribute it and/or modify it under the
  * terms of the GNU Lesser Public License as published by the Free Software
  * Foundation, either version 3 of the License, or (at your option) any later
  * version.
- * 
+ *
  * EvoSuite is distributed in the hope that it will be useful, but WITHOUT ANY
  * WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS FOR
  * A PARTICULAR PURPOSE. See the GNU Lesser Public License for more details.
- * 
- * You should have received a copy of the GNU Lesser Public License along with
+ *
+ * You should have received a copy of the GNU Public License along with
  * EvoSuite. If not, see <http://www.gnu.org/licenses/>.
  */
-
 package de.unisb.cs.st.evosuite.testcase;
 
 import java.io.PrintStream;
@@ -34,9 +33,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import de.unisb.cs.st.evosuite.Properties;
-import de.unisb.cs.st.evosuite.Properties.Criterion;
 import de.unisb.cs.st.evosuite.contracts.ContractChecker;
-import de.unisb.cs.st.evosuite.coverage.concurrency.ConcurrentTestRunnable;
 import de.unisb.cs.st.evosuite.ga.stoppingconditions.MaxStatementsStoppingCondition;
 import de.unisb.cs.st.evosuite.ga.stoppingconditions.MaxTestsStoppingCondition;
 import de.unisb.cs.st.evosuite.sandbox.PermissionStatistics;
@@ -50,6 +47,11 @@ import de.unisb.cs.st.evosuite.sandbox.Sandbox;
  * 
  */
 public class TestCaseExecutor implements ThreadFactory {
+
+	/**
+	 * Used to identify the threads spawn by the SUT
+	 */
+	public static final String TEST_EXECUTION_THREAD_GROUP = "Test Execution";
 
 	private static final Logger logger = LoggerFactory.getLogger(TestCaseExecutor.class);
 
@@ -74,7 +76,7 @@ public class TestCaseExecutor implements ThreadFactory {
 
 	public static int testsExecuted = 0;
 
-	public static TestCaseExecutor getInstance() {
+	public static synchronized TestCaseExecutor getInstance() {
 		if (instance == null)
 			instance = new TestCaseExecutor();
 
@@ -181,11 +183,24 @@ public class TestCaseExecutor implements ThreadFactory {
 		}
 	}
 
+	/**
+	 * Execute a test case on a new scope
+	 * 
+	 * @param tc
+	 * @return
+	 */
 	public ExecutionResult execute(TestCase tc) {
 		Scope scope = new Scope();
 		return execute(tc, scope);
 	}
 
+	/**
+	 * Execute a test case on an existing scope
+	 * 
+	 * @param tc
+	 * @param scope
+	 * @return
+	 */
 	@SuppressWarnings("deprecation")
 	public ExecutionResult execute(TestCase tc, Scope scope) {
 		ExecutionTracer.getExecutionTracer().clear();
@@ -201,12 +216,8 @@ public class TestCaseExecutor implements ThreadFactory {
 		TimeoutHandler<ExecutionResult> handler = new TimeoutHandler<ExecutionResult>();
 
 		//#TODO steenbuck could be nicer (TestRunnable should be an interface
-		InterfaceTestRunnable callable;
-		if (Properties.CRITERION == Criterion.CONCURRENCY) {
-			callable = new ConcurrentTestRunnable(tc, scope, observers);
-		} else {
-			callable = new TestRunnable(tc, scope, observers);
-		}
+		InterfaceTestRunnable callable = new TestRunnable(tc, scope, observers);
+
 		//FutureTask<ExecutionResult> task = new FutureTask<ExecutionResult>(callable);
 		//executor.execute(task);
 
@@ -219,20 +230,12 @@ public class TestCaseExecutor implements ThreadFactory {
 			long endTime = System.currentTimeMillis();
 			timeExecuted += endTime - startTime;
 			testsExecuted++;
-
-			if (!result.exceptions.isEmpty()) {
-				Throwable e = result.exceptions.values().iterator().next();
-				if (e instanceof ThreadDeath) {
-					logger.warn("THREAD DEATH!");
-				}
-			}
-
 			return result;
 		} catch (ThreadDeath t) {
 			logger.warn("Caught ThreadDeath during test execution");
 			Sandbox.tearDownEverything();
 			ExecutionResult result = new ExecutionResult(tc, null);
-			result.exceptions = callable.getExceptionsThrown();
+			result.setThrownExceptions(callable.getExceptionsThrown());
 			result.setTrace(ExecutionTracer.getExecutionTracer().getTrace());
 			ExecutionTracer.getExecutionTracer().clear();
 			return result;
@@ -241,7 +244,7 @@ public class TestCaseExecutor implements ThreadFactory {
 			Sandbox.tearDownEverything();
 			logger.info("InterruptedException");
 			ExecutionResult result = new ExecutionResult(tc, null);
-			result.exceptions = callable.getExceptionsThrown();
+			result.setThrownExceptions(callable.getExceptionsThrown());
 			result.setTrace(ExecutionTracer.getExecutionTracer().getTrace());
 			ExecutionTracer.getExecutionTracer().clear();
 			return result;
@@ -256,7 +259,7 @@ public class TestCaseExecutor implements ThreadFactory {
 			logger.error("ExecutionException (this is likely a serious error in the framework)",
 			             e1);
 			ExecutionResult result = new ExecutionResult(tc, null);
-			result.exceptions = callable.getExceptionsThrown();
+			result.setThrownExceptions(callable.getExceptionsThrown());
 			result.setTrace(ExecutionTracer.getExecutionTracer().getTrace());
 			ExecutionTracer.getExecutionTracer().clear();
 			if (e1.getCause() instanceof Error) { //an error was thrown somewhere in evosuite code
@@ -335,8 +338,9 @@ public class TestCaseExecutor implements ThreadFactory {
 			ExecutionTracer.disable();
 
 			ExecutionResult result = new ExecutionResult(tc, null);
-			result.exceptions = callable.getExceptionsThrown();
-			result.exceptions.put(tc.size(), new TestCaseExecutor.TimeoutExceeded());
+			result.setThrownExceptions(callable.getExceptionsThrown());
+			result.reportNewThrownException(tc.size(),
+			                                new TestCaseExecutor.TimeoutExceeded());
 			result.setTrace(ExecutionTracer.getExecutionTracer().getTrace());
 			ExecutionTracer.getExecutionTracer().clear();
 			ExecutionTracer.setKillSwitch(false);
@@ -374,7 +378,7 @@ public class TestCaseExecutor implements ThreadFactory {
 		if (threadGroup != null) {
 			PermissionStatistics.getInstance().countThreads(threadGroup.activeCount());
 		}
-		threadGroup = new ThreadGroup("Test Execution");
+		threadGroup = new ThreadGroup(TEST_EXECUTION_THREAD_GROUP);
 		currentThread = new Thread(threadGroup, r);
 		currentThread.setContextClassLoader(TestCluster.classLoader);
 		ExecutionTracer.setThread(currentThread);

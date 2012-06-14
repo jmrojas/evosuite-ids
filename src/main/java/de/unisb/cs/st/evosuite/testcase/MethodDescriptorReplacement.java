@@ -1,21 +1,20 @@
-/*
- * Copyright (C) 2010 Saarland University
- * 
+/**
+ * Copyright (C) 2011,2012 Gordon Fraser, Andrea Arcuri and EvoSuite contributors
+ *
  * This file is part of EvoSuite.
- * 
+ *
  * EvoSuite is free software: you can redistribute it and/or modify it under the
  * terms of the GNU Lesser Public License as published by the Free Software
  * Foundation, either version 3 of the License, or (at your option) any later
  * version.
- * 
+ *
  * EvoSuite is distributed in the hope that it will be useful, but WITHOUT ANY
  * WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS FOR
  * A PARTICULAR PURPOSE. See the GNU Lesser Public License for more details.
- * 
- * You should have received a copy of the GNU Lesser Public License along with
+ *
+ * You should have received a copy of the GNU Public License along with
  * EvoSuite. If not, see <http://www.gnu.org/licenses/>.
  */
-
 package de.unisb.cs.st.evosuite.testcase;
 
 import java.io.File;
@@ -46,7 +45,7 @@ public class MethodDescriptorReplacement implements Serializable {
 	private static final long serialVersionUID = -2324044891555746456L;
 
 	/** Singleton instance */
-	private static MethodDescriptorReplacement instance = null;
+	//private static MethodDescriptorReplacement instance = null;
 
 	private static Logger logger = LoggerFactory.getLogger(MethodDescriptorReplacement.class);
 
@@ -62,8 +61,16 @@ public class MethodDescriptorReplacement implements Serializable {
 	/**
 	 * Private constructor
 	 */
-	private MethodDescriptorReplacement() {
+	public MethodDescriptorReplacement() {
+		// reset();
 		getDescriptorMapping();
+	}
+
+	public void reset() {
+		descriptors.clear();
+		return_types.clear();
+		return_types.clear();
+		constructor_parameters.clear();
 	}
 
 	/**
@@ -71,12 +78,14 @@ public class MethodDescriptorReplacement implements Serializable {
 	 * 
 	 * @return
 	 */
+	/*
 	public static MethodDescriptorReplacement getInstance() {
 		if (instance == null)
 			instance = new MethodDescriptorReplacement();
 
 		return instance;
 	}
+	*/
 
 	/**
 	 * Check if we need to change anything here
@@ -87,9 +96,6 @@ public class MethodDescriptorReplacement implements Serializable {
 	 * @return
 	 */
 	public boolean hasKey(String className, String methodName, String descriptor) {
-		//if(!descriptors.containsKey(className))
-		//	return false;
-
 		return descriptors.containsKey(className + "." + methodName + descriptor);
 	}
 
@@ -292,7 +298,7 @@ public class MethodDescriptorReplacement implements Serializable {
 		//File file = new File(MutationProperties.OUTPUT_DIR+"/"+className+".obj");
 		File dir = new File(Properties.OUTPUT_DIR);
 		assert dir.exists() : "OutputDir '" + dir + "' does not exist!";
-		
+
 		FilenameFilter filter = new FilenameFilter() {
 			@Override
 			public boolean accept(File dir, String name) {
@@ -317,7 +323,8 @@ public class MethodDescriptorReplacement implements Serializable {
 				if (parameters.length == 2) {
 					if (!parameters[0].endsWith(parameters[1])) {
 						descriptors.put(parameters[0], parameters[1]);
-						logger.debug("Adding descriptor for class " + parameters[0]);
+						logger.debug("Adding descriptor for class " + parameters[0]
+						        + " -> " + parameters[1]);
 					}
 				}
 			}

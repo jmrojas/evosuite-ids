@@ -1,4 +1,21 @@
 /**
+ * Copyright (C) 2011,2012 Gordon Fraser, Andrea Arcuri and EvoSuite contributors
+ *
+ * This file is part of EvoSuite.
+ *
+ * EvoSuite is free software: you can redistribute it and/or modify it under the
+ * terms of the GNU Lesser Public License as published by the Free Software
+ * Foundation, either version 3 of the License, or (at your option) any later
+ * version.
+ *
+ * EvoSuite is distributed in the hope that it will be useful, but WITHOUT ANY
+ * WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS FOR
+ * A PARTICULAR PURPOSE. See the GNU Lesser Public License for more details.
+ *
+ * You should have received a copy of the GNU Public License along with
+ * EvoSuite. If not, see <http://www.gnu.org/licenses/>.
+ */
+/**
  * 
  */
 package de.unisb.cs.st.evosuite.cfg.instrumentation.mutation;
@@ -16,6 +33,7 @@ import org.objectweb.asm.tree.LabelNode;
 import org.objectweb.asm.tree.LdcInsnNode;
 import org.objectweb.asm.tree.MethodInsnNode;
 import org.objectweb.asm.tree.MethodNode;
+import org.objectweb.asm.tree.analysis.Frame;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -36,7 +54,7 @@ public class DeleteStatement implements MutationOperator {
 	 */
 	@Override
 	public List<Mutation> apply(MethodNode mn, String className, String methodName,
-	        BytecodeInstruction instruction) {
+	        BytecodeInstruction instruction, Frame frame) {
 
 		List<Mutation> mutations = new LinkedList<Mutation>();
 
@@ -51,14 +69,14 @@ public class DeleteStatement implements MutationOperator {
 				logger.info("Ignoring parameter of type " + argType);
 			else if (argType.getSize() == 2) {
 				mutation.insert(new InsnNode(Opcodes.POP2));
-				logger.info("Deleting parameter of 2 type " + argType);
+				logger.debug("Deleting parameter of 2 type " + argType);
 			} else {
-				logger.info("Deleting parameter of 1 type " + argType);
+				logger.debug("Deleting parameter of 1 type " + argType);
 				mutation.insert(new InsnNode(Opcodes.POP));
 			}
 		}
 		if (node.getOpcode() == Opcodes.INVOKEVIRTUAL) {
-			logger.info("Deleting callee of type " + node.owner);
+			logger.debug("Deleting callee of type " + node.owner);
 			mutation.add(new InsnNode(Opcodes.POP));
 		} else if (node.getOpcode() == Opcodes.INVOKEINTERFACE) {
 			boolean isStatic = false;

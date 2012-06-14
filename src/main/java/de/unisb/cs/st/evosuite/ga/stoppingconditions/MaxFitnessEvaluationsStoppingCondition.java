@@ -1,21 +1,20 @@
-/*
- * Copyright (C) 2010 Saarland University
- * 
- * This file is part of the GA library.
- * 
- * GA is free software: you can redistribute it and/or modify it under the terms
- * of the GNU Lesser Public License as published by the Free Software
+/**
+ * Copyright (C) 2011,2012 Gordon Fraser, Andrea Arcuri and EvoSuite contributors
+ *
+ * This file is part of EvoSuite.
+ *
+ * EvoSuite is free software: you can redistribute it and/or modify it under the
+ * terms of the GNU Lesser Public License as published by the Free Software
  * Foundation, either version 3 of the License, or (at your option) any later
  * version.
- * 
- * GA is distributed in the hope that it will be useful, but WITHOUT ANY
+ *
+ * EvoSuite is distributed in the hope that it will be useful, but WITHOUT ANY
  * WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS FOR
  * A PARTICULAR PURPOSE. See the GNU Lesser Public License for more details.
- * 
- * You should have received a copy of the GNU Lesser Public License along with
- * GA. If not, see <http://www.gnu.org/licenses/>.
+ *
+ * You should have received a copy of the GNU Public License along with
+ * EvoSuite. If not, see <http://www.gnu.org/licenses/>.
  */
-
 package de.unisb.cs.st.evosuite.ga.stoppingconditions;
 
 import de.unisb.cs.st.evosuite.Properties;
@@ -35,7 +34,7 @@ public class MaxFitnessEvaluationsStoppingCondition extends StoppingConditionImp
 	private static final long serialVersionUID = 208241490252275613L;
 
 	/** Maximum number of evaluations */
-	protected long max_evaluations = Properties.GENERATIONS;
+	protected long max_evaluations = Properties.SEARCH_BUDGET;
 
 	/** Maximum number of iterations */
 	protected static long current_evaluation = 0;

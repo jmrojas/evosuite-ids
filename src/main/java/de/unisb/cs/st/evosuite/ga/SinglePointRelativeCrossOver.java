@@ -1,21 +1,20 @@
-/*
- * Copyright (C) 2010 Saarland University
- * 
- * This file is part of the GA library.
- * 
- * GA is free software: you can redistribute it and/or modify it under the terms
- * of the GNU Lesser Public License as published by the Free Software
+/**
+ * Copyright (C) 2011,2012 Gordon Fraser, Andrea Arcuri and EvoSuite contributors
+ *
+ * This file is part of EvoSuite.
+ *
+ * EvoSuite is free software: you can redistribute it and/or modify it under the
+ * terms of the GNU Lesser Public License as published by the Free Software
  * Foundation, either version 3 of the License, or (at your option) any later
  * version.
- * 
- * GA is distributed in the hope that it will be useful, but WITHOUT ANY
+ *
+ * EvoSuite is distributed in the hope that it will be useful, but WITHOUT ANY
  * WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS FOR
  * A PARTICULAR PURPOSE. See the GNU Lesser Public License for more details.
- * 
- * You should have received a copy of the GNU Lesser Public License along with
- * GA. If not, see <http://www.gnu.org/licenses/>.
+ *
+ * You should have received a copy of the GNU Public License along with
+ * EvoSuite. If not, see <http://www.gnu.org/licenses/>.
  */
-
 package de.unisb.cs.st.evosuite.ga;
 
 import de.unisb.cs.st.evosuite.utils.Randomness;
@@ -47,13 +46,13 @@ public class SinglePointRelativeCrossOver extends CrossOverFunction {
 		Chromosome t1 = parent1.clone();
 		Chromosome t2 = parent2.clone();
 		// Choose a position in the middle
-		float split_point = Randomness.nextFloat();
+		float splitPoint = Randomness.nextFloat();
 
-		int pos1 = ((int)Math.floor((t1.size()-1) * split_point)) + 1;
-		int pos2 = ((int)Math.floor((t2.size()-1) * split_point)) + 1;
-		
-		parent1.crossOver(t2, pos1,pos2);
-		parent2.crossOver(t1, pos2,pos1);
+		int pos1 = ((int) Math.floor((t1.size() - 1) * splitPoint)) + 1;
+		int pos2 = ((int) Math.floor((t2.size() - 1) * splitPoint)) + 1;
+
+		parent1.crossOver(t2, pos1, pos2);
+		parent2.crossOver(t1, pos2, pos1);
 	}
 
 }

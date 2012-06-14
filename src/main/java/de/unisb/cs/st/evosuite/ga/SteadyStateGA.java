@@ -1,28 +1,26 @@
-/*
- * Copyright (C) 2010 Saarland University
- * 
- * This file is part of the GA library.
- * 
- * GA is free software: you can redistribute it and/or modify it under the terms
- * of the GNU Lesser Public License as published by the Free Software
+/**
+ * Copyright (C) 2011,2012 Gordon Fraser, Andrea Arcuri and EvoSuite contributors
+ *
+ * This file is part of EvoSuite.
+ *
+ * EvoSuite is free software: you can redistribute it and/or modify it under the
+ * terms of the GNU Lesser Public License as published by the Free Software
  * Foundation, either version 3 of the License, or (at your option) any later
  * version.
- * 
- * GA is distributed in the hope that it will be useful, but WITHOUT ANY
+ *
+ * EvoSuite is distributed in the hope that it will be useful, but WITHOUT ANY
  * WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS FOR
  * A PARTICULAR PURPOSE. See the GNU Lesser Public License for more details.
- * 
- * You should have received a copy of the GNU Lesser Public License along with
- * GA. If not, see <http://www.gnu.org/licenses/>.
+ *
+ * You should have received a copy of the GNU Public License along with
+ * EvoSuite. If not, see <http://www.gnu.org/licenses/>.
  */
-
 package de.unisb.cs.st.evosuite.ga;
 
 import java.util.ArrayList;
 import java.util.List;
 
 import de.unisb.cs.st.evosuite.Properties;
-
 import de.unisb.cs.st.evosuite.ma.Connector;
 import de.unisb.cs.st.evosuite.utils.Randomness;
 
@@ -39,7 +37,7 @@ public class SteadyStateGA extends GeneticAlgorithm {
 	protected ReplacementFunction replacement_function;
 
 	private final org.slf4j.Logger logger = org.slf4j.LoggerFactory.getLogger(SteadyStateGA.class);
-	
+
 	/**
 	 * Constructor
 	 * 
@@ -48,18 +46,12 @@ public class SteadyStateGA extends GeneticAlgorithm {
 	public SteadyStateGA(ChromosomeFactory<? extends Chromosome> factory) {
 		super(factory);
 
-		setReplacementFunction(new FitnessReplacementFunction(selectionFunction));
+		setReplacementFunction(new FitnessReplacementFunction());
 	}
 
 	protected boolean keepOffspring(Chromosome parent1, Chromosome parent2,
 	        Chromosome offspring1, Chromosome offspring2) {
-		//return replacement_function.keepOffspring(parent1, parent2, offspring1,
-		//                                          offspring2);
-
-		return (isBetterOrEqual(offspring1, parent1) && isBetterOrEqual(offspring1,
-		                                                                parent2))
-		        || (isBetterOrEqual(offspring2, parent1) && isBetterOrEqual(offspring2,
-		                                                                    parent2));
+		return replacement_function.keepOffspring(parent1, parent2, offspring1, offspring2);
 	}
 
 	@Override
@@ -67,11 +59,8 @@ public class SteadyStateGA extends GeneticAlgorithm {
 		List<Chromosome> newGeneration = new ArrayList<Chromosome>();
 
 		// Elitism
-		logger.info("Elitism");
+		logger.debug("Elitism");
 		newGeneration.addAll(elitism());
-		
-		logger.info("New generation size = " + newGeneration.size());
-		logger.info("Old generation size = " + this.population.size());
 
 		// Add random elements
 		// new_generation.addAll(randomism());
@@ -196,7 +185,7 @@ public class SteadyStateGA extends GeneticAlgorithm {
 			logger.info("Best individual has fitness: " + population.get(0).getFitness());
 			logger.info("Worst individual has fitness: "
 			        + population.get(population.size() - 1).getFitness());
-			
+
 			if (Properties.MA_ACTIVE) {
 				// call manual algorithm
 				Connector.externalCall(this);

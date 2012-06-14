@@ -1,21 +1,20 @@
-/*
- * Copyright (C) 2010 Saarland University
- * 
+/**
+ * Copyright (C) 2011,2012 Gordon Fraser, Andrea Arcuri and EvoSuite contributors
+ *
  * This file is part of EvoSuite.
- * 
+ *
  * EvoSuite is free software: you can redistribute it and/or modify it under the
  * terms of the GNU Lesser Public License as published by the Free Software
  * Foundation, either version 3 of the License, or (at your option) any later
  * version.
- * 
+ *
  * EvoSuite is distributed in the hope that it will be useful, but WITHOUT ANY
  * WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS FOR
  * A PARTICULAR PURPOSE. See the GNU Lesser Public License for more details.
- * 
- * You should have received a copy of the GNU Lesser Public License along with
+ *
+ * You should have received a copy of the GNU Public License along with
  * EvoSuite. If not, see <http://www.gnu.org/licenses/>.
  */
-
 package de.unisb.cs.st.evosuite.coverage.lcsaj;
 
 import de.unisb.cs.st.evosuite.Properties;
@@ -69,7 +68,7 @@ public class LCSAJCoverageTestFitness extends TestFitnessFunction {
 		logger.debug("Evaluating fitness for " + lcsaj);
 
 		// for all method calls:
-		for (MethodCall call : result.getTrace().finished_calls) {
+		for (MethodCall call : result.getTrace().finishedCalls) {
 			double currentFitness = approach;
 
 			// if method call is the method of the LCSAJ

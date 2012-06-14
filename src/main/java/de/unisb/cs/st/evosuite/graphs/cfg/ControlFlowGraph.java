@@ -1,21 +1,20 @@
-/*
- * Copyright (C) 2010 Saarland University
- * 
+/**
+ * Copyright (C) 2011,2012 Gordon Fraser, Andrea Arcuri and EvoSuite contributors
+ *
  * This file is part of EvoSuite.
- * 
+ *
  * EvoSuite is free software: you can redistribute it and/or modify it under the
  * terms of the GNU Lesser Public License as published by the Free Software
  * Foundation, either version 3 of the License, or (at your option) any later
  * version.
- * 
+ *
  * EvoSuite is distributed in the hope that it will be useful, but WITHOUT ANY
  * WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS FOR
  * A PARTICULAR PURPOSE. See the GNU Lesser Public License for more details.
- * 
- * You should have received a copy of the GNU Lesser Public License along with
+ *
+ * You should have received a copy of the GNU Public License along with
  * EvoSuite. If not, see <http://www.gnu.org/licenses/>.
  */
-
 package de.unisb.cs.st.evosuite.graphs.cfg;
 
 import java.util.HashSet;
@@ -38,8 +37,8 @@ import de.unisb.cs.st.evosuite.graphs.EvoSuiteGraph;
  * cfg.ActualControlFlowGraph which is also known as the minimal CFG Look at the
  * respective classes for more detailed information
  * 
- * The CFGs can be accessed via the GraphPool which holds for each CUT and each of
- * their methods a complete and a minimal CFG
+ * The CFGs can be accessed via the GraphPool which holds for each CUT and each
+ * of their methods a complete and a minimal CFG
  * 
  * CFGs are created by the CFGGenerator during the analysis of the CUTs'
  * byteCode performed by the BytecodeAnalyzer
@@ -137,9 +136,9 @@ public abstract class ControlFlowGraph<V> extends
 	 * 
 	 * Since both takes some time this is not automatically done on each CFG
 	 * 
-	 * GraphPool will automatically call this immediately after the instantiation
-	 * of an ActualControlFlowGraph, but not after the creation of a
-	 * RawControlFlowGraph
+	 * GraphPool will automatically call this immediately after the
+	 * instantiation of an ActualControlFlowGraph, but not after the creation of
+	 * a RawControlFlowGraph
 	 */
 	public void finalise() {
 		computeDiameter();
@@ -156,8 +155,7 @@ public abstract class ControlFlowGraph<V> extends
 	 */
 	public int getDiameter() {
 		if (diameter == -1) {
-			logger
-					.debug("diameter not computed yet. calling computeDiameter() first!");
+			logger.debug("diameter not computed yet. calling computeDiameter() first!");
 			computeDiameter();
 		}
 
@@ -202,13 +200,17 @@ public abstract class ControlFlowGraph<V> extends
 	public String getMethodName() {
 		return methodName;
 	}
-	
+
 	public int getMethodAccess() {
 		return access;
 	}
-	
+
 	public boolean isPublicMethod() {
-		return (access & Opcodes.ACC_PUBLIC) == 1;
+		return (access & Opcodes.ACC_PUBLIC) == Opcodes.ACC_PUBLIC;
+	}
+
+	public boolean isStaticMethod() {
+		return (access & Opcodes.ACC_STATIC) == Opcodes.ACC_STATIC;
 	}
 
 	@Override

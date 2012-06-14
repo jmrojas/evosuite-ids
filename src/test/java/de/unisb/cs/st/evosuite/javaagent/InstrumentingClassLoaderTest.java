@@ -1,3 +1,20 @@
+/**
+ * Copyright (C) 2011,2012 Gordon Fraser, Andrea Arcuri and EvoSuite contributors
+ *
+ * This file is part of EvoSuite.
+ *
+ * EvoSuite is free software: you can redistribute it and/or modify it under the
+ * terms of the GNU Lesser Public License as published by the Free Software
+ * Foundation, either version 3 of the License, or (at your option) any later
+ * version.
+ *
+ * EvoSuite is distributed in the hope that it will be useful, but WITHOUT ANY
+ * WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS FOR
+ * A PARTICULAR PURPOSE. See the GNU Lesser Public License for more details.
+ *
+ * You should have received a copy of the GNU Public License along with
+ * EvoSuite. If not, see <http://www.gnu.org/licenses/>.
+ */
 package de.unisb.cs.st.evosuite.javaagent;
 
 import junit.framework.Assert;
@@ -31,8 +48,8 @@ public class InstrumentingClassLoaderTest {
 		TestUtil.invokeMethod(changed, "trySomethingElse");
 		ExecutionTrace execTrace = ExecutionTracer.getExecutionTracer().getTrace();
 		execTrace = ExecutionTracer.getExecutionTracer().getTrace();
-		Assert.assertFalse(execTrace.true_distances.isEmpty());
-		Assert.assertFalse(execTrace.false_distances.isEmpty());
+		Assert.assertFalse(execTrace.trueDistances.isEmpty());
+		Assert.assertFalse(execTrace.falseDistances.isEmpty());
 		ExecutionTracer.getExecutionTracer().clear();
 	}
 
@@ -47,8 +64,8 @@ public class InstrumentingClassLoaderTest {
 		ExecutionTracer.getExecutionTracer().clear();
 		original.assess(6);
 		ExecutionTrace execTrace = ExecutionTracer.getExecutionTracer().getTrace();
-		Assert.assertTrue(execTrace.true_distances.isEmpty());
-		Assert.assertTrue(execTrace.false_distances.isEmpty());
+		Assert.assertTrue(execTrace.trueDistances.isEmpty());
+		Assert.assertTrue(execTrace.falseDistances.isEmpty());
 
 		InstrumentingClassLoader instrumentingClassLoader = new InstrumentingClassLoader();
 		Class<?> changedClass = instrumentingClassLoader.loadClass(ClassLoaderTestSubject.class.getName());
@@ -66,8 +83,8 @@ public class InstrumentingClassLoaderTest {
 		ExecutionTracer.getExecutionTracer().clear();
 		TestUtil.invokeMethod(changed, "assess", Integer.valueOf(6));
 		execTrace = ExecutionTracer.getExecutionTracer().getTrace();
-		Assert.assertFalse(execTrace.true_distances.isEmpty());
-		Assert.assertFalse(execTrace.false_distances.isEmpty());
+		Assert.assertFalse(execTrace.trueDistances.isEmpty());
+		Assert.assertFalse(execTrace.falseDistances.isEmpty());
 		ExecutionTracer.getExecutionTracer().clear();
 	}
 	

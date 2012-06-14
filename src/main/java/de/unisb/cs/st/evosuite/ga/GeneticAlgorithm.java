@@ -1,21 +1,20 @@
-/*
- * Copyright (C) 2010 Saarland University
- * 
- * This file is part of the GA library.
- * 
- * GA is free software: you can redistribute it and/or modify it under the terms
- * of the GNU Lesser Public License as published by the Free Software
+/**
+ * Copyright (C) 2011,2012 Gordon Fraser, Andrea Arcuri and EvoSuite contributors
+ *
+ * This file is part of EvoSuite.
+ *
+ * EvoSuite is free software: you can redistribute it and/or modify it under the
+ * terms of the GNU Lesser Public License as published by the Free Software
  * Foundation, either version 3 of the License, or (at your option) any later
  * version.
- * 
- * GA is distributed in the hope that it will be useful, but WITHOUT ANY
+ *
+ * EvoSuite is distributed in the hope that it will be useful, but WITHOUT ANY
  * WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS FOR
  * A PARTICULAR PURPOSE. See the GNU Lesser Public License for more details.
- * 
- * You should have received a copy of the GNU Lesser Public License along with
- * GA. If not, see <http://www.gnu.org/licenses/>.
+ *
+ * You should have received a copy of the GNU Public License along with
+ * EvoSuite. If not, see <http://www.gnu.org/licenses/>.
  */
-
 package de.unisb.cs.st.evosuite.ga;
 
 import java.io.IOException;
@@ -38,6 +37,7 @@ import de.unisb.cs.st.evosuite.ga.stoppingconditions.GlobalTimeStoppingCondition
 import de.unisb.cs.st.evosuite.ga.stoppingconditions.MaxGenerationStoppingCondition;
 import de.unisb.cs.st.evosuite.ga.stoppingconditions.StoppingCondition;
 import de.unisb.cs.st.evosuite.testsuite.SearchStatistics;
+import de.unisb.cs.st.evosuite.utils.LoggingUtils;
 import de.unisb.cs.st.evosuite.utils.Randomness;
 
 /**
@@ -369,7 +369,7 @@ public abstract class GeneticAlgorithm implements SearchAlgorithm, Serializable 
 		Iterator<Chromosome> iterator = population.iterator();
 		while (iterator.hasNext()) {
 			Chromosome c = iterator.next();
-			if (false && isFinished()) {
+			if (isFinished()) {
 				if (c.isChanged())
 					iterator.remove();
 			} else {
@@ -388,12 +388,12 @@ public abstract class GeneticAlgorithm implements SearchAlgorithm, Serializable 
 	 * @return
 	 */
 	protected List<Chromosome> elitism() {
-		logger.info("Elitism with ELITE = " + Properties.ELITE);
+		logger.debug("Elitism with ELITE = " + Properties.ELITE);
 
 		List<Chromosome> elite = new ArrayList<Chromosome>();
 		
 		for (int i = 0; i < Properties.ELITE; i++) {
-			logger.info("Copying individual " + i + " with fitness "
+			logger.trace("Copying individual " + i + " with fitness "
 			        + population.get(i).getFitness());
 			elite.add(population.get(i).clone());
 		}
@@ -452,7 +452,7 @@ public abstract class GeneticAlgorithm implements SearchAlgorithm, Serializable 
 	}
 
 	/**
-	 * Return the individual with the highest fitness
+	 * Return the individual with the highest fitChromosomeess
 	 * 
 	 * @return
 	 */
@@ -557,7 +557,7 @@ public abstract class GeneticAlgorithm implements SearchAlgorithm, Serializable 
 	}
 
 	/**
-	 * Accessor for population
+	 * Accessor for population Chromosome *
 	 * 
 	 * @return
 	 */
@@ -662,7 +662,7 @@ public abstract class GeneticAlgorithm implements SearchAlgorithm, Serializable 
 	 * So far only used for testing purposes in TestSuiteGenerator
 	 */
 	public void printBudget() {
-		System.out.println("* GA-Budget:");
+		LoggingUtils.getEvoLogger().info("* GA-Budget:");
 		for (StoppingCondition sc : stoppingConditions)
 			System.out.println("\t- " + sc.toString());
 	}

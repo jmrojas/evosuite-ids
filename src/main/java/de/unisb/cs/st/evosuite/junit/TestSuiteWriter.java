@@ -1,4 +1,22 @@
 /**
+ * Copyright (C) 2011,2012 Gordon Fraser, Andrea Arcuri and EvoSuite
+ * contributors
+ * 
+ * This file is part of EvoSuite.
+ * 
+ * EvoSuite is free software: you can redistribute it and/or modify it under the
+ * terms of the GNU Lesser Public License as published by the Free Software
+ * Foundation, either version 3 of the License, or (at your option) any later
+ * version.
+ * 
+ * EvoSuite is distributed in the hope that it will be useful, but WITHOUT ANY
+ * WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS FOR
+ * A PARTICULAR PURPOSE. See the GNU Lesser Public License for more details.
+ * 
+ * You should have received a copy of the GNU Public License along with
+ * EvoSuite. If not, see <http://www.gnu.org/licenses/>.
+ */
+/**
  * 
  */
 package de.unisb.cs.st.evosuite.junit;
@@ -31,13 +49,13 @@ import de.unisb.cs.st.evosuite.Properties;
 import de.unisb.cs.st.evosuite.Properties.Criterion;
 import de.unisb.cs.st.evosuite.Properties.OutputFormat;
 import de.unisb.cs.st.evosuite.Properties.OutputGranularity;
-import de.unisb.cs.st.evosuite.coverage.concurrency.ConcurrentTestCase;
 import de.unisb.cs.st.evosuite.coverage.dataflow.DefUseCoverageTestFitness;
 import de.unisb.cs.st.evosuite.repair.JUnit4AssertionLogAdapter;
 import de.unisb.cs.st.evosuite.testcase.ExecutionResult;
 import de.unisb.cs.st.evosuite.testcase.StatementInterface;
 import de.unisb.cs.st.evosuite.testcase.TestCase;
 import de.unisb.cs.st.evosuite.testcase.TestCaseExecutor;
+import de.unisb.cs.st.evosuite.testcase.TestCodeVisitor;
 import de.unisb.cs.st.evosuite.testcase.TestFitnessFunction;
 import de.unisb.cs.st.evosuite.utils.Utils;
 
@@ -53,7 +71,11 @@ public class TestSuiteWriter implements Opcodes {
 
 	protected List<TestCase> testCases = new ArrayList<TestCase>();
 
+	protected Map<Integer, String> testComment = new HashMap<Integer, String>();
+
 	private final UnitTestAdapter adapter = TestSuiteWriter.getAdapter();
+
+	private final TestCodeVisitor visitor = new TestCodeVisitor();
 
 	class TestFilter implements IOFileFilter {
 		@Override
@@ -137,6 +159,16 @@ public class TestSuiteWriter implements Opcodes {
 		return testCases.size() - 1;
 	}
 
+	public int insertTest(TestCase test, String comment) {
+		int id = insertTest(test);
+		if (testComment.containsKey(id)) {
+			if (!testComment.get(id).contains(comment))
+				testComment.put(id, testComment.get(id) + "\n   //" + comment);
+		} else
+			testComment.put(id, comment);
+		return id;
+	}
+
 	public void insertTests(List<TestCase> tests) {
 		for (TestCase test : tests)
 			insertTest(test);
@@ -205,11 +237,22 @@ public class TestSuiteWriter implements Opcodes {
 	protected String getImports(List<ExecutionResult> results) {
 		StringBuilder builder = new StringBuilder();
 		Set<Class<?>> imports = new HashSet<Class<?>>();
+
 		for (ExecutionResult result : results) {
-			imports.addAll(result.test.getAccessedClasses());
-			for (Throwable t : result.exceptions.values()) {
-				imports.add(t.getClass());
+			result.test.accept(visitor);
+
+			// Iterate over declared exceptions to make sure they are known to the visitor
+			Set<Class<?>> exceptions = result.test.getDeclaredExceptions();
+			if (!exceptions.isEmpty()) {
+				for (Class<?> exception : exceptions) {
+					visitor.getClassName(exception);
+				}
 			}
+			imports.addAll(visitor.getImports());
+			// imports.addAll(result.test.getAccessedClasses());
+			//for (Throwable t : result.getAllThrownExceptions()) {
+			//	imports.add(t.getClass());
+			//}
 		}
 		Set<String> import_names = new HashSet<String>();
 		for (Class<?> imp : imports) {
@@ -250,6 +293,9 @@ public class TestSuiteWriter implements Opcodes {
 	 * @return Comment for test case
 	 */
 	protected String getInformation(int num) {
+
+		if (testComment.containsKey(num))
+			return testComment.get(num);
 
 		TestCase test = testCases.get(num);
 		Set<TestFitnessFunction> coveredGoals = test.getCoveredGoals();
@@ -316,16 +362,6 @@ public class TestSuiteWriter implements Opcodes {
 			builder.append(";\n");
 		}
 		builder.append("\n");
-
-		if (Properties.CRITERION == Criterion.CONCURRENCY) {
-			builder.append("import java.util.concurrent.Callable;\n");
-			builder.append("import java.util.concurrent.FutureTask;\n");
-			builder.append("import de.unisb.cs.st.evosuite.coverage.concurrency.LockRuntime;\n");
-			builder.append("import de.unisb.cs.st.evosuite.coverage.concurrency.ControllerRuntime;\n");
-			builder.append("import de.unisb.cs.st.evosuite.coverage.concurrency.SimpleScheduler;\n");
-			builder.append("import java.util.Set;\n");
-			builder.append("import java.util.HashSet;\n");
-		}
 
 		builder.append(adapter.getImports());
 		builder.append(getImports(results));
@@ -401,43 +437,30 @@ public class TestSuiteWriter implements Opcodes {
 		builder.append("\n");
 		builder.append("   //");
 		builder.append(getInformation(id));
-		//#TODO steenbuck work around
-		if (Properties.CRITERION == Criterion.CONCURRENCY) {
-			builder.append("\n");
-			ConcurrentTestCase ctc = (ConcurrentTestCase) testCases.get(id);
-			for (String line : ctc.getThreadCode(result.exceptions, id).split("\\r?\\n")) {
-				builder.append("      ");
-				builder.append(line);
-				// builder.append(";\n");
-				builder.append("\n");
+		builder.append("\n");
+		builder.append(adapter.getMethodDefinition("test" + id));
+		Set<Class<?>> exceptions = testCases.get(id).getDeclaredExceptions();
+		if (!exceptions.isEmpty()) {
+			builder.append("throws ");
+			boolean first = true;
+			for (Class<?> exception : exceptions) {
+				if (first)
+					first = false;
+				else
+					builder.append(", ");
+				builder.append(visitor.getClassName(exception));
 			}
-			builder.append("   }\n");
-
-		} else {
-			builder.append("\n");
-			builder.append(adapter.getMethodDefinition("test" + id));
-			Set<Class<?>> exceptions = testCases.get(id).getDeclaredExceptions();
-			if (!exceptions.isEmpty()) {
-				builder.append("throws ");
-				boolean first = true;
-				for (Class<?> exception : exceptions) {
-					if (first)
-						first = false;
-					else
-						builder.append(", ");
-					builder.append(exception.getSimpleName());
-				}
-			}
-			builder.append(" {\n");
-			for (String line : adapter.getTestString(id, testCases.get(id),
-			                                         result.exceptions).split("\\r?\\n")) {
-				builder.append("      ");
-				builder.append(line);
-				// builder.append(";\n");
-				builder.append("\n");
-			}
-			builder.append("   }\n");
 		}
+		builder.append(" {\n");
+		for (String line : adapter.getTestString(id, testCases.get(id),
+		                                         result.exposeExceptionMapping(), visitor).split("\\r?\\n")) {
+			builder.append("      ");
+			builder.append(line);
+			// builder.append(";\n");
+			builder.append("\n");
+		}
+		builder.append("   }\n");
+
 		return builder.toString();
 	}
 
@@ -456,9 +479,9 @@ public class TestSuiteWriter implements Opcodes {
 		if (!Properties.PROJECT_PREFIX.equals("")) {
 			builder.append("package ");
 			builder.append(Properties.PROJECT_PREFIX);
+			// builder.append(".GeneratedTests;");
+			builder.append(";\n\n");
 		}
-		// builder.append(".GeneratedTests;");
-		builder.append(";\n\n");
 		List<String> suites = new ArrayList<String>();
 
 		File basedir = new File(directory);
@@ -487,7 +510,7 @@ public class TestSuiteWriter implements Opcodes {
 	 */
 	public void writeTestSuite(String name, String directory) {
 		String dir = makeDirectory(directory);
-		
+
 		if (Properties.OUTPUT_GRANULARITY == OutputGranularity.MERGED) {
 			File file = new File(dir + "/" + name + ".java");
 			executor.newObservers();
@@ -542,7 +565,7 @@ public class TestSuiteWriter implements Opcodes {
 			ExecutionResult result = runTest(test);
 			m = Method.getMethod("void test" + num + " ()");
 			mg = new GeneratorAdapter(ACC_PUBLIC, m, null, null, cw);
-			testToBytecode(test, mg, result.exceptions);
+			testToBytecode(test, mg, result.exposeExceptionMapping());
 			num++;
 		}
 

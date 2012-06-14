@@ -1,4 +1,21 @@
 /**
+ * Copyright (C) 2011,2012 Gordon Fraser, Andrea Arcuri and EvoSuite contributors
+ *
+ * This file is part of EvoSuite.
+ *
+ * EvoSuite is free software: you can redistribute it and/or modify it under the
+ * terms of the GNU Lesser Public License as published by the Free Software
+ * Foundation, either version 3 of the License, or (at your option) any later
+ * version.
+ *
+ * EvoSuite is distributed in the hope that it will be useful, but WITHOUT ANY
+ * WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS FOR
+ * A PARTICULAR PURPOSE. See the GNU Lesser Public License for more details.
+ *
+ * You should have received a copy of the GNU Public License along with
+ * EvoSuite. If not, see <http://www.gnu.org/licenses/>.
+ */
+/**
  * 
  */
 package de.unisb.cs.st.evosuite.testcase;
@@ -15,8 +32,6 @@ import de.unisb.cs.st.evosuite.utils.Randomness;
 public class StringPrimitiveStatement extends PrimitiveStatement<String> {
 
 	private static final long serialVersionUID = 274445526699835887L;
-
-	private static int MAX_STRING = Properties.STRING_LENGTH;
 
 	/**
 	 * @param tc
@@ -69,7 +84,7 @@ public class StringPrimitiveStatement extends PrimitiveStatement<String> {
 		int count = 1;
 
 		while (Randomness.nextDouble() <= Math.pow(ALPHA, count)
-		        && s.length() < MAX_STRING) {
+		        && s.length() < Properties.STRING_LENGTH) {
 			count++;
 			// logger.info("Before insert: '"+s+"'");
 			s = insertCharAt(s, pos, Randomness.nextChar());
@@ -142,7 +157,7 @@ public class StringPrimitiveStatement extends PrimitiveStatement<String> {
 	@Override
 	public void randomize() {
 		if (Randomness.nextDouble() >= Properties.PRIMITIVE_POOL)
-			value = Randomness.nextString(Randomness.nextInt(MAX_STRING));
+			value = Randomness.nextString(Randomness.nextInt(Properties.STRING_LENGTH));
 		else
 			value = primitive_pool.getRandomString();
 	}

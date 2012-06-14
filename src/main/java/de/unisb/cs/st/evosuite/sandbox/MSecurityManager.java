@@ -1,5 +1,6 @@
-/*
- * Copyright (C) 2010 Saarland University
+/**
+ * Copyright (C) 2011,2012 Gordon Fraser, Andrea Arcuri and EvoSuite
+ * contributors
  * 
  * This file is part of EvoSuite.
  * 
@@ -12,12 +13,13 @@
  * WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS FOR
  * A PARTICULAR PURPOSE. See the GNU Lesser Public License for more details.
  * 
- * You should have received a copy of the GNU Lesser Public License along with
+ * You should have received a copy of the GNU Public License along with
  * EvoSuite. If not, see <http://www.gnu.org/licenses/>.
  */
-
 package de.unisb.cs.st.evosuite.sandbox;
 
+import java.awt.AWTPermission;
+import java.io.File;
 import java.io.FilePermission;
 import java.security.Permission;
 
@@ -128,9 +130,18 @@ class MSecurityManager extends SecurityManager {
 			// since java cannot guarantee the unique values returned by hashCode() method.
 			if (permName.equals("java.lang.reflect.ReflectPermission"))
 				return true;
-			if (permName.equals("java.util.PropertyPermission"))
+			if (permName.equals("java.util.PropertyPermission")) {
 				if (perm.getActions().equals("read"))
 					return true;
+				else if (perm.getActions().equals("write")) {
+					// AWT classes try to set this when loaded
+					if (perm.getName().equals("sun.awt.exception.handler"))
+						return true;
+					else if (perm.getName().startsWith("apple.awt"))
+						return true;
+				}
+			}
+
 			if (perm.getClass().equals(java.util.logging.LoggingPermission.class)) {
 				return true;
 			}
@@ -141,6 +152,13 @@ class MSecurityManager extends SecurityManager {
 					return true;
 				if (perm.getName().equals("loadLibrary.net"))
 					return true;
+				if (perm.getName().equals("getProtectionDomain"))
+					return true;
+			}
+
+			if (perm instanceof AWTPermission) {
+				if ("true".equals(System.getProperty("java.awt.headless")))
+					return true;
 			}
 
 			//TODO: -------------------- NEED TO FIND BETTER SOLUTION ----------------------- 
@@ -149,12 +167,15 @@ class MSecurityManager extends SecurityManager {
 			//
 			// Oracle explains risks here
 			// http://download.oracle.com/javase/6/docs/technotes/guides/security/permissions.html
-			if (permName.equals("java.lang.RuntimePermission"))
+			if (permName.equals("java.lang.RuntimePermission")) {
 				if (perm.getName().equals("getClassLoader")
 				        || perm.getName().equals("createClassLoader")
 				        || perm.getName().contains("accessClassInPackage")
 				        || perm.getName().equals("setContextClassLoader"))
 					return true;
+				if (perm.getName().equals("accessDeclaredMembers"))
+					return true;
+			}
 
 			if (permName.equals("java.io.FilePermission")) {
 
@@ -168,17 +189,31 @@ class MSecurityManager extends SecurityManager {
 				if (fp.getName().contains(Properties.SANDBOX_FOLDER))
 					return true;
 
-				if (perm.getActions().equals("read")
-				        && fp.getName().endsWith(".properties"))
-					return true;
+				if (perm.getActions().equals("read")) {
+					if (fp.getName().endsWith(".properties"))
+						return true;
 
-				if (perm.getActions().equals("read"))
 					for (StackTraceElement e : stackTraceElements) {
 						if (e.getClassName().startsWith("java.net.URLClassLoader"))
 							return true;
 						if (e.getClassName().startsWith("java.lang.ClassLoader"))
 							return true;
+						if (e.getClassName().startsWith("de.unisb.cs.st.evosuite.javaagent.InstrumentingClassLoader"))
+							return true;
 					}
+
+					String absoluteName = new File(fp.getName()).getAbsolutePath();
+
+					if (absoluteName.startsWith(System.getProperty("java.home")))
+						return true;
+
+					if (absoluteName.startsWith(System.getProperty("java.io.tmpdir")))
+						return true;
+
+					if (absoluteName.startsWith(System.getProperty("user.dir")))
+						return true;
+
+				}
 			}
 
 			return false;

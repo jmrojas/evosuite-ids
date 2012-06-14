@@ -1,21 +1,20 @@
-/*
- * Copyright (C) 2010 Saarland University
- * 
+/**
+ * Copyright (C) 2011,2012 Gordon Fraser, Andrea Arcuri and EvoSuite contributors
+ *
  * This file is part of EvoSuite.
- * 
+ *
  * EvoSuite is free software: you can redistribute it and/or modify it under the
  * terms of the GNU Lesser Public License as published by the Free Software
  * Foundation, either version 3 of the License, or (at your option) any later
  * version.
- * 
+ *
  * EvoSuite is distributed in the hope that it will be useful, but WITHOUT ANY
  * WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS FOR
  * A PARTICULAR PURPOSE. See the GNU Lesser Public License for more details.
- * 
- * You should have received a copy of the GNU Lesser Public License along with
+ *
+ * You should have received a copy of the GNU Public License along with
  * EvoSuite. If not, see <http://www.gnu.org/licenses/>.
  */
-
 package de.unisb.cs.st.evosuite.testcase;
 
 import java.io.PrintStream;
@@ -35,6 +34,7 @@ import com.googlecode.gentyref.GenericTypeReflector;
 
 import de.unisb.cs.st.evosuite.Properties;
 import de.unisb.cs.st.evosuite.primitives.PrimitivePool;
+import de.unisb.cs.st.evosuite.runtime.EvoSuiteFile;
 import de.unisb.cs.st.evosuite.utils.Randomness;
 
 /**
@@ -121,6 +121,10 @@ public abstract class PrimitiveStatement<T> extends AbstractStatement {
 			statement = new StringPrimitiveStatement(tc);
 		} else if (GenericTypeReflector.erase(clazz).isEnum()) {
 			statement = new EnumPrimitiveStatement(tc, GenericTypeReflector.erase(clazz));
+		} else if (clazz.equals(EvoSuiteFile.class)) {
+			// TODO: Ensure that files were accessed in the first place
+			statement = new FileNamePrimitiveStatement(tc, new EvoSuiteFile(
+			        Randomness.choice(tc.getAccessedFiles())));
 		} else {
 			throw new RuntimeException("Getting unknown type: " + clazz + " / "
 			        + clazz.getClass());
@@ -231,10 +235,12 @@ public abstract class PrimitiveStatement<T> extends AbstractStatement {
 	@Override
 	public void getBytecode(GeneratorAdapter mg, Map<Integer, Integer> locals,
 	        Throwable exception) {
-		Class<?> clazz = value.getClass();
-		if (!clazz.equals(retval.getVariableClass())) {
-			mg.cast(org.objectweb.asm.Type.getType(clazz),
-			        org.objectweb.asm.Type.getType(retval.getVariableClass()));
+		if (value != null) {
+			Class<?> clazz = value.getClass();
+			if (!clazz.equals(retval.getVariableClass())) {
+				mg.cast(org.objectweb.asm.Type.getType(clazz),
+				        org.objectweb.asm.Type.getType(retval.getVariableClass()));
+			}
 		}
 		pushBytecode(mg);
 		retval.storeBytecode(mg, locals);

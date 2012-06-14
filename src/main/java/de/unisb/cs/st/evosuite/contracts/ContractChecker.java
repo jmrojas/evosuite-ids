@@ -1,4 +1,22 @@
 /**
+ * Copyright (C) 2011,2012 Gordon Fraser, Andrea Arcuri and EvoSuite
+ * contributors
+ * 
+ * This file is part of EvoSuite.
+ * 
+ * EvoSuite is free software: you can redistribute it and/or modify it under the
+ * terms of the GNU Lesser Public License as published by the Free Software
+ * Foundation, either version 3 of the License, or (at your option) any later
+ * version.
+ * 
+ * EvoSuite is distributed in the hope that it will be useful, but WITHOUT ANY
+ * WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS FOR
+ * A PARTICULAR PURPOSE. See the GNU Lesser Public License for more details.
+ * 
+ * You should have received a copy of the GNU Public License along with
+ * EvoSuite. If not, see <http://www.gnu.org/licenses/>.
+ */
+/**
  * 
  */
 package de.unisb.cs.st.evosuite.contracts;
@@ -37,7 +55,7 @@ public class ContractChecker extends ExecutionObserver {
 
 	public ContractChecker() {
 		// Default from EvoSuite
-		//		contracts.add(new UndeclaredExceptionContract());
+		contracts.add(new UndeclaredExceptionContract());
 		contracts.add(new JCrasherExceptionContract());
 
 		// Defaults from Randoop paper
@@ -68,6 +86,7 @@ public class ContractChecker extends ExecutionObserver {
 
 	/**
 	 * Set the current test case, on which we check oracles while it is executed
+	 * 
 	 * @param test
 	 */
 	public static void currentTest(TestCase test) {
@@ -81,6 +100,7 @@ public class ContractChecker extends ExecutionObserver {
 	 */
 	@Override
 	public void statement(StatementInterface statement, Scope scope, Throwable exception) {
+
 		if (!valid) {
 			/*
 			 * once we get a contract that is violated, no point in checking the following statements,
@@ -89,7 +109,7 @@ public class ContractChecker extends ExecutionObserver {
 			 * TODO: at this point, for the fitness function we still consider the coverage given by the 
 			 * following statements. Maybe that should be changed? At the moment, we only stop if exceptions 
 			 */
-			logger.warn("Not checking contracts for invalid test");
+			logger.debug("Not checking contracts for invalid test");
 			return;
 		}
 
@@ -97,11 +117,13 @@ public class ContractChecker extends ExecutionObserver {
 			return;
 		}
 
-		if (Properties.CHECK_CONTRACTS_END && statement.getPosition() < (currentTest.size() - 1))
+		if (Properties.CHECK_CONTRACTS_END
+		        && statement.getPosition() < (currentTest.size() - 1))
 			return;
 
 		for (Contract contract : contracts) {
 			try {
+
 				if (!contract.check(statement, scope, exception)) {
 					logger.debug("Contract failed: " + contract + " on statement "
 					        + statement.getCode());
@@ -121,8 +143,7 @@ public class ContractChecker extends ExecutionObserver {
 	 */
 	@Override
 	public void clear() {
-		// TODO Auto-generated method stub
-
+		valid = true;
 	}
 
 }

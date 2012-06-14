@@ -1,4 +1,21 @@
 /**
+ * Copyright (C) 2011,2012 Gordon Fraser, Andrea Arcuri and EvoSuite contributors
+ *
+ * This file is part of EvoSuite.
+ *
+ * EvoSuite is free software: you can redistribute it and/or modify it under the
+ * terms of the GNU Lesser Public License as published by the Free Software
+ * Foundation, either version 3 of the License, or (at your option) any later
+ * version.
+ *
+ * EvoSuite is distributed in the hope that it will be useful, but WITHOUT ANY
+ * WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS FOR
+ * A PARTICULAR PURPOSE. See the GNU Lesser Public License for more details.
+ *
+ * You should have received a copy of the GNU Public License along with
+ * EvoSuite. If not, see <http://www.gnu.org/licenses/>.
+ */
+/**
  * 
  */
 package de.unisb.cs.st.evosuite.javaagent;
@@ -72,8 +89,6 @@ public class BooleanTestabilityTransformation {
 
 	private MethodNode currentMethodNode = null;
 
-	private static final DescriptorMapping descriptorMapping = DescriptorMapping.getInstance();
-
 	public BooleanTestabilityTransformation(ClassNode cn) {
 		this.cn = cn;
 		this.className = cn.name.replace("/", ".");
@@ -113,7 +128,8 @@ public class BooleanTestabilityTransformation {
 	private void processFields() {
 		List<FieldNode> fields = cn.fields;
 		for (FieldNode field : fields) {
-			if (descriptorMapping.isTransformedField(className, field.name, field.desc)) {
+			if (DescriptorMapping.getInstance().isTransformedField(className, field.name,
+			                                                       field.desc)) {
 				String newDesc = transformFieldDescriptor(className, field.name,
 				                                          field.desc);
 				logger.info("Transforming field " + field.name + " from " + field.desc
@@ -133,7 +149,8 @@ public class BooleanTestabilityTransformation {
 		for (MethodNode mn : methodNodes) {
 			if ((mn.access & Opcodes.ACC_NATIVE) == Opcodes.ACC_NATIVE)
 				continue;
-			if (descriptorMapping.isTransformedMethod(className, mn.name, mn.desc)) {
+			if (DescriptorMapping.getInstance().isTransformedMethod(className, mn.name,
+			                                                        mn.desc)) {
 				logger.info("Transforming signature of method " + mn.name + mn.desc);
 				transformMethodSignature(mn);
 				logger.info("Transformed signature to " + mn.name + mn.desc);
@@ -145,10 +162,11 @@ public class BooleanTestabilityTransformation {
 	public static String getOriginalNameDesc(String className, String methodName,
 	        String desc) {
 		String key = className.replace(".", "/") + "/" + methodName + desc;
-		if (descriptorMapping.originalDesc.containsKey(key)) {
+		if (DescriptorMapping.getInstance().originalDesc.containsKey(key)) {
 			logger.debug("Descriptor mapping contains original for " + key);
-			return descriptorMapping.getOriginalName(className, methodName, desc)
-			        + descriptorMapping.originalDesc.get(key);
+			return DescriptorMapping.getInstance().getOriginalName(className, methodName,
+			                                                       desc)
+			        + DescriptorMapping.getInstance().originalDesc.get(key);
 		} else {
 			logger.debug("Descriptor mapping does not contain original for " + key);
 			return methodName + desc;
@@ -157,9 +175,9 @@ public class BooleanTestabilityTransformation {
 
 	public static String getOriginalDesc(String className, String methodName, String desc) {
 		String key = className.replace(".", "/") + "/" + methodName + desc;
-		if (descriptorMapping.originalDesc.containsKey(key)) {
+		if (DescriptorMapping.getInstance().originalDesc.containsKey(key)) {
 			logger.debug("Descriptor mapping contains original for " + key);
-			return descriptorMapping.originalDesc.get(key);
+			return DescriptorMapping.getInstance().originalDesc.get(key);
 		} else {
 			logger.debug("Descriptor mapping does not contain original for " + key);
 			return desc;
@@ -169,8 +187,8 @@ public class BooleanTestabilityTransformation {
 	public static boolean hasTransformedParameters(String className, String methodName,
 	        String desc) {
 		String key = className.replace(".", "/") + "/" + methodName + desc;
-		if (descriptorMapping.originalDesc.containsKey(key)) {
-			for (Type type : Type.getArgumentTypes(descriptorMapping.originalDesc.get(key))) {
+		if (DescriptorMapping.getInstance().originalDesc.containsKey(key)) {
+			for (Type type : Type.getArgumentTypes(DescriptorMapping.getInstance().originalDesc.get(key))) {
 				if (type.equals(Type.BOOLEAN_TYPE))
 					return true;
 			}
@@ -181,7 +199,8 @@ public class BooleanTestabilityTransformation {
 
 	public static boolean isTransformedField(String className, String fieldName,
 	        String desc) {
-		return descriptorMapping.isTransformedField(className, fieldName, desc);
+		return DescriptorMapping.getInstance().isTransformedField(className, fieldName,
+		                                                          desc);
 	}
 
 	/**
@@ -456,8 +475,9 @@ public class BooleanTestabilityTransformation {
 				// TODO: Check whether field is static
 				logger.info("Checking field assignment");
 				FieldInsnNode fn = (FieldInsnNode) node;
-				if (Type.getType(descriptorMapping.getFieldDesc(fn.owner, fn.name,
-				                                                fn.desc)) == Type.BOOLEAN_TYPE) {
+				if (Type.getType(DescriptorMapping.getInstance().getFieldDesc(fn.owner,
+				                                                              fn.name,
+				                                                              fn.desc)) == Type.BOOLEAN_TYPE) {
 					return true;
 				} else {
 					return false;
@@ -476,8 +496,9 @@ public class BooleanTestabilityTransformation {
 				}
 			} else if (node.getOpcode() == Opcodes.IRETURN) {
 				logger.info("Checking return value of method " + cn.name + "." + mn.name);
-				if (descriptorMapping.isTransformedOrBooleanMethod(cn.name, mn.name,
-				                                                   mn.desc)) {
+				if (DescriptorMapping.getInstance().isTransformedOrBooleanMethod(cn.name,
+				                                                                 mn.name,
+				                                                                 mn.desc)) {
 					logger.info("Method returns a bool");
 					return true;
 				} else {
@@ -504,9 +525,9 @@ public class BooleanTestabilityTransformation {
 				// if it is a boolean parameter of a converted method, then it needs to be converted
 				// Problem: How do we know which parameter it represents?
 				MethodInsnNode methodNode = (MethodInsnNode) node;
-				String desc = descriptorMapping.getMethodDesc(methodNode.owner,
-				                                              methodNode.name,
-				                                              methodNode.desc);
+				String desc = DescriptorMapping.getInstance().getMethodDesc(methodNode.owner,
+				                                                            methodNode.name,
+				                                                            methodNode.desc);
 				Type[] types = Type.getArgumentTypes(desc);
 				if (types.length > 0 && types[types.length - 1] == Type.BOOLEAN_TYPE) {
 					return true;
@@ -563,7 +584,7 @@ public class BooleanTestabilityTransformation {
 	 * @return
 	 */
 	private String transformMethodDescriptor(String owner, String name, String desc) {
-		return descriptorMapping.getMethodDesc(owner, name, desc);
+		return DescriptorMapping.getInstance().getMethodDesc(owner, name, desc);
 	}
 
 	/**
@@ -576,23 +597,30 @@ public class BooleanTestabilityTransformation {
 	 * @return
 	 */
 	private String transformFieldDescriptor(String owner, String name, String desc) {
-		return descriptorMapping.getFieldDesc(owner, name, desc);
+		return DescriptorMapping.getInstance().getFieldDesc(owner, name, desc);
 	}
 
 	private void transformMethodSignature(MethodNode mn) {
 		// If the method was declared in java.* then don't instrument
 		// Otherwise change signature
-		String newDesc = descriptorMapping.getMethodDesc(className, mn.name, mn.desc);
+		String newDesc = DescriptorMapping.getInstance().getMethodDesc(className,
+		                                                               mn.name, mn.desc);
 		if (Type.getReturnType(mn.desc) == Type.BOOLEAN_TYPE
 		        && Type.getReturnType(newDesc) == Type.INT_TYPE)
 			TransformationStatistics.transformBooleanReturnValue();
 		if (Arrays.asList(Type.getArgumentTypes(mn.desc)).contains(Type.BOOLEAN_TYPE)
 		        && !Arrays.asList(Type.getArgumentTypes(newDesc)).contains(Type.BOOLEAN_TYPE))
 			TransformationStatistics.transformBooleanParameter();
-		String newName = descriptorMapping.getMethodName(className, mn.name, mn.desc);
-		logger.info("Changing method descriptor from " + mn.name + mn.desc + " to "
-		        + descriptorMapping.getMethodName(className, mn.name, mn.desc) + newDesc);
-		mn.desc = descriptorMapping.getMethodDesc(className, mn.name, mn.desc);
+		String newName = DescriptorMapping.getInstance().getMethodName(className,
+		                                                               mn.name, mn.desc);
+		logger.info("Changing method descriptor from "
+		        + mn.name
+		        + mn.desc
+		        + " to "
+		        + DescriptorMapping.getInstance().getMethodName(className, mn.name,
+		                                                        mn.desc) + newDesc);
+		mn.desc = DescriptorMapping.getInstance().getMethodDesc(className, mn.name,
+		                                                        mn.desc);
 		mn.name = newName;
 	}
 
@@ -746,8 +774,9 @@ public class BooleanTestabilityTransformation {
 		protected AbstractInsnNode transformFieldInsnNode(MethodNode mn,
 		        FieldInsnNode fieldNode) {
 			// This handles the else branch for field assignments
-			if (descriptorMapping.isTransformedOrBooleanField(className, fieldNode.name,
-			                                                  fieldNode.desc)) {
+			if (DescriptorMapping.getInstance().isTransformedOrBooleanField(className,
+			                                                                fieldNode.name,
+			                                                                fieldNode.desc)) {
 				if (fieldNode.getNext() instanceof FieldInsnNode) {
 					FieldInsnNode other = (FieldInsnNode) fieldNode.getNext();
 					if (fieldNode.owner.equals(other.owner)
@@ -841,9 +870,9 @@ public class BooleanTestabilityTransformation {
 					logger.info("Previous node: " + insn);
 					if (insn instanceof MethodInsnNode) {
 						MethodInsnNode mi = (MethodInsnNode) insn;
-						if (Type.getReturnType(descriptorMapping.getMethodDesc(mi.owner,
-						                                                       mi.name,
-						                                                       mi.desc)) == Type.BOOLEAN_TYPE) {
+						if (Type.getReturnType(DescriptorMapping.getInstance().getMethodDesc(mi.owner,
+						                                                                     mi.name,
+						                                                                     mi.desc)) == Type.BOOLEAN_TYPE) {
 							logger.info("Changing IFNE");
 							jumpNode.setOpcode(Opcodes.IFGT);
 						}
@@ -1235,9 +1264,9 @@ public class BooleanTestabilityTransformation {
 		        FieldInsnNode fieldNode) {
 
 			if ((fieldNode.getOpcode() == Opcodes.PUTFIELD || fieldNode.getOpcode() == Opcodes.PUTSTATIC)
-			        && descriptorMapping.isTransformedOrBooleanField(fieldNode.owner,
-			                                                         fieldNode.name,
-			                                                         fieldNode.desc)) {
+			        && DescriptorMapping.getInstance().isTransformedOrBooleanField(fieldNode.owner,
+			                                                                       fieldNode.name,
+			                                                                       fieldNode.desc)) {
 
 				if (addedInsns.contains(fieldNode))
 					return fieldNode;
@@ -1510,7 +1539,7 @@ public class BooleanTestabilityTransformation {
 		        MultiANewArrayInsnNode arrayInsnNode) {
 			String new_desc = "";
 			Type t = Type.getType(arrayInsnNode.desc);
-			while (t.equals(Type.ARRAY)) {
+			while (t.getSort() == Type.ARRAY) {
 				new_desc += "[";
 				t = t.getElementType();
 			}
@@ -1624,7 +1653,7 @@ public class BooleanTestabilityTransformation {
 		 */
 		@Override
 		protected AbstractInsnNode transformInsnNode(MethodNode mn, InsnNode insnNode) {
-			//String desc = descriptorMapping.getMethodDesc(className, mn.name, mn.desc);
+			//String desc = DescriptorMapping.getInstance().getMethodDesc(className, mn.name, mn.desc);
 			Type returnType = Type.getReturnType(mn.desc);
 			if (!returnType.equals(Type.BOOLEAN_TYPE)) {
 				return insnNode;
@@ -1660,12 +1689,12 @@ public class BooleanTestabilityTransformation {
 
 			methodNode.desc = transformMethodDescriptor(methodNode.owner,
 			                                            methodNode.name, methodNode.desc);
-			methodNode.name = descriptorMapping.getMethodName(methodNode.owner,
-			                                                  methodNode.name,
-			                                                  methodNode.desc);
-			if (descriptorMapping.isBooleanMethod(methodNode.desc)) {
+			methodNode.name = DescriptorMapping.getInstance().getMethodName(methodNode.owner,
+			                                                                methodNode.name,
+			                                                                methodNode.desc);
+			if (DescriptorMapping.getInstance().isBooleanMethod(methodNode.desc)) {
 				logger.info("Method needs value transformation: " + methodNode.name);
-				if (descriptorMapping.hasBooleanParameters(methodNode.desc)) {
+				if (DescriptorMapping.getInstance().hasBooleanParameters(methodNode.desc)) {
 					logger.info("Method needs parameter transformation: "
 					        + methodNode.name);
 					TransformationStatistics.transformBackToBooleanParameter();

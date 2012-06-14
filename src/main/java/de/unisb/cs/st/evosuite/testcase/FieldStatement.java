@@ -1,5 +1,6 @@
-/*
- * Copyright (C) 2010 Saarland University
+/**
+ * Copyright (C) 2011,2012 Gordon Fraser, Andrea Arcuri and EvoSuite
+ * contributors
  * 
  * This file is part of EvoSuite.
  * 
@@ -12,10 +13,9 @@
  * WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS FOR
  * A PARTICULAR PURPOSE. See the GNU Lesser Public License for more details.
  * 
- * You should have received a copy of the GNU Lesser Public License along with
+ * You should have received a copy of the GNU Public License along with
  * EvoSuite. If not, see <http://www.gnu.org/licenses/>.
  */
-
 package de.unisb.cs.st.evosuite.testcase;
 
 import java.io.IOException;
@@ -142,7 +142,7 @@ public class FieldStatement extends AbstractStatement {
 				@Override
 				public void execute() throws InvocationTargetException,
 				        IllegalArgumentException, IllegalAccessException,
-				        InstantiationException {
+				        InstantiationException, CodeUnderTestException {
 					Object source_object;
 					try {
 						source_object = (Modifier.isStatic(field.getModifiers())) ? null
@@ -153,8 +153,8 @@ public class FieldStatement extends AbstractStatement {
 							retval.setObject(scope, null);
 							throw new CodeUnderTestException(new NullPointerException());
 						}
-					} catch (CodeUnderTestException e) {
-						throw CodeUnderTestException.throwException(e.getCause());
+						//} catch (CodeUnderTestException e) {
+						//	throw CodeUnderTestException.throwException(e.getCause());
 					} catch (Throwable e) {
 						throw new EvosuiteError(e);
 					}
@@ -166,7 +166,8 @@ public class FieldStatement extends AbstractStatement {
 						//assert(ret==null || retval.getVariableClass().isAssignableFrom(ret.getClass())) : "we want an " + retval.getVariableClass() + " but got an " + ret.getClass();
 						retval.setObject(scope, ret);
 					} catch (CodeUnderTestException e) {
-						throw CodeUnderTestException.throwException(e);
+						throw e;
+						// throw CodeUnderTestException.throwException(e);
 					} catch (Throwable e) {
 						throw new EvosuiteError(e);
 					}

@@ -1,5 +1,6 @@
-/*
- * Copyright (C) 2010 Saarland University
+/**
+ * Copyright (C) 2011,2012 Gordon Fraser, Andrea Arcuri and EvoSuite
+ * contributors
  * 
  * This file is part of EvoSuite.
  * 
@@ -12,10 +13,9 @@
  * WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS FOR
  * A PARTICULAR PURPOSE. See the GNU Lesser Public License for more details.
  * 
- * You should have received a copy of the GNU Lesser Public License along with
+ * You should have received a copy of the GNU Public License along with
  * EvoSuite. If not, see <http://www.gnu.org/licenses/>.
  */
-
 package de.unisb.cs.st.evosuite.testcase;
 
 import java.io.Serializable;
@@ -189,18 +189,6 @@ public interface VariableReference extends Comparable<VariableReference>, Serial
 	 *             the static init of a field)
 	 */
 	public void setObject(Scope scope, Object value) throws CodeUnderTestException;
-
-	/**
-	 * Comparison
-	 */
-	@Override
-	public boolean equals(Object obj);
-
-	/**
-	 * Hash function
-	 */
-	@Override
-	public abstract int hashCode();
 
 	/**
 	 * Return string representation of the variable

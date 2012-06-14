@@ -1,21 +1,20 @@
-/*
- * Copyright (C) 2010 Saarland University
- * 
+/**
+ * Copyright (C) 2011,2012 Gordon Fraser, Andrea Arcuri and EvoSuite contributors
+ *
  * This file is part of EvoSuite.
- * 
+ *
  * EvoSuite is free software: you can redistribute it and/or modify it under the
  * terms of the GNU Lesser Public License as published by the Free Software
  * Foundation, either version 3 of the License, or (at your option) any later
  * version.
- * 
+ *
  * EvoSuite is distributed in the hope that it will be useful, but WITHOUT ANY
  * WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS FOR
  * A PARTICULAR PURPOSE. See the GNU Lesser Public License for more details.
- * 
- * You should have received a copy of the GNU Lesser Public License along with
+ *
+ * You should have received a copy of the GNU Public License along with
  * EvoSuite. If not, see <http://www.gnu.org/licenses/>.
  */
-
 package de.unisb.cs.st.evosuite.utils;
 
 import java.io.BufferedWriter;
@@ -51,6 +50,17 @@ import com.panayotis.gnuplot.terminal.GNUPlotTerminal;
 
 import de.unisb.cs.st.evosuite.Properties;
 import de.unisb.cs.st.evosuite.Properties.NoSuchParameterException;
+import de.unisb.cs.st.evosuite.contracts.AssertionErrorContract;
+import de.unisb.cs.st.evosuite.contracts.EqualsContract;
+import de.unisb.cs.st.evosuite.contracts.EqualsHashcodeContract;
+import de.unisb.cs.st.evosuite.contracts.EqualsNullContract;
+import de.unisb.cs.st.evosuite.contracts.EqualsSymmetricContract;
+import de.unisb.cs.st.evosuite.contracts.FailingTestSet;
+import de.unisb.cs.st.evosuite.contracts.HashCodeReturnsNormallyContract;
+import de.unisb.cs.st.evosuite.contracts.JCrasherExceptionContract;
+import de.unisb.cs.st.evosuite.contracts.NullPointerExceptionContract;
+import de.unisb.cs.st.evosuite.contracts.ToStringReturnsNormallyContract;
+import de.unisb.cs.st.evosuite.contracts.UndeclaredExceptionContract;
 import de.unisb.cs.st.evosuite.ga.Chromosome;
 import de.unisb.cs.st.evosuite.ga.GeneticAlgorithm;
 import de.unisb.cs.st.evosuite.ga.SearchListener;
@@ -69,13 +79,9 @@ import de.unisb.cs.st.evosuite.testcase.TestCaseExecutor;
 public abstract class ReportGenerator implements SearchListener, Serializable {
 
 	private static final long serialVersionUID = -920540796220051609L;
-
-	protected final static boolean do_plot = Properties.PLOT;
-
-	protected final static boolean do_html = Properties.HTML;
-
 	protected static final Logger logger = LoggerFactory.getLogger(ReportGenerator.class);
 
+	//FIXME: need re-factor, as dependent on Properties
 	protected static final File REPORT_DIR = new File(Properties.REPORT_DIR);
 
 	protected static final String DATE_FORMAT_NOW = "yyyy-MM-dd HH:mm:ss";
@@ -102,12 +108,22 @@ public abstract class ReportGenerator implements SearchListener, Serializable {
 		/** Total number of branches */
 		public int total_branches;
 
+		public int error_branches = 0;
+
+		public int error_branches_covered = 0;
+
+		public int error_branchless_methods = 0;
+
+		public int error_branchless_methods_covered = 0;
+
 		/** Total number of branches */
 		public int covered_branches;
 
 		public int total_methods;
 
 		public int branchless_methods;
+
+		public int covered_branchless_methods;
 
 		public int covered_methods;
 
@@ -202,15 +218,19 @@ public abstract class ReportGenerator implements SearchListener, Serializable {
 
 		public String goalCoverage;
 
-		public int methodExceptions;
+		public int explicitMethodExceptions;
 
-		public int typeExceptions;
+		public int explicitTypeExceptions;
+
+		public int implicitMethodExceptions;
+
+		public int implicitTypeExceptions;
 
 		public Map<String, Set<Class<?>>> exceptions;
 
 		public String getCSVHeader() {
 			StringBuilder r = new StringBuilder();
-			r.append("Class,Predicates,Total Branches,Covered Branches,Total Methods,Branchless Methods,Covered Methods,");
+			r.append("Class,Predicates,Total Branches,Covered Branches,Total Methods,Branchless Methods,Covered Methods,Covered Branchless Methods,");
 			r.append("Total Goals,Covered Goals,Coverage,Creation Time,Minimization Time,Total Time,Test Execution Time,Goal Computation Time,Result Size,Result Length,");
 			r.append("Minimized Size,Minimized Length,");
 			// "Bloat Rejections,Fitness Rejections,Fitness Accepts,"
@@ -227,8 +247,26 @@ public abstract class ReportGenerator implements SearchListener, Serializable {
 			r.append("JUnitTests,");
 			r.append("Branches,");
 			r.append("MutationScore,");
-			r.append("MethodExceptions,");
-			r.append("TypeExceptions,");
+			r.append("Explicit MethodExceptions,");
+			r.append("Explicit TypeExceptions,");
+			r.append("Implicit MethodExceptions,");
+			r.append("Implicit TypeExceptions,");
+			r.append("Error Predicates,");
+			r.append("Error Branches Covered,");
+			r.append("Error Branchless Methods,");
+			r.append("Error Branchless Methods Covered,");
+			r.append("AssertionContract,");
+			r.append("EqualsContract,");
+			r.append("EqualsHashcodeContract,");
+			r.append("EqualsNullContract,");
+			r.append("EqualsSymmetricContract,");
+			r.append("HashCodeReturnsNormallyContract,");
+			r.append("JCrasherExceptionContract,");
+			r.append("NullPointerExceptionContract,");
+			r.append("ToStringReturnsNormallyContract,");
+			r.append("UndeclaredExceptionContract,");
+			r.append("Contract Violations,");
+			r.append("Unique Violations,");
 			r.append("Data File");
 			return r.toString();
 		}
@@ -245,6 +283,7 @@ public abstract class ReportGenerator implements SearchListener, Serializable {
 			r.append(total_methods + ",");
 			r.append(branchless_methods + ",");
 			r.append(covered_methods + ",");
+			r.append(covered_branchless_methods + ",");
 
 			r.append(total_goals + ",");
 			r.append(covered_goals + ",");
@@ -269,7 +308,7 @@ public abstract class ReportGenerator implements SearchListener, Serializable {
 			r.append(chromosome_length + ",");
 			r.append(population_size + ",");
 			r.append(seed + ","); //21
-			r.append(Properties.GENERATIONS + ","); //22
+			r.append(Properties.SEARCH_BUDGET + ","); //22
 
 			// TODO since we currently don't want to change the layout of
 			// statistics.csv i will leave this commented out for future use and
@@ -308,8 +347,34 @@ public abstract class ReportGenerator implements SearchListener, Serializable {
 
 			r.append(goalCoverage + ",");
 			r.append(mutationScore + ",");
-			r.append(methodExceptions + ",");
-			r.append(typeExceptions + ",");
+			r.append(explicitMethodExceptions + ",");
+			r.append(explicitTypeExceptions + ",");
+			r.append(implicitMethodExceptions + ",");
+			r.append(implicitTypeExceptions + ",");
+			r.append(error_branches + ",");
+			r.append(error_branches_covered + ",");
+			r.append(error_branchless_methods + ",");
+			r.append(error_branchless_methods_covered + ",");
+			r.append(FailingTestSet.getNumberOfViolations(AssertionErrorContract.class)
+			        + ",");
+			r.append(FailingTestSet.getNumberOfViolations(EqualsContract.class) + ",");
+			r.append(FailingTestSet.getNumberOfViolations(EqualsHashcodeContract.class)
+			        + ",");
+			r.append(FailingTestSet.getNumberOfViolations(EqualsNullContract.class) + ",");
+			r.append(FailingTestSet.getNumberOfViolations(EqualsSymmetricContract.class)
+			        + ",");
+			r.append(FailingTestSet.getNumberOfViolations(HashCodeReturnsNormallyContract.class)
+			        + ",");
+			r.append(FailingTestSet.getNumberOfViolations(JCrasherExceptionContract.class)
+			        + ",");
+			r.append(FailingTestSet.getNumberOfViolations(NullPointerExceptionContract.class)
+			        + ",");
+			r.append(FailingTestSet.getNumberOfViolations(ToStringReturnsNormallyContract.class)
+			        + ",");
+			r.append(FailingTestSet.getNumberOfViolations(UndeclaredExceptionContract.class)
+			        + ",");
+			r.append(FailingTestSet.getNumberOfViolations() + ",");
+			r.append(FailingTestSet.getNumberOfUniqueViolations() + ",");
 			r.append(getCSVFilepath());
 
 			return r.toString();
@@ -416,9 +481,22 @@ public abstract class ReportGenerator implements SearchListener, Serializable {
 		buffer.append(title);
 		buffer.append("\n</title>\n");
 
-		buffer.append("<link href=\"prettify.css\" type=\"text/css\" rel=\"stylesheet\" />\n");
-		buffer.append("<link href=\"style.css\" rel=\"stylesheet\" type=\"text/css\" media=\"screen\"/>\n");
-		buffer.append("<script type=\"text/javascript\" src=\"prettify.js\"></script>\n");
+		buffer.append("<link href=\"files/prettify.css\" type=\"text/css\" rel=\"stylesheet\" />\n");
+		buffer.append("<link href=\"files/style.css\" rel=\"stylesheet\" type=\"text/css\" media=\"screen\"/>\n");
+		buffer.append("<script type=\"text/javascript\" src=\"files/prettify.js\"></script>\n");
+		buffer.append("<script type=\"text/javascript\" src=\"files/jquery.js\"></script>\n");
+		buffer.append("<script type=\"text/javascript\" src=\"files/foldButton.js\"></script>\n");
+		buffer.append("<script type=\"text/javascript\">\n");
+		buffer.append("  $(document).ready(function() {\n");
+		//buffer.append("    $('div.tests').foldButton({'closedText':'open TITLE' });\n");
+		//buffer.append("    $('div.source').foldButton({'closedText':'open TITLE' });\n");
+		//buffer.append("    $('div.statistics').foldButton({'closedText':'open TITLE' });\n");
+		buffer.append("    $('H2#tests').foldButton();\n");
+		buffer.append("    $('H2#source').foldButton();\n");
+		buffer.append("    $('H2#parameters').foldButton();\n");
+		buffer.append("  });");
+		buffer.append("</script>\n");
+		buffer.append("<link href=\"files/foldButton.css\" rel=\"stylesheet\" type=\"text/css\">\n");
 		buffer.append("</head>\n");
 		buffer.append("<body onload=\"prettyPrint()\">\n");
 		buffer.append("<div id=\"wrapper\">\n");
@@ -577,7 +655,7 @@ public abstract class ReportGenerator implements SearchListener, Serializable {
 		 */
 
 		// Chart of fitness
-		if (do_plot) {
+		if (Properties.PLOT) {
 			if (run.fitness_history.isEmpty()) {
 				sb.append("<h2>No fitness history</h2>\n");
 			} else {
@@ -684,8 +762,8 @@ public abstract class ReportGenerator implements SearchListener, Serializable {
 	 * @param buffer
 	 */
 	protected void writeParameterTable(StringBuffer buffer, StatisticEntry entry) {
-		buffer.append("<h2>EvoSuite Parameters</h2>\n");
-		buffer.append("<ul>\n");
+		buffer.append("<h2 id=parameters>EvoSuite Parameters</h2>\n");
+		buffer.append("<div class=statistics><ul>\n");
 		for (String key : Properties.getParameters()) {
 			try {
 				buffer.append("<li>" + key + ": " + Properties.getStringValue(key) + "\n"); // TODO
@@ -699,18 +777,8 @@ public abstract class ReportGenerator implements SearchListener, Serializable {
 				e.printStackTrace();
 			}
 		}
-		buffer.append("</ul>\n");
+		buffer.append("</ul></div>\n");
 
-		buffer.append("<h2>Old Parameters</h2>\n");
-		buffer.append("<ul>\n");
-		buffer.append("<li>Algorithm: " + Properties.ALGORITHM.toString() + "\n"); // TODO
-		buffer.append("<li>Population size: " + entry.population_size + "\n");
-		buffer.append("<li>Initial test length: " + entry.chromosome_length + "\n");
-		buffer.append("<li>Stopping condition: " + Properties.STOPPING_CONDITION + ": "
-		        + Properties.GENERATIONS + "\n");
-		buffer.append("<li>Bloat control factor: " + Properties.BLOAT_FACTOR);
-		buffer.append("<li>Random seed: " + entry.seed + "\n");
-		buffer.append("</ul>\n");
 	}
 
 	/**
@@ -721,46 +789,38 @@ public abstract class ReportGenerator implements SearchListener, Serializable {
 	protected void writeResultTable(StringBuffer buffer, StatisticEntry entry) {
 		SimpleDateFormat sdf = new SimpleDateFormat(DATE_FORMAT_NOW);
 
-		buffer.append("<h2>Statistics</h2>\n");
+		//buffer.append("<h2>Statistics</h2>\n");
 		buffer.append("<ul>\n");
-		buffer.append("<li>Start time: " + sdf.format(new Date(entry.start_time)) + "\n");
-		buffer.append("<li>End time: " + sdf.format(new Date(entry.minimized_time))
-		        + "\n");
-		buffer.append("<li>Fitness evaluations: " + entry.result_fitness_evaluations
-		        + "\n");
-		buffer.append("<li>Tests executed: " + entry.result_tests_executed + "\n");
-		buffer.append("<li>Statements executed: " + entry.result_statements_executed
-		        + "\n");
-		buffer.append("<li>Generations: " + entry.age + "\n");
-		buffer.append("<li>Number of tests before minimization: " + entry.size_final
-		        + "\n");
-		buffer.append("<li>Number of tests after minimization: " + entry.size_minimized
-		        + "\n");
-		buffer.append("<li>Length of tests before minimization: " + entry.length_final
-		        + "\n");
-		buffer.append("<li>Length of tests after minimization: " + entry.length_minimized
-		        + "\n");
-		buffer.append("<li>Total predicates: " + entry.total_branches + "\n");
-		buffer.append("<li>Total branches: " + (2 * entry.total_branches) + "\n");
-		buffer.append("<li>Covered branches: " + entry.covered_branches + "\n");
-		buffer.append("<li>Total methods: " + entry.total_methods + "\n");
-		buffer.append("<li>Covered methods: " + entry.covered_methods + "\n");
-		buffer.append("<li>Methods without branches: " + entry.branchless_methods + "\n");
-		buffer.append("<li>Total coverage goal: " + entry.total_goals + "\n");
-		buffer.append("<li>Covered goals: " + entry.covered_goals + "\n");
+
+		buffer.append("<li>");
+		buffer.append(entry.result_fitness_evaluations);
+		buffer.append(" fitness evaluations, ");
+		buffer.append(entry.age);
+		buffer.append(" generations, ");
+		buffer.append(entry.result_statements_executed);
+		buffer.append(" statements, ");
+		buffer.append(entry.result_tests_executed);
+		buffer.append(" tests.\n");
 
 		long duration_GA = (entry.end_time - entry.start_time) / 1000;
 		long duration_MI = (entry.minimized_time - entry.end_time) / 1000;
 		long duration_TO = (entry.minimized_time - entry.start_time) / 1000;
-		buffer.append("<li>Time for search: "
-		        + String.format("%d:%02d:%02d", duration_GA / 3600,
-		                        (duration_GA % 3600) / 60, (duration_GA % 60)) + "\n");
-		buffer.append("<li>Time for minimization: "
-		        + String.format("%d:%02d:%02d", duration_MI / 3600,
-		                        (duration_MI % 3600) / 60, (duration_MI % 60)) + "\n");
-		buffer.append("<li>Total time: "
+
+		buffer.append("<li>Time: "
 		        + String.format("%d:%02d:%02d", duration_TO / 3600,
-		                        (duration_TO % 3600) / 60, (duration_TO % 60)) + "\n");
+		                        (duration_TO % 3600) / 60, (duration_TO % 60)));
+
+		buffer.append("(Search: "
+		        + String.format("%d:%02d:%02d", duration_GA / 3600,
+		                        (duration_GA % 3600) / 60, (duration_GA % 60)) + ", ");
+		buffer.append("minimization: "
+		        + String.format("%d:%02d:%02d", duration_MI / 3600,
+		                        (duration_MI % 3600) / 60, (duration_MI % 60)) + ")\n");
+
+		buffer.append("<li>Coverage: " + entry.covered_branches + "/"
+		        + (2 * entry.total_branches) + " branches, ");
+		buffer.append(entry.covered_methods + "/" + entry.total_methods + " methods, ");
+		buffer.append(entry.covered_goals + "/" + entry.total_goals + " total goals\n");
 
 		// buffer.append("<li>Elite: "+System.getProperty("GA.elite")+"\n");
 		// buffer.append("<li>Mutation rate: "+System.getProperty("GA.mutation_rate")+"\n");
@@ -808,6 +868,9 @@ public abstract class ReportGenerator implements SearchListener, Serializable {
 	}
 
 	public void writeCSV() {
+		if (statistics.isEmpty())
+			return;
+
 		StatisticEntry entry = statistics.get(statistics.size() - 1);
 		logger.info("Writing CSV!");
 		try {
@@ -853,22 +916,31 @@ public abstract class ReportGenerator implements SearchListener, Serializable {
 	protected void copyFile(String name) {
 		URL systemResource = ClassLoader.getSystemResource("report/" + name);
 		logger.debug("Copying from resource: " + systemResource);
-		copyFile(systemResource, new File(REPORT_DIR, name));
-		copyFile(systemResource, new File(REPORT_DIR.getAbsolutePath() + "/html/" + name));
+		copyFile(systemResource, new File(REPORT_DIR, "files/" + name));
+		copyFile(systemResource, new File(REPORT_DIR.getAbsolutePath() + "/html/files/"
+		        + name));
 	}
 
 	/**
 	 * Write an HTML report
 	 */
 	public void writeReport() {
-		if (!do_html)
+		if (!Properties.HTML)
 			return;
 
-		new File(REPORT_DIR.getAbsolutePath() + "/html/").mkdirs();
+		if (statistics.isEmpty())
+			return;
+
+		new File(REPORT_DIR.getAbsolutePath() + "/html/files/").mkdirs();
+		new File(REPORT_DIR.getAbsolutePath() + "/data/").mkdirs();
+		new File(REPORT_DIR.getAbsolutePath() + "/files/").mkdirs();
 
 		copyFile("prettify.js");
 		copyFile("prettify.css");
 		copyFile("style.css");
+		copyFile("foldButton.js");
+		copyFile("foldButton.css");
+		copyFile("jquery.js");
 		copyFile("detected.png");
 		copyFile("not_detected.png");
 		copyFile("img01.jpg");
@@ -888,10 +960,10 @@ public abstract class ReportGenerator implements SearchListener, Serializable {
 			}
 		} else {
 
-			writeHTMLHeader(report, "EvoSuite Report for " + Properties.PROJECT_PREFIX);
+			writeHTMLHeader(report, Properties.PROJECT_PREFIX);
 			report.append("<div id=\"header\"><div id=\"logo\">");
-			report.append("<h1 class=title>EvoSuite Report for "
-			        + Properties.PROJECT_PREFIX + "</h1>\n");
+			report.append("<h1 class=title>EvoSuite: " + Properties.PROJECT_PREFIX
+			        + "</h1>\n");
 			report.append("</div></div>");
 			try {
 				report.append("Run on "
@@ -933,33 +1005,30 @@ public abstract class ReportGenerator implements SearchListener, Serializable {
 		return covered_lines;
 	}
 
-	public ExecutionTrace executeTest(TestCase test, String className) {
-		ExecutionTrace trace = null;
+	public ExecutionResult executeTest(TestCase test, String className) {
+		ExecutionResult result = null;
 		try {
 			// logger.trace(test.toCode());
 			TestCaseExecutor executor = TestCaseExecutor.getInstance();
-			ExecutionResult result = executor.execute(test);
+			result = executor.execute(test);
 			// Map<Integer, Throwable> result = executor.run(test);
 			StatisticEntry entry = statistics.get(statistics.size() - 1);
 			// entry.results.put(test, result);
-			entry.results.put(test, result.exceptions);
-
-			// trace = ExecutionTracer.getExecutionTracer().getTrace();
-			trace = result.getTrace();
+			entry.results.put(test, result.exposeExceptionMapping());
 
 		} catch (Exception e) {
 			System.out.println("TG: Exception caught: " + e);
 			e.printStackTrace();
 			try {
 				Thread.sleep(1000);
-				trace = ExecutionTracer.getExecutionTracer().getTrace();
+				result.setTrace(ExecutionTracer.getExecutionTracer().getTrace());
 			} catch (Exception e1) {
 				e.printStackTrace();
 				// TODO: Do some error recovery?
 				System.exit(1);
 			}
 		}
-		return trace;
+		return result;
 	}
 
 	public abstract void minimized(Chromosome result);
@@ -967,9 +1036,9 @@ public abstract class ReportGenerator implements SearchListener, Serializable {
 	protected void makeDirs() {
 		REPORT_DIR.mkdirs();
 		(new File(REPORT_DIR.getAbsolutePath() + "/data")).mkdir();
-		if (do_plot)
+		if (Properties.PLOT)
 			(new File(REPORT_DIR.getAbsolutePath() + "/img")).mkdir();
-		if (do_html)
+		if (Properties.HTML)
 			(new File(REPORT_DIR.getAbsolutePath() + "/html")).mkdir();
 	}
 

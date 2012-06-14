@@ -1,4 +1,21 @@
 /**
+ * Copyright (C) 2011,2012 Gordon Fraser, Andrea Arcuri and EvoSuite contributors
+ *
+ * This file is part of EvoSuite.
+ *
+ * EvoSuite is free software: you can redistribute it and/or modify it under the
+ * terms of the GNU Lesser Public License as published by the Free Software
+ * Foundation, either version 3 of the License, or (at your option) any later
+ * version.
+ *
+ * EvoSuite is distributed in the hope that it will be useful, but WITHOUT ANY
+ * WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS FOR
+ * A PARTICULAR PURPOSE. See the GNU Lesser Public License for more details.
+ *
+ * You should have received a copy of the GNU Public License along with
+ * EvoSuite. If not, see <http://www.gnu.org/licenses/>.
+ */
+/**
  * 
  */
 package de.unisb.cs.st.evosuite.contracts;
@@ -22,6 +39,10 @@ import de.unisb.cs.st.evosuite.testcase.TestCaseExecutor;
 public class FailingTestSet {
 
 	private static Logger logger = LoggerFactory.getLogger(FailingTestSet.class);
+
+	/*
+	 * FIXME: if actually used, need way to reset them
+	 */
 
 	/** The violated tracked */
 	private static final List<ContractViolation> violations = new ArrayList<ContractViolation>();
@@ -57,6 +78,36 @@ public class FailingTestSet {
 	}
 
 	/**
+	 * How many violations of this contract have we observed in total?
+	 * 
+	 * @param contract
+	 * @return
+	 */
+	public static int getNumberOfViolations(Contract contract) {
+		int num = 0;
+		for (ContractViolation violation : violations) {
+			if (violation.getContract().equals(contract))
+				num++;
+		}
+		return num;
+	}
+
+	/**
+	 * How many violations of this contract have we observed in total?
+	 * 
+	 * @param contract
+	 * @return
+	 */
+	public static int getNumberOfViolations(Class<?> contractClass) {
+		int num = 0;
+		for (ContractViolation violation : violations) {
+			if (violation.getContract().getClass().equals(contractClass))
+				num++;
+		}
+		return num;
+	}
+
+	/**
 	 * How many unique violations have we observed?
 	 * 
 	 * @return
@@ -78,7 +129,8 @@ public class FailingTestSet {
 			ContractViolation violation = violations.get(i);
 			violation.minimizeTest();
 			// TODO: Add comment about contract violation
-			writer.insertTest(violation.getTestCase());
+			writer.insertTest(violation.getTestCase(), " Contract violation: "
+			        + violation.getContract().toString());
 		}
 		String name = Properties.TARGET_CLASS.substring(Properties.TARGET_CLASS.lastIndexOf(".") + 1);
 		String testDir = Properties.TEST_DIR;

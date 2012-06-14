@@ -1,4 +1,21 @@
 /**
+ * Copyright (C) 2011,2012 Gordon Fraser, Andrea Arcuri and EvoSuite contributors
+ *
+ * This file is part of EvoSuite.
+ *
+ * EvoSuite is free software: you can redistribute it and/or modify it under the
+ * terms of the GNU Lesser Public License as published by the Free Software
+ * Foundation, either version 3 of the License, or (at your option) any later
+ * version.
+ *
+ * EvoSuite is distributed in the hope that it will be useful, but WITHOUT ANY
+ * WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS FOR
+ * A PARTICULAR PURPOSE. See the GNU Lesser Public License for more details.
+ *
+ * You should have received a copy of the GNU Public License along with
+ * EvoSuite. If not, see <http://www.gnu.org/licenses/>.
+ */
+/**
  * 
  */
 package de.unisb.cs.st.evosuite.ga.stoppingconditions;
@@ -57,6 +74,16 @@ public class GlobalTimeStoppingCondition extends StoppingConditionImpl {
 	public void reset() {
 		if (start_time == 0)
 			start_time = System.currentTimeMillis();
+	}
+	
+	/**
+	 * Fully resets the stopping condition. The start time is set to the current
+	 * time and thus "no time has elapsed so far".
+	 * If you want a conditional reset which only has an effect if the 
+	 * start time has never been changed use <tt>reset()</tt>.
+	 */
+	public void fullReset() {
+		start_time = System.currentTimeMillis();
 	}
 
 	/* (non-Javadoc)

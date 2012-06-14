@@ -1,26 +1,26 @@
-/*
- * Copyright (C) 2010 Saarland University
- * 
+/**
+ * Copyright (C) 2011,2012 Gordon Fraser, Andrea Arcuri and EvoSuite contributors
+ *
  * This file is part of EvoSuite.
- * 
+ *
  * EvoSuite is free software: you can redistribute it and/or modify it under the
  * terms of the GNU Lesser Public License as published by the Free Software
  * Foundation, either version 3 of the License, or (at your option) any later
  * version.
- * 
+ *
  * EvoSuite is distributed in the hope that it will be useful, but WITHOUT ANY
  * WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS FOR
  * A PARTICULAR PURPOSE. See the GNU Lesser Public License for more details.
- * 
- * You should have received a copy of the GNU Lesser Public License along with
+ *
+ * You should have received a copy of the GNU Public License along with
  * EvoSuite. If not, see <http://www.gnu.org/licenses/>.
  */
-
 package de.unisb.cs.st.evosuite.assertion;
 
 import java.util.List;
 import java.util.concurrent.TimeoutException;
 
+import de.unisb.cs.st.evosuite.testcase.PrimitiveStatement;
 import de.unisb.cs.st.evosuite.testcase.Scope;
 import de.unisb.cs.st.evosuite.testcase.StatementInterface;
 import de.unisb.cs.st.evosuite.testcase.VariableReference;
@@ -35,6 +35,12 @@ public class InspectorTraceObserver extends AssertionTraceObserver<InspectorTrac
 	@Override
 	protected void visit(StatementInterface statement, Scope scope, VariableReference var) {
 		// TODO: Check the variable class is complex?
+
+		// We don't want inspector checks on string constants
+		StatementInterface declaringStatement = currentTest.getStatement(var.getStPosition());
+		if (declaringStatement instanceof PrimitiveStatement<?>)
+			return;
+
 		logger.debug("Checking for inspectors of " + var + " at statement "
 		        + statement.getPosition());
 		List<Inspector> inspectors = manager.getInspectors(var.getVariableClass());
@@ -63,7 +69,7 @@ public class InspectorTraceObserver extends AssertionTraceObserver<InspectorTrac
 				}
 			} catch (Exception e) {
 				if (e instanceof TimeoutException) {
-					logger.info("Timeout during inspector call - deactivating inspector "
+					logger.debug("Timeout during inspector call - deactivating inspector "
 					        + i.getMethodCall());
 					manager.removeInspector(var.getVariableClass(), i);
 				}

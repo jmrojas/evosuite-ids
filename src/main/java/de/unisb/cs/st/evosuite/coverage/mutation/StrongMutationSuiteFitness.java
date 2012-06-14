@@ -1,4 +1,21 @@
 /**
+ * Copyright (C) 2011,2012 Gordon Fraser, Andrea Arcuri and EvoSuite contributors
+ *
+ * This file is part of EvoSuite.
+ *
+ * EvoSuite is free software: you can redistribute it and/or modify it under the
+ * terms of the GNU Lesser Public License as published by the Free Software
+ * Foundation, either version 3 of the License, or (at your option) any later
+ * version.
+ *
+ * EvoSuite is distributed in the hope that it will be useful, but WITHOUT ANY
+ * WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS FOR
+ * A PARTICULAR PURPOSE. See the GNU Lesser Public License for more details.
+ *
+ * You should have received a copy of the GNU Public License along with
+ * EvoSuite. If not, see <http://www.gnu.org/licenses/>.
+ */
+/**
  * 
  */
 package de.unisb.cs.st.evosuite.coverage.mutation;
@@ -50,8 +67,8 @@ public class StrongMutationSuiteFitness extends MutationSuiteFitness {
 
 			if (result.hasTimeout()) {
 				logger.debug("Skipping test with timeout");
-				double fitness = branchFitness.total_branches * 2
-				        + branchFitness.total_methods + 3 * mutationGoals.size();
+				double fitness = branchFitness.totalBranches * 2
+				        + branchFitness.totalMethods + 3 * mutationGoals.size();
 				updateIndividual(individual, fitness);
 				suite.setCoverage(0.0);
 				logger.info("Test case has timed out, setting fitness to max value "
