@@ -1,21 +1,20 @@
-/*
- * Copyright (C) 2010 Saarland University
- * 
+/**
+ * Copyright (C) 2011,2012 Gordon Fraser, Andrea Arcuri and EvoSuite
+ * contributors
+ *
  * This file is part of EvoSuite.
- * 
+ *
  * EvoSuite is free software: you can redistribute it and/or modify it under the
- * terms of the GNU Lesser Public License as published by the Free Software
- * Foundation, either version 3 of the License, or (at your option) any later
- * version.
- * 
+ * terms of the GNU Public License as published by the Free Software Foundation,
+ * either version 3 of the License, or (at your option) any later version.
+ *
  * EvoSuite is distributed in the hope that it will be useful, but WITHOUT ANY
  * WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS FOR
- * A PARTICULAR PURPOSE. See the GNU Lesser Public License for more details.
- * 
- * You should have received a copy of the GNU Lesser Public License along with
+ * A PARTICULAR PURPOSE. See the GNU Public License for more details.
+ *
+ * You should have received a copy of the GNU Public License along with
  * EvoSuite. If not, see <http://www.gnu.org/licenses/>.
  */
-
 package de.unisb.cs.st.evosuite.testcase;
 
 import java.io.IOException;
@@ -114,10 +113,10 @@ public class MethodStatement extends AbstractStatement {
 	        IllegalAccessException, InstantiationException {
 		logger.trace("Executing method " + method.getName());
 		final Object[] inputs = new Object[parameters.size()];
-		PrintStream old_out = System.out;
-		PrintStream old_err = System.err;
-		System.setOut(out);
-		System.setErr(out);
+		//PrintStream old_out = System.out;
+		//PrintStream old_err = System.err;
+		//System.setOut(out);
+		//System.setErr(out);
 
 		try {
 			return super.exceptionHandler(new Executer() {
@@ -139,7 +138,8 @@ public class MethodStatement extends AbstractStatement {
 							throw new CodeUnderTestException(new NullPointerException());
 						}
 					} catch (CodeUnderTestException e) {
-						throw CodeUnderTestException.throwException(e.getCause());
+						throw e;
+						// throw CodeUnderTestException.throwException(e.getCause());
 					} catch (Throwable e) {
 						throw new EvosuiteError(e);
 					}
@@ -149,7 +149,8 @@ public class MethodStatement extends AbstractStatement {
 					try {
 						retval.setObject(scope, ret);
 					} catch (CodeUnderTestException e) {
-						throw CodeUnderTestException.throwException(e);
+						throw e;
+						// throw CodeUnderTestException.throwException(e);
 					} catch (Throwable e) {
 						throw new EvosuiteError(e);
 					}
@@ -165,13 +166,13 @@ public class MethodStatement extends AbstractStatement {
 
 		} catch (InvocationTargetException e) {
 			exceptionThrown = e.getCause();
-			System.setOut(old_out);
-			System.setErr(old_err);
+			//System.setOut(old_out);
+			//System.setErr(old_err);
 			logger.debug("Exception thrown in method {}: {}", method.getName(),
 			             exceptionThrown);
-		} finally {
-			System.setOut(old_out);
-			System.setErr(old_err);
+			//} finally {
+			//	System.setOut(old_out);
+			//	System.setErr(old_err);
 		}
 		return exceptionThrown;
 	}
@@ -204,6 +205,16 @@ public class MethodStatement extends AbstractStatement {
 			        new_params);
 
 		}
+		if (retval instanceof ArrayReference
+		        && !(m.getReturnValue() instanceof ArrayReference)) {
+			// logger.info("Copying array retval: " + retval.getGenericClass());
+			//	assert (retval.getGenericClass() != null);
+			//	assert (retval.getGenericClass().isArray()) : method.toString();
+			ArrayReference newRetVal = new ArrayReference(newTestCase,
+			        retval.getGenericClass(), ((ArrayReference) retval).getArrayLength());
+			m.setRetval(newRetVal);
+
+		}
 
 		// m.assertions = copyAssertions(newTestCase, offset);
 
@@ -233,6 +244,9 @@ public class MethodStatement extends AbstractStatement {
 	 */
 	@Override
 	public void replace(VariableReference var1, VariableReference var2) {
+		if (retval.equals(var1))
+			retval = var2;
+
 		if (isInstanceMethod()) {
 			if (callee.equals(var1))
 				callee = var2;

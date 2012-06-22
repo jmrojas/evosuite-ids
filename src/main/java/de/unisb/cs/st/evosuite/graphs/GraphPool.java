@@ -1,3 +1,20 @@
+/**
+ * Copyright (C) 2011,2012 Gordon Fraser, Andrea Arcuri and EvoSuite
+ * contributors
+ *
+ * This file is part of EvoSuite.
+ *
+ * EvoSuite is free software: you can redistribute it and/or modify it under the
+ * terms of the GNU Public License as published by the Free Software Foundation,
+ * either version 3 of the License, or (at your option) any later version.
+ *
+ * EvoSuite is distributed in the hope that it will be useful, but WITHOUT ANY
+ * WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS FOR
+ * A PARTICULAR PURPOSE. See the GNU Public License for more details.
+ *
+ * You should have received a copy of the GNU Public License along with
+ * EvoSuite. If not, see <http://www.gnu.org/licenses/>.
+ */
 package de.unisb.cs.st.evosuite.graphs;
 
 import java.util.HashMap;
@@ -170,17 +187,27 @@ public class GraphPool {
 			cd.toDot();
 	}
 
-	public static void computeCCFGs() {
+	/**
+	 * Computes the CCFG for the given class
+	 * 
+	 * If no CFG is known for the given class, an IllegalArgumentException is
+	 * thrown
+	 */
+	public static ClassControlFlowGraph computeCCFG(String className) {
+		if (rawCFGs.get(className) == null)
+			throw new IllegalArgumentException(
+					"can't compute CCFG, don't know CFGs for class "
+							+ className);
 
-		for (String className : rawCFGs.keySet()) {
-			ClassCallGraph ccg = new ClassCallGraph(className);
-			if (Properties.WRITE_CFG)
-				ccg.toDot();
+		ClassCallGraph ccg = new ClassCallGraph(className);
+		if (Properties.WRITE_CFG)
+			ccg.toDot();
 
-			ClassControlFlowGraph ccfg = new ClassControlFlowGraph(ccg);
-			if (Properties.WRITE_CFG)
-				ccfg.toDot();
-		}
+		ClassControlFlowGraph ccfg = new ClassControlFlowGraph(ccg);
+		if (Properties.WRITE_CFG)
+			ccfg.toDot();
+
+		return ccfg;
 	}
 
 	public static void clear() {

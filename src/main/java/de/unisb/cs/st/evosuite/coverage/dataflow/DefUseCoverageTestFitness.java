@@ -1,21 +1,20 @@
-/*
- * Copyright (C) 2010 Saarland University
- * 
+/**
+ * Copyright (C) 2011,2012 Gordon Fraser, Andrea Arcuri and EvoSuite
+ * contributors
+ *
  * This file is part of EvoSuite.
- * 
+ *
  * EvoSuite is free software: you can redistribute it and/or modify it under the
- * terms of the GNU Lesser Public License as published by the Free Software
- * Foundation, either version 3 of the License, or (at your option) any later
- * version.
- * 
+ * terms of the GNU Public License as published by the Free Software Foundation,
+ * either version 3 of the License, or (at your option) any later version.
+ *
  * EvoSuite is distributed in the hope that it will be useful, but WITHOUT ANY
  * WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS FOR
- * A PARTICULAR PURPOSE. See the GNU Lesser Public License for more details.
- * 
- * You should have received a copy of the GNU Lesser Public License along with
+ * A PARTICULAR PURPOSE. See the GNU Public License for more details.
+ *
+ * You should have received a copy of the GNU Public License along with
  * EvoSuite. If not, see <http://www.gnu.org/licenses/>.
  */
-
 package de.unisb.cs.st.evosuite.coverage.dataflow;
 
 import java.text.NumberFormat;
@@ -153,6 +152,7 @@ import de.unisb.cs.st.evosuite.utils.Randomness;
  */
 public class DefUseCoverageTestFitness extends TestFitnessFunction {
 
+	public enum DefUsePairType {INTRA_METHOD, INTER_METHOD, INTRA_CLASS, PARAMETER};
 
 	private static final long serialVersionUID = 1L;
 
@@ -166,7 +166,8 @@ public class DefUseCoverageTestFitness extends TestFitnessFunction {
 	private final String goalVariable;
 	private final Use goalUse;
 	private final Definition goalDefinition;
-	private final boolean isInterMethodPair;
+	
+	private final DefUsePairType type;
 	
 	private final TestFitnessFunction goalDefinitionFitness;
 	private final TestFitnessFunction goalUseFitness;
@@ -183,17 +184,25 @@ public class DefUseCoverageTestFitness extends TestFitnessFunction {
 	/**
 	 * Creates a Definition-Use-Coverage goal for the given Definition and Use
 	 */
-	public DefUseCoverageTestFitness(Definition def, Use use, boolean isInterMethodPair) {
+	public DefUseCoverageTestFitness(Definition def, Use use, DefUsePairType type) {
+		if(def==null)
+			throw new IllegalArgumentException("null given for definition. type: "+type.toString());
+		if(use==null)
+			throw new IllegalArgumentException("null given for use. def was "+def.toString()+". type: "+type.toString());
 		if (!def.getDUVariableName().equals(use.getDUVariableName()))
 			throw new IllegalArgumentException(
 			        "expect def and use to be for the same variable: \n"+def.toString()+"\n"+use.toString());
-
+		if(def.isLocalDU() && !type.equals(DefUsePairType.INTRA_METHOD))
+			throw new IllegalArgumentException("local variables can only be part of INTRA-METHOD pairs: \ntype:"+type.toString()+"\ndef:"+def.toString()+"\nuse:"+use.toString());
+		
+		
 		this.goalDefinition = def;
 		this.goalUse = use;
 		this.goalVariable = def.getDUVariableName();
 		this.goalDefinitionFitness = new StatementCoverageTestFitness(goalDefinition);
 		this.goalUseFitness = new StatementCoverageTestFitness(goalUse);
-		this.isInterMethodPair = isInterMethodPair;
+		
+		this.type = type;
 	}
 
 	/**
@@ -211,7 +220,8 @@ public class DefUseCoverageTestFitness extends TestFitnessFunction {
 		goalDefinitionFitness = null;
 		goalUse = use;
 		goalUseFitness = new StatementCoverageTestFitness(goalUse);
-		isInterMethodPair = false;
+		
+		this.type = DefUsePairType.PARAMETER;
 	}
 
 	/**
@@ -512,7 +522,15 @@ public class DefUseCoverageTestFitness extends TestFitnessFunction {
 	}
 	
 	public boolean isInterMethodPair() {
-		return isInterMethodPair;
+		return type.equals(DefUsePairType.INTER_METHOD);
+	}
+	
+	public boolean isIntraClassPair() {
+		return type.equals(DefUsePairType.INTRA_CLASS);
+	}
+	
+	public DefUsePairType getType() {
+		return type;
 	}
 	
 	public boolean isParameterGoal() {
@@ -524,11 +542,8 @@ public class DefUseCoverageTestFitness extends TestFitnessFunction {
 	@Override
 	public String toString() {
 		StringBuffer r = new StringBuffer();
-		if(isInterMethodPair())
-			r.append("inter-");
-		else
-			r.append("intra-");
-		r.append("Definition-Use-Pair");
+		r.append(type.toString());
+		r.append("-Definition-Use-Pair");
 		if (difficulty != -1)
 			r.append("- Difficulty "
 			        + NumberFormat.getIntegerInstance().format(difficulty));
@@ -550,7 +565,9 @@ public class DefUseCoverageTestFitness extends TestFitnessFunction {
 		result = prime * result
 				+ ((goalDefinition == null) ? 0 : goalDefinition.hashCode());
 		result = prime * result + ((goalUse == null) ? 0 : goalUse.hashCode());
-		result = prime * result + (isInterMethodPair ? 1231 : 1237);
+		result = prime * result
+				+ ((goalVariable == null) ? 0 : goalVariable.hashCode());
+		result = prime * result + ((type == null) ? 0 : type.hashCode());
 		return result;
 	}
 
@@ -573,10 +590,50 @@ public class DefUseCoverageTestFitness extends TestFitnessFunction {
 				return false;
 		} else if (!goalUse.equals(other.goalUse))
 			return false;
-		if (isInterMethodPair != other.isInterMethodPair)
+		if (goalVariable == null) {
+			if (other.goalVariable != null)
+				return false;
+		} else if (!goalVariable.equals(other.goalVariable))
+			return false;
+		if (type != other.type)
 			return false;
 		return true;
 	}
+
+//	@Override
+//	public int hashCode() {
+//		final int prime = 31;
+//		int result = 1;
+//		result = prime * result
+//				+ ((goalDefinition == null) ? 0 : goalDefinition.hashCode());
+//		result = prime * result + ((goalUse == null) ? 0 : goalUse.hashCode());
+//		result = prime * result + (isInterMethodPair ? 1231 : 1237);
+//		return result;
+//	}
+//
+//	@Override
+//	public boolean equals(Object obj) {
+//		if (this == obj)
+//			return true;
+//		if (obj == null)
+//			return false;
+//		if (getClass() != obj.getClass())
+//			return false;
+//		DefUseCoverageTestFitness other = (DefUseCoverageTestFitness) obj;
+//		if (goalDefinition == null) {
+//			if (other.goalDefinition != null)
+//				return false;
+//		} else if (!goalDefinition.equals(other.goalDefinition))
+//			return false;
+//		if (goalUse == null) {
+//			if (other.goalUse != null)
+//				return false;
+//		} else if (!goalUse.equals(other.goalUse))
+//			return false;
+//		if (type != other.type)
+//			return false;
+//		return true;
+//	}
 
 //	@Override
 //	public int hashCode() {

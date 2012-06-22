@@ -1,4 +1,21 @@
 /**
+ * Copyright (C) 2011,2012 Gordon Fraser, Andrea Arcuri and EvoSuite
+ * contributors
+ *
+ * This file is part of EvoSuite.
+ *
+ * EvoSuite is free software: you can redistribute it and/or modify it under the
+ * terms of the GNU Public License as published by the Free Software Foundation,
+ * either version 3 of the License, or (at your option) any later version.
+ *
+ * EvoSuite is distributed in the hope that it will be useful, but WITHOUT ANY
+ * WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS FOR
+ * A PARTICULAR PURPOSE. See the GNU Public License for more details.
+ *
+ * You should have received a copy of the GNU Public License along with
+ * EvoSuite. If not, see <http://www.gnu.org/licenses/>.
+ */
+/**
  * 
  */
 package de.unisb.cs.st.evosuite.assertion;
@@ -14,6 +31,7 @@ import com.examples.with.different.packagename.ExampleStaticVoidSetterClass;
 import de.unisb.cs.st.evosuite.EvoSuite;
 import de.unisb.cs.st.evosuite.SystemTest;
 import de.unisb.cs.st.evosuite.ga.GeneticAlgorithm;
+import org.junit.Ignore;
 import de.unisb.cs.st.evosuite.testcase.TestCase;
 import de.unisb.cs.st.evosuite.testsuite.TestSuiteChromosome;
 
@@ -46,6 +64,7 @@ public class TestAllAssertion extends SystemTest {
 		return (TestSuiteChromosome) ga.getBestIndividual();
 	}
 
+	@Ignore
 	@Test
 	public void test1() {
 		TestSuiteChromosome suite = generateSuite(ExampleObserverClass.class);
@@ -57,6 +76,7 @@ public class TestAllAssertion extends SystemTest {
 		}
 	}
 
+	@Ignore
 	@Test
 	public void test2() {
 		TestSuiteChromosome suite = generateSuite(ExampleFieldClass.class);
@@ -68,6 +88,7 @@ public class TestAllAssertion extends SystemTest {
 		}
 	}
 
+	@Ignore
 	@Test
 	public void test3() {
 		TestSuiteChromosome suite = generateSuite(ExampleInheritedClass.class);
@@ -79,6 +100,7 @@ public class TestAllAssertion extends SystemTest {
 		}
 	}
 
+	@Ignore
 	@Test
 	public void test4() {
 		TestSuiteChromosome suite = generateSuite(ExampleStaticVoidSetterClass.class);

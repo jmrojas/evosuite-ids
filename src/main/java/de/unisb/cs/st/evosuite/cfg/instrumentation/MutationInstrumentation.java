@@ -1,4 +1,21 @@
 /**
+ * Copyright (C) 2011,2012 Gordon Fraser, Andrea Arcuri and EvoSuite
+ * contributors
+ *
+ * This file is part of EvoSuite.
+ *
+ * EvoSuite is free software: you can redistribute it and/or modify it under the
+ * terms of the GNU Public License as published by the Free Software Foundation,
+ * either version 3 of the License, or (at your option) any later version.
+ *
+ * EvoSuite is distributed in the hope that it will be useful, but WITHOUT ANY
+ * WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS FOR
+ * A PARTICULAR PURPOSE. See the GNU Public License for more details.
+ *
+ * You should have received a copy of the GNU Public License along with
+ * EvoSuite. If not, see <http://www.gnu.org/licenses/>.
+ */
+/**
  * 
  */
 package de.unisb.cs.st.evosuite.cfg.instrumentation;
@@ -18,6 +35,8 @@ import org.objectweb.asm.tree.LabelNode;
 import org.objectweb.asm.tree.LdcInsnNode;
 import org.objectweb.asm.tree.MethodInsnNode;
 import org.objectweb.asm.tree.MethodNode;
+import org.objectweb.asm.tree.analysis.Analyzer;
+import org.objectweb.asm.tree.analysis.Frame;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -25,7 +44,6 @@ import de.unisb.cs.st.evosuite.cfg.instrumentation.mutation.DeleteField;
 import de.unisb.cs.st.evosuite.cfg.instrumentation.mutation.DeleteStatement;
 import de.unisb.cs.st.evosuite.cfg.instrumentation.mutation.InsertUnaryOperator;
 import de.unisb.cs.st.evosuite.cfg.instrumentation.mutation.MutationOperator;
-import de.unisb.cs.st.evosuite.cfg.instrumentation.mutation.NegateCondition;
 import de.unisb.cs.st.evosuite.cfg.instrumentation.mutation.ReplaceArithmeticOperator;
 import de.unisb.cs.st.evosuite.cfg.instrumentation.mutation.ReplaceBitwiseOperator;
 import de.unisb.cs.st.evosuite.cfg.instrumentation.mutation.ReplaceComparisonOperator;
@@ -36,6 +54,7 @@ import de.unisb.cs.st.evosuite.coverage.mutation.MutationObserver;
 import de.unisb.cs.st.evosuite.graphs.GraphPool;
 import de.unisb.cs.st.evosuite.graphs.cfg.BytecodeInstruction;
 import de.unisb.cs.st.evosuite.graphs.cfg.RawControlFlowGraph;
+import de.unisb.cs.st.evosuite.javaagent.BooleanValueInterpreter;
 import de.unisb.cs.st.evosuite.testcase.ExecutionTracer;
 
 /**
@@ -48,6 +67,8 @@ public class MutationInstrumentation implements MethodInstrumentation {
 
 	private final List<MutationOperator> mutationOperators;
 
+	private Frame[] frames = new Frame[0];
+
 	public MutationInstrumentation() {
 		mutationOperators = new ArrayList<MutationOperator>();
 
@@ -58,7 +79,7 @@ public class MutationInstrumentation implements MethodInstrumentation {
 		mutationOperators.add(new ReplaceVariable());
 
 		mutationOperators.add(new ReplaceConstant());
-		mutationOperators.add(new NegateCondition());
+		// mutationOperators.add(new NegateCondition());
 		// FIXME: Don't apply to boolean values!
 		mutationOperators.add(new InsertUnaryOperator());
 
@@ -66,6 +87,20 @@ public class MutationInstrumentation implements MethodInstrumentation {
 		mutationOperators.add(new DeleteStatement());
 		mutationOperators.add(new DeleteField());
 		// TODO: Replace iinc?
+
+	}
+
+	private void getFrames(MethodNode mn, String className) {
+		try {
+			Analyzer a = new Analyzer(new BooleanValueInterpreter(mn.desc,
+			        (mn.access & Opcodes.ACC_STATIC) == Opcodes.ACC_STATIC));
+			a.analyze(className, mn);
+			this.frames = a.getFrames();
+		} catch (Exception e) {
+			logger.info("1. Error during analysis: " + e);
+			//e.printStackTrace();
+			// TODO: Handle error
+		}
 
 	}
 
@@ -78,12 +113,18 @@ public class MutationInstrumentation implements MethodInstrumentation {
 		RawControlFlowGraph graph = GraphPool.getRawCFG(className, methodName);
 		Iterator<AbstractInsnNode> j = mn.instructions.iterator();
 
+		getFrames(mn, className);
+
 		boolean constructorInvoked = false;
 		if (!methodName.startsWith("<init>"))
 			constructorInvoked = true;
 
 		logger.info("Applying mutation operators ");
+		int frameIndex = 0;
+		assert (frames.length == mn.instructions.size()) : "Length " + frames.length
+		        + " vs " + mn.instructions.size();
 		while (j.hasNext()) {
+			Frame currentFrame = frames[frameIndex++];
 			AbstractInsnNode in = j.next();
 			if (!constructorInvoked) {
 				if (in.getOpcode() == Opcodes.INVOKESPECIAL) {
@@ -107,7 +148,8 @@ public class MutationInstrumentation implements MethodInstrumentation {
 							logger.info("Applying mutation operator "
 							        + mutationOperator.getClass().getSimpleName());
 							mutations.addAll(mutationOperator.apply(mn, className,
-							                                        methodName, v));
+							                                        methodName, v,
+							                                        currentFrame));
 						}
 					}
 					if (!mutations.isEmpty()) {
@@ -126,7 +168,7 @@ public class MutationInstrumentation implements MethodInstrumentation {
 			logger.info(new BytecodeInstruction(className, methodName, 0, 0, in).toString());
 		}
 		logger.info("Done.");
-		mn.maxStack += 3;
+		// mn.maxStack += 3;
 	}
 
 	/* (non-Javadoc)

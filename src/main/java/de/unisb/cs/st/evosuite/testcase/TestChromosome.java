@@ -1,30 +1,26 @@
-/*
- * Copyright (C) 2010 Saarland University
+/**
+ * Copyright (C) 2011,2012 Gordon Fraser, Andrea Arcuri and EvoSuite
+ * contributors
  * 
  * This file is part of EvoSuite.
  * 
  * EvoSuite is free software: you can redistribute it and/or modify it under the
- * terms of the GNU Lesser Public License as published by the Free Software
- * Foundation, either version 3 of the License, or (at your option) any later
- * version.
+ * terms of the GNU Public License as published by the Free Software Foundation,
+ * either version 3 of the License, or (at your option) any later version.
  * 
  * EvoSuite is distributed in the hope that it will be useful, but WITHOUT ANY
  * WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS FOR
- * A PARTICULAR PURPOSE. See the GNU Lesser Public License for more details.
+ * A PARTICULAR PURPOSE. See the GNU Public License for more details.
  * 
- * You should have received a copy of the GNU Lesser Public License along with
+ * You should have received a copy of the GNU Public License along with
  * EvoSuite. If not, see <http://www.gnu.org/licenses/>.
  */
-
 package de.unisb.cs.st.evosuite.testcase;
 
 import java.util.ArrayList;
 import java.util.List;
 
 import de.unisb.cs.st.evosuite.Properties;
-import de.unisb.cs.st.evosuite.Properties.Criterion;
-import de.unisb.cs.st.evosuite.coverage.concurrency.ConcurrentTestCase;
-import de.unisb.cs.st.evosuite.coverage.concurrency.Schedule;
 import de.unisb.cs.st.evosuite.coverage.mutation.Mutation;
 import de.unisb.cs.st.evosuite.coverage.mutation.MutationExecutionResult;
 import de.unisb.cs.st.evosuite.ga.Chromosome;
@@ -62,6 +58,12 @@ public class TestChromosome extends ExecutableChromosome {
 
 	public TestCase getTestCase() {
 		return test;
+	}
+
+	@Override
+	public void setLastExecutionResult(ExecutionResult lastExecutionResult) {
+		assert lastExecutionResult.test.equals(this.test);
+		this.lastExecutionResult = lastExecutionResult;
 	}
 
 	@Override
@@ -104,8 +106,9 @@ public class TestChromosome extends ExecutableChromosome {
 	protected void copyCachedResults(ExecutableChromosome other) {
 		if (test == null)
 			throw new RuntimeException("Test is null!");
-		this.lastExecutionResult = other.lastExecutionResult; //.clone();
-		if (this.lastExecutionResult != null) {
+
+		if (other.lastExecutionResult != null) {
+			this.lastExecutionResult = other.lastExecutionResult.clone();
 			this.lastExecutionResult.test = this.test;
 		}
 
@@ -128,7 +131,7 @@ public class TestChromosome extends ExecutableChromosome {
 	        throws ConstructionFailedException {
 		logger.debug("Crossover starting");
 		TestChromosome offspring = new TestChromosome();
-		DefaultTestFactory test_factory = DefaultTestFactory.getInstance();
+		AbstractTestFactory test_factory = DefaultTestFactory.getInstance();
 
 		for (int i = 0; i < position1; i++) {
 			offspring.test.addStatement(test.getStatement(i).clone(offspring.test));
@@ -201,10 +204,13 @@ public class TestChromosome extends ExecutableChromosome {
 					search = new StringLocalSearch();
 				} else if (type.equals(Boolean.class)) {
 					search = new BooleanLocalSearch();
+				} else if (test.getStatement(i) instanceof EnumPrimitiveStatement) {
+					search = new EnumLocalSearch();
 				}
-
 			} else if (test.getStatement(i) instanceof ArrayStatement) {
 				search = new ArrayLocalSearch();
+			} else if (test.getStatement(i) instanceof MethodStatement) {
+				//search = new ParameterLocalSearch();
 			}
 			if (search != null)
 				search.doSearch(this, i, objective);
@@ -222,33 +228,6 @@ public class TestChromosome extends ExecutableChromosome {
 	@Override
 	public void mutate() {
 		boolean changed = false;
-		double P;
-
-		//#TODO steenbuck TestChromosome should be subclassed
-		if (Properties.CRITERION == Criterion.CONCURRENCY) {
-			assert (test instanceof ConcurrentTestCase);
-
-			P = 1d / 6d;
-
-			// Delete from schedule
-			if (Randomness.nextDouble() <= P) {
-				changed = mutationDeleteSchedule();
-			}
-
-			// Change in schedule
-			if (Randomness.nextDouble() <= P) {
-				if (mutationChangeSchedule())
-					changed = true;
-			}
-
-			// Insert into schedule
-			if (Randomness.nextDouble() <= P) {
-				if (mutationInsertSchedule())
-					changed = true;
-			}
-		} else {
-			P = 1d / 3d;
-		}
 
 		logger.debug("Mutation: delete");
 		// Delete
@@ -283,7 +262,7 @@ public class TestChromosome extends ExecutableChromosome {
 	private boolean mutationDelete() {
 		boolean changed = false;
 		double pl = 1d / test.size();
-		DefaultTestFactory test_factory = DefaultTestFactory.getInstance();
+		AbstractTestFactory test_factory = DefaultTestFactory.getInstance();
 
 		for (int num = test.size() - 1; num >= 0; num--) {
 
@@ -311,75 +290,6 @@ public class TestChromosome extends ExecutableChromosome {
 	}
 
 	/**
-	 * Each schedule entry is deleted with probability 1/length
-	 * 
-	 * @return
-	 */
-	private boolean mutationDeleteSchedule() {
-		ConcurrentTestCase test = (ConcurrentTestCase) this.test;
-		Schedule schedule = test.getSchedule();
-		boolean changed = false;
-		double pl = 1d / schedule.size();
-		for (int num = schedule.size() - 1; num >= 0; num--) {
-
-			// Each schedulePoint is deleted with probability 1/l
-			if (Randomness.nextDouble() <= pl) {
-				schedule.removeElement(num);
-				changed = true;
-			}
-		}
-
-		return changed;
-	}
-
-	/**
-	 * With exponentially decreasing probability, insert schedule points at
-	 * random position
-	 * 
-	 * @return
-	 */
-	private boolean mutationInsertSchedule() {
-		ConcurrentTestCase test = (ConcurrentTestCase) this.test;
-		Schedule schedule = test.getSchedule();
-		boolean changed = false;
-		final double ALPHA = 0.5;
-		int count = 0;
-
-		while (Randomness.nextDouble() <= Math.pow(ALPHA, count)) { //#TODO steenbuck removed length check, should maybe be added (compare: mutateInsert)
-			count++;
-			// Insert at position as during initialization (i.e., using helper
-			// sequences)
-			int pos = (schedule.size() == 0) ? 0 : Randomness.nextInt(schedule.size());
-			schedule.add(pos, schedule.getRandomThreadID());
-			changed = true;
-		}
-		return changed;
-	}
-
-	/**
-	 * Each schedule is replaced with probability 1/length
-	 * 
-	 * @return
-	 */
-	private boolean mutationChangeSchedule() {
-		ConcurrentTestCase test = (ConcurrentTestCase) this.test;
-		Schedule schedule = test.getSchedule();
-		boolean changed = false;
-		double pl = 1d / schedule.size();
-		for (int num = schedule.size() - 1; num >= 0; num--) {
-
-			// Each schedulePoint is deleted with probability 1/l
-			if (Randomness.nextDouble() <= pl) {
-				schedule.removeElement(num);
-				schedule.add(num, schedule.getRandomThreadID());
-				changed = true;
-			}
-		}
-
-		return changed;
-	}
-
-	/**
 	 * Each statement is replaced with probability 1/length
 	 * 
 	 * @return
@@ -387,7 +297,7 @@ public class TestChromosome extends ExecutableChromosome {
 	private boolean mutationChange() {
 		boolean changed = false;
 		double pl = 1d / test.size();
-		DefaultTestFactory test_factory = DefaultTestFactory.getInstance();
+		AbstractTestFactory test_factory = DefaultTestFactory.getInstance();
 
 		if (Randomness.nextDouble() < Properties.CONCOLIC_MUTATION) {
 			try {
@@ -430,7 +340,7 @@ public class TestChromosome extends ExecutableChromosome {
 		boolean changed = false;
 		final double ALPHA = Properties.P_STATEMENT_INSERTION; //0.5;
 		int count = 0;
-		DefaultTestFactory test_factory = DefaultTestFactory.getInstance();
+		AbstractTestFactory test_factory = DefaultTestFactory.getInstance();
 
 		while (Randomness.nextDouble() <= Math.pow(ALPHA, count)
 		        && (!Properties.CHECK_MAX_LENGTH || size() < Properties.CHROMOSOME_LENGTH)) {
@@ -525,7 +435,7 @@ public class TestChromosome extends ExecutableChromosome {
 
 	public boolean hasException() {
 		return lastExecutionResult == null ? false
-		        : !lastExecutionResult.exceptions.isEmpty();
+		        : !lastExecutionResult.noThrownExceptions();
 	}
 
 	/* (non-Javadoc)

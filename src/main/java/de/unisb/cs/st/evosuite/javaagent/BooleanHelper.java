@@ -1,4 +1,21 @@
 /**
+ * Copyright (C) 2011,2012 Gordon Fraser, Andrea Arcuri and EvoSuite
+ * contributors
+ *
+ * This file is part of EvoSuite.
+ *
+ * EvoSuite is free software: you can redistribute it and/or modify it under the
+ * terms of the GNU Public License as published by the Free Software Foundation,
+ * either version 3 of the License, or (at your option) any later version.
+ *
+ * EvoSuite is distributed in the hope that it will be useful, but WITHOUT ANY
+ * WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS FOR
+ * A PARTICULAR PURPOSE. See the GNU Public License for more details.
+ *
+ * You should have received a copy of the GNU Public License along with
+ * EvoSuite. If not, see <http://www.gnu.org/licenses/>.
+ */
+/**
  * 
  */
 package de.unisb.cs.st.evosuite.javaagent;
@@ -189,6 +206,12 @@ public class BooleanHelper {
 		return d;
 	}
 
+	/**
+	 * FIXME: the use of this function needs to be clarified
+	 * 
+	 * @param distance
+	 * @return
+	 */
 	private static double normalize(int distance) {
 		//		double k = K;
 		double k = Properties.MAX_INT;
@@ -256,7 +279,7 @@ public class BooleanHelper {
 			return 0;
 		else {
 			double diff = l1 - l2;
-			double diff2 = Math.signum(diff) * Math.abs(diff) / (1.0F + Math.abs(diff));
+			double diff2 = Math.signum(diff) * Math.abs(diff) / (1.0 + Math.abs(diff));
 			int d3 = (int) Math.ceil(Integer.MAX_VALUE * diff2);
 			return d3;
 		}
@@ -305,10 +328,12 @@ public class BooleanHelper {
 
 	@Deprecated
 	public static int fromLong(long d) {
+		/*
 		if (d > Integer.MAX_VALUE)
 			return Integer.MAX_VALUE;
 		else if (d < Integer.MIN_VALUE)
 			return Integer.MIN_VALUE;
+			*/
 		//else
 		//	return (int) d;
 		if (d == 0L)
@@ -495,9 +520,9 @@ public class BooleanHelper {
 			//System.out.println("Edit distance between " + first + " and " + second
 			//       + " is " + -editDistance(first, second.toString()) + " / "
 			//      + getLevenshteinDistance(first, (String) second));
-			//return -editDistance(first, second.toString());
+			return -editDistance(first, second.toString());
 			//return -getLevenshteinDistance(first, (String) second);
-			return -getDistanceBasedOnLeftAlignment(first, second.toString());
+			//return -getDistanceBasedOnLeftAlignment(first, second.toString());
 		}
 	}
 

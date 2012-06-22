@@ -1,3 +1,20 @@
+/**
+ * Copyright (C) 2011,2012 Gordon Fraser, Andrea Arcuri and EvoSuite
+ * contributors
+ *
+ * This file is part of EvoSuite.
+ *
+ * EvoSuite is free software: you can redistribute it and/or modify it under the
+ * terms of the GNU Public License as published by the Free Software Foundation,
+ * either version 3 of the License, or (at your option) any later version.
+ *
+ * EvoSuite is distributed in the hope that it will be useful, but WITHOUT ANY
+ * WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS FOR
+ * A PARTICULAR PURPOSE. See the GNU Public License for more details.
+ *
+ * You should have received a copy of the GNU Public License along with
+ * EvoSuite. If not, see <http://www.gnu.org/licenses/>.
+ */
 package de.unisb.cs.st.evosuite.testcase;
 
 import java.lang.reflect.Type;
@@ -69,12 +86,16 @@ public class VariableReferenceImpl implements VariableReference {
 				}
 			}
 			if (stPosition == null) {
-				if (originalCode != null) {
-					throw new AssertionError("Error transforming '" + originalCode + 
-							"': no statement in the test defined the variable reference!");
+				String msg = "Bloody annoying bug \n";
+				msg += "Test case has " + testCase.size() + " function calls \n";
+				for (int i = 0; i < testCase.size(); i++) {
+					msg += testCase.getStatement(i).getCode(null) + "\n";
 				}
+				msg += "failed to find type " + this.type.getTypeName() + "\n";
+
 				throw new AssertionError(
-				        "A VariableReferences position is only defined if the VariableReference is defined by a statement in the testCase");
+				        msg
+				                + "A VariableReferences position is only defined if the VariableReference is defined by a statement in the testCase");
 			}
 		}
 		return stPosition;
@@ -266,7 +287,7 @@ public class VariableReferenceImpl implements VariableReference {
 	public Object getObject(Scope scope) throws CodeUnderTestException {
 		return scope.getObject(this);
 	}
-	
+
 	@Override
 	public String getOriginalCode(){
 		return originalCode;
@@ -295,14 +316,6 @@ public class VariableReferenceImpl implements VariableReference {
 		}
 	}
 	
-	/**
-	 * Comparison
-	 */
-	@Override
-	public boolean equals(Object obj) {
-		return super.equals(obj); //We can use the object equals as each VariableReference is only defined once
-	}
-
 	/**
 	 * Return string representation of the variable
 	 */

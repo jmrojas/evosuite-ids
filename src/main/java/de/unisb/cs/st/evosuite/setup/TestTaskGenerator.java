@@ -1,21 +1,20 @@
-/*
- * Copyright (C) 2010 Saarland University
- * 
+/**
+ * Copyright (C) 2011,2012 Gordon Fraser, Andrea Arcuri and EvoSuite
+ * contributors
+ *
  * This file is part of EvoSuite.
- * 
+ *
  * EvoSuite is free software: you can redistribute it and/or modify it under the
- * terms of the GNU Lesser Public License as published by the Free Software
- * Foundation, either version 3 of the License, or (at your option) any later
- * version.
- * 
+ * terms of the GNU Public License as published by the Free Software Foundation,
+ * either version 3 of the License, or (at your option) any later version.
+ *
  * EvoSuite is distributed in the hope that it will be useful, but WITHOUT ANY
  * WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS FOR
- * A PARTICULAR PURPOSE. See the GNU Lesser Public License for more details.
- * 
- * You should have received a copy of the GNU Lesser Public License along with
+ * A PARTICULAR PURPOSE. See the GNU Public License for more details.
+ *
+ * You should have received a copy of the GNU Public License along with
  * EvoSuite. If not, see <http://www.gnu.org/licenses/>.
  */
-
 package de.unisb.cs.st.evosuite.setup;
 
 import java.io.File;
@@ -44,6 +43,7 @@ import org.slf4j.LoggerFactory;
 import de.unisb.cs.st.evosuite.Properties;
 import de.unisb.cs.st.evosuite.callgraph.Hierarchy;
 import de.unisb.cs.st.evosuite.classcreation.ClassFactory;
+import de.unisb.cs.st.evosuite.utils.LoggingUtils;
 import de.unisb.cs.st.evosuite.utils.Utils;
 
 /**
@@ -211,9 +211,9 @@ public class TestTaskGenerator {
 	 *         ascending sorted by number of subclasses
 	 */
 	protected static List<String> getClasses(String prefix) {
-		logger.info("Getting list of classes for prefix " + prefix);
+		logger.debug("Getting list of classes for prefix " + prefix);
 		Set<String> all_classes = hierarchy.getAllClasses();
-		logger.info("Number of classes: " + all_classes.size());
+		logger.debug("Number of classes: " + all_classes.size());
 
 		TreeMap<Integer, Set<String>> classes = new TreeMap<Integer, Set<String>>();
 		for (String classname : all_classes) {
@@ -235,7 +235,7 @@ public class TestTaskGenerator {
 		for (Set<String> classset : classes.values()) {
 			sorted_classes.addAll(classset);
 		}
-		logger.info("Number of sorted classes: " + sorted_classes.size());
+		logger.debug("Number of sorted classes: " + sorted_classes.size());
 
 		return sorted_classes;
 	}
@@ -249,16 +249,18 @@ public class TestTaskGenerator {
 	 *         rights
 	 */
 	public static boolean canUse(Class<?> c) {
-		if (Throwable.class.isAssignableFrom(c))
-			return false;
-		if (Modifier.isPrivate(c.getModifiers()))
-			return false;
-		if (c.getName().matches(".*\\$\\d+$")) {
-			logger.info(c + " looks like an anonymous class, ignoring it");
+		if (Throwable.class.isAssignableFrom(c)) {
+			logger.debug(c + " is a throwable, ignoring it");
 			return false;
 		}
-		if (c.isEnum())
+		if (Modifier.isPrivate(c.getModifiers())) {
+			logger.debug(c + " is a private class ignoring it");
 			return false;
+		}
+		if (c.getName().matches(".*\\$\\d+$")) {
+			logger.debug(c + " looks like an anonymous class, ignoring it");
+			return false;
+		}
 
 		return true;
 	}
@@ -396,7 +398,7 @@ public class TestTaskGenerator {
 	protected static boolean isExcluded(String classname, String methodname) {
 		if (method_excludes.containsKey(classname)
 		        && method_excludes.get(classname).contains(methodname))
-			logger.info("Is excluded: " + classname + "," + methodname);
+			logger.debug("Is excluded: " + classname + "," + methodname);
 		return method_excludes.containsKey(classname)
 		        && method_excludes.get(classname).contains(methodname);
 	}
@@ -587,18 +589,18 @@ public class TestTaskGenerator {
 		String classname = clazz.getName();
 
 		if (clazz.getSuperclass() != null && clazz.getSuperclass().equals(TestCase.class)) {
-			logger.info("Ignoring JUnit test case " + classname);
+			logger.debug("Ignoring JUnit test case " + classname);
 			return false;
 		}
 
 		if (!canUse(clazz)) {
-			logger.info("Ignoring private class " + classname);
+			logger.debug("Ignoring private class " + classname);
 			List<String> mutant_classes = new ArrayList<String>();
 			mutant_classes.add(classname);
 			return false;
 		}
 		if (clazz.isInterface()) {
-			logger.info("Ignoring interface " + classname);
+			logger.debug("Ignoring interface " + classname);
 			Set<String> object_methods = new HashSet<String>();
 			addObjectMethods(object_methods, clazz);
 			String classfilename = classname.replace("$", "_");
@@ -609,56 +611,56 @@ public class TestTaskGenerator {
 		}
 		if (clazz.getDeclaredMethods().length == 0
 		        && clazz.getDeclaredConstructors().length == 0) {
-			logger.info("Ignoring class without methods: " + classname);
+			logger.debug("Ignoring class without methods: " + classname);
 			return false;
 		}
 		if (clazz.isMemberClass() && clazz.getConstructors().length == 0) {
-			logger.info("Ignoring member class without public constructors " + classname);
+			logger.debug("Ignoring member class without public constructors " + classname);
 			List<String> mutant_classes = new ArrayList<String>();
 			mutant_classes.add(classname);
 			writeInspectors(clazz, classname.replace("$", "_") + ".inspectors");
 			return false;
 		}
 		if (clazz.isMemberClass()) {
-			logger.info("Testing member class " + classname);
+			logger.debug("Testing member class " + classname);
 			writeInspectors(clazz, classname.replace("$", "_") + ".inspectors");
 			return false;
 		}
 		if (clazz.isLocalClass()) {
-			logger.info("Testing local class " + classname);
+			logger.debug("Testing local class " + classname);
 			writeInspectors(clazz, classname.replace("$", "_") + ".inspectors");
 			return false;
 		}
 		if (clazz.isAnonymousClass()) {
-			logger.info("Testing anonymous class " + classname);
+			logger.debug("Testing anonymous class " + classname);
 			return false;
 		}
 		if (clazz.getCanonicalName() != null) {
 			logger.debug("Canonical name: " + clazz.getCanonicalName());
 		}
 		if (classname.matches(".*\\$\\d+$")) {
-			logger.info("Bugger that, it must be an anonymous class");
+			logger.debug("Bugger that, it must be an anonymous class");
 			return false;
 		}
-		logger.info("Analyzing dependencies of class " + classname);
+		logger.debug("Analyzing dependencies of class " + classname);
 		if (clazz.getEnclosingClass() != null) {
-			logger.info("  defined in " + clazz.getEnclosingClass().getName());
+			logger.debug("  defined in " + clazz.getEnclosingClass().getName());
 			writeInspectors(clazz, classname.replace("$", "_") + ".inspectors");
 			return false;
 		}
 		if (clazz.getDeclaringClass() != null) {
-			logger.info("  defined in " + clazz.getDeclaringClass().getName());
+			logger.debug("  defined in " + clazz.getDeclaringClass().getName());
 			writeInspectors(clazz, classname.replace("$", "_") + ".inspectors");
 			return false;
 		}
 
-		logger.info("Writing object files " + classname);
+		logger.debug("Writing object files " + classname);
 		Set<String> object_methods = new HashSet<String>();
 		addObjectMethods(object_methods, clazz);
 
 		if (Modifier.isAbstract(clazz.getModifiers())) {
 			if (isPurelyAbstract(clazz)) {
-				logger.info("Ignoring abstract class without concrete subclasses "
+				logger.debug("Ignoring abstract class without concrete subclasses "
 				        + classname);
 				String classfilename = classname.replace("$", "_");
 				if (Properties.GENERATE_OBJECTS)
@@ -693,22 +695,22 @@ public class TestTaskGenerator {
 
 		String classfilename = classname.replace("$", "_");
 		if (suggestion.isEmpty()) {
-			logger.info("No usable methods found, skipping " + classname);
+			logger.debug("No usable methods found, skipping " + classname);
 			return false;
 		}
 		if (Properties.CALCULATE_CLUSTER) {
-			logger.info("Calculating test cluster");
+			logger.debug("Calculating test cluster");
 			writeTestCluster(clazz, classfilename + ".cluster");
 		}
-		logger.info("Writing task file");
+		logger.debug("Writing task file");
 		writeTask(suggestion, classfilename + ".task");
-		logger.info("GenObjects");
+		logger.debug("GenObjects");
 
 		if (Properties.GENERATE_OBJECTS)
 			writeObjectMethods(object_methods, classfilename + ".obj");
-		logger.info("GenInspectors");
+		logger.debug("GenInspectors");
 		writeInspectors(clazz, classfilename + ".inspectors");
-		logger.info("Done");
+		logger.debug("Done");
 		System.out.println("  " + classname);
 
 		return true;
@@ -736,12 +738,12 @@ public class TestTaskGenerator {
 			Class<?> clazz = null;
 			try {
 				clazz = Class.forName(classname);
-				logger.info("Next task: " + clazz);
+				logger.debug("Next task: " + clazz);
 				try {
 					if (suggestTask(clazz))
 						num++;
 				} catch (Throwable e) {
-					logger.info("Ignoring class with exception: " + clazz.getName());
+					logger.debug("Ignoring class with exception: " + clazz.getName());
 				}
 			} catch (ClassNotFoundException e) {
 				logger.warn("Class not found: " + classname + ", ignoring");
@@ -757,7 +759,8 @@ public class TestTaskGenerator {
 				continue;
 			}
 		}
-		System.out.println("* Created " + num + " task files");
+		
+		LoggingUtils.getEvoLogger().info("* Created " + num + " task files");
 	}
 
 	/**
@@ -770,18 +773,18 @@ public class TestTaskGenerator {
 	protected static void suggestTasks(Set<Class<?>> classes) {
 		int num = 0;
 		for (Class<?> clazz : classes) {
-			logger.info("Next task: " + clazz);
+			logger.debug("Next task: " + clazz);
 			try {
 				if (suggestTask(clazz))
 					num++;
 			} catch (Throwable e) {
-				logger.info("Error in creating task for class " + clazz.getName() + ": "
+				logger.error("Error in creating task for class " + clazz.getName() + ": "
 				        + e);
 				//TODO: Make sure that there are no files for this class
 				//e.printStackTrace();
 			}
 		}
-		System.out.println("* Created " + num + " task files");
+		LoggingUtils.getEvoLogger().info("* Created " + num + " task files");
 	}
 
 	/**
@@ -790,10 +793,10 @@ public class TestTaskGenerator {
 	 * @param args
 	 */
 	public static void main(String[] args) {
-		System.out.println("* Analyzing " + prefix);
+		LoggingUtils.getEvoLogger().info("* Analyzing " + prefix);
 		Utils.addURL(ClassFactory.getStubDir() + "/classes/");
 		hierarchy.calculateSubclasses();
-		System.out.println("* Creating test files for " + prefix);
+		LoggingUtils.getEvoLogger().info("* Creating test files for " + prefix);
 		suggestTasks(prefix);
 	}
 }

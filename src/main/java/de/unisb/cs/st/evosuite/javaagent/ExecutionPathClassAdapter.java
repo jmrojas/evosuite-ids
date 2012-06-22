@@ -1,21 +1,20 @@
-/*
- * Copyright (C) 2010 Saarland University
- * 
+/**
+ * Copyright (C) 2011,2012 Gordon Fraser, Andrea Arcuri and EvoSuite
+ * contributors
+ *
  * This file is part of EvoSuite.
- * 
+ *
  * EvoSuite is free software: you can redistribute it and/or modify it under the
- * terms of the GNU Lesser Public License as published by the Free Software
- * Foundation, either version 3 of the License, or (at your option) any later
- * version.
- * 
+ * terms of the GNU Public License as published by the Free Software Foundation,
+ * either version 3 of the License, or (at your option) any later version.
+ *
  * EvoSuite is distributed in the hope that it will be useful, but WITHOUT ANY
  * WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS FOR
- * A PARTICULAR PURPOSE. See the GNU Lesser Public License for more details.
- * 
- * You should have received a copy of the GNU Lesser Public License along with
+ * A PARTICULAR PURPOSE. See the GNU Public License for more details.
+ *
+ * You should have received a copy of the GNU Public License along with
  * EvoSuite. If not, see <http://www.gnu.org/licenses/>.
  */
-
 package de.unisb.cs.st.evosuite.javaagent;
 
 import org.objectweb.asm.ClassVisitor;
@@ -35,11 +34,13 @@ import de.unisb.cs.st.evosuite.Properties.Criterion;
  */
 public class ExecutionPathClassAdapter extends ClassVisitor {
 
-	private static final boolean MUTATION = Properties.CRITERION == Criterion.MUTATION
-	        || Properties.CRITERION == Criterion.STRONGMUTATION
-	        || Properties.CRITERION == Criterion.WEAKMUTATION;
-
 	private final String className;
+
+	private static boolean isMutation() {
+		return Properties.CRITERION == Criterion.MUTATION
+		        || Properties.CRITERION == Criterion.STRONGMUTATION
+		        || Properties.CRITERION == Criterion.WEAKMUTATION;
+	}
 
 	@SuppressWarnings("unused")
 	private static Logger logger = LoggerFactory.getLogger(ExecutionPathClassAdapter.class);
@@ -69,11 +70,14 @@ public class ExecutionPathClassAdapter extends ClassVisitor {
 		if (name.equals("<clinit>"))
 			return mv;
 
-		if (MUTATION) {
+		if (isMutation()) {
 			mv = new ReturnValueAdapter(mv, className, name, descriptor);
 		}
 		mv = new MethodEntryAdapter(mv, methodAccess, className, name, descriptor);
 		mv = new LineNumberMethodAdapter(mv, className, name, descriptor);
+		mv = new ArrayAllocationLimitMethodAdapter(mv, className, name, methodAccess,
+		        descriptor);
+		mv = new ExplicitExceptionHandler(mv, className, name, descriptor);
 		return mv;
 	}
 

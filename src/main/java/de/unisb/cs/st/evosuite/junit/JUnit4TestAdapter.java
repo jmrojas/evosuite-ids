@@ -1,4 +1,21 @@
 /**
+ * Copyright (C) 2011,2012 Gordon Fraser, Andrea Arcuri and EvoSuite
+ * contributors
+ *
+ * This file is part of EvoSuite.
+ *
+ * EvoSuite is free software: you can redistribute it and/or modify it under the
+ * terms of the GNU Public License as published by the Free Software Foundation,
+ * either version 3 of the License, or (at your option) any later version.
+ *
+ * EvoSuite is distributed in the hope that it will be useful, but WITHOUT ANY
+ * WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS FOR
+ * A PARTICULAR PURPOSE. See the GNU Public License for more details.
+ *
+ * You should have received a copy of the GNU Public License along with
+ * EvoSuite. If not, see <http://www.gnu.org/licenses/>.
+ */
+/**
  * 
  */
 package de.unisb.cs.st.evosuite.junit;
@@ -7,6 +24,7 @@ import java.util.List;
 import java.util.Map;
 
 import de.unisb.cs.st.evosuite.testcase.TestCase;
+import de.unisb.cs.st.evosuite.testcase.TestCodeVisitor;
 
 /**
  * @author fraser
@@ -19,8 +37,9 @@ public class JUnit4TestAdapter implements UnitTestAdapter {
 	 */
 	@Override
 	public String getImports() {
-		return "import org.junit.Before;\n" + "import org.junit.Ignore;\n"
-		        + "import org.junit.Test;\n" + "import static org.junit.Assert.*;\n";
+		//		return "import org.junit.Before;\n" + "import org.junit.Ignore;\n"
+		//		        + "import org.junit.Test;\n" + "import static org.junit.Assert.*;\n";
+		return "import org.junit.Test;\n" + "import static org.junit.Assert.*;\n";
 	}
 
 	/* (non-Javadoc)
@@ -49,10 +68,11 @@ public class JUnit4TestAdapter implements UnitTestAdapter {
 		builder.append("import org.junit.runners.Suite;\n\n");
 
 		for (String suite : suites) {
-			builder.append("import ");
-			// builder.append(Properties.PROJECT_PREFIX);
-			builder.append(suite);
-			builder.append(";\n");
+			if (suite.contains(".")) {
+				builder.append("import ");
+				builder.append(suite);
+				builder.append(";\n");
+			}
 		}
 		builder.append("\n");
 
@@ -82,5 +102,15 @@ public class JUnit4TestAdapter implements UnitTestAdapter {
 	@Override
 	public String getTestString(int id, TestCase test, Map<Integer, Throwable> exceptions) {
 		return test.toCode(exceptions);
+	}
+
+	/* (non-Javadoc)
+	 * @see de.unisb.cs.st.evosuite.junit.UnitTestAdapter#getTestString(int, de.unisb.cs.st.evosuite.testcase.TestCase, java.util.Map, de.unisb.cs.st.evosuite.testcase.TestCodeVisitor)
+	 */
+	@Override
+	public String getTestString(int id, TestCase test,
+	        Map<Integer, Throwable> exceptions, TestCodeVisitor visitor) {
+		test.accept(visitor);
+		return visitor.getCode();
 	}
 }

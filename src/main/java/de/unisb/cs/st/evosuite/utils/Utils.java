@@ -1,18 +1,18 @@
-/*
- * Copyright (C) 2010 Saarland University
- * 
+/**
+ * Copyright (C) 2011,2012 Gordon Fraser, Andrea Arcuri and EvoSuite
+ * contributors
+ *
  * This file is part of EvoSuite.
- * 
+ *
  * EvoSuite is free software: you can redistribute it and/or modify it under the
- * terms of the GNU Lesser Public License as published by the Free Software
- * Foundation, either version 3 of the License, or (at your option) any later
- * version.
- * 
+ * terms of the GNU Public License as published by the Free Software Foundation,
+ * either version 3 of the License, or (at your option) any later version.
+ *
  * EvoSuite is distributed in the hope that it will be useful, but WITHOUT ANY
  * WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS FOR
- * A PARTICULAR PURPOSE. See the GNU Lesser Public License for more details.
- * 
- * You should have received a copy of the GNU Lesser Public License along with
+ * A PARTICULAR PURPOSE. See the GNU Public License for more details.
+ *
+ * You should have received a copy of the GNU Public License along with
  * EvoSuite. If not, see <http://www.gnu.org/licenses/>.
  */
 package de.unisb.cs.st.evosuite.utils;
@@ -20,8 +20,11 @@ package de.unisb.cs.st.evosuite.utils;
 import java.io.BufferedReader;
 import java.io.File;
 import java.io.FileNotFoundException;
+import java.io.FileOutputStream;
 import java.io.FileReader;
 import java.io.IOException;
+import java.io.InputStream;
+import java.io.OutputStream;
 import java.lang.reflect.Method;
 import java.net.MalformedURLException;
 import java.net.URL;
@@ -45,6 +48,37 @@ import com.thoughtworks.xstream.XStream;
  */
 public class Utils {
 
+	/**
+	 * Sleeps at least until the specified time point has passed.
+	 * 
+	 * (Thread.sleep() does something similar, but can stop sleeping before
+	 * the specified time point has passed if the thread is interrupted.)
+	 *  
+	 * @param targetTimeMillis Target time in milliseconds
+	 */
+	public static void sleepUntil(long targetTimeMillis) {
+		while (true) {
+			long delta = targetTimeMillis - System.currentTimeMillis(); 
+			
+			if (delta <= 0) {
+				break;
+			}
+			
+			try {
+				Thread.sleep(delta);
+			} catch (InterruptedException e) { /* OK */ }
+		}
+	}
+
+	/**
+	 * Sleeps at least until the specified amount of time has passed, uninterruptibly.
+	 *  
+	 * @param millis Amount of milliseconds to sleep
+	 */
+	public static void sleepFor(long millis) {
+		sleepUntil(System.currentTimeMillis() + millis);
+	}
+	
 	/**
 	 * Deletes directory and its content.
 	 * 
@@ -146,7 +180,7 @@ public class Utils {
 	 */
 	public static Set<String> classesDescFromString(String input) {
 		Set<String> classesDesc = new HashSet<String>();
-		
+
 		// If input actually equals "null" then NullPointerException is thrown. 
 		// Don't ask me. I don't know why.
 		try {
@@ -246,6 +280,25 @@ public class Utils {
 		}
 	}
 
+	private static void writeFile(InputStream in, File dest) {
+		try {
+			dest.deleteOnExit();
+			System.out.println("Creating file: " + dest.getPath());
+			if (!dest.exists()) {
+				OutputStream out = new FileOutputStream(dest);
+				byte[] buf = new byte[1024];
+				int len;
+				while ((len = in.read(buf)) > 0) {
+					out.write(buf, 0, len);
+				}
+				out.close();
+			}
+			in.close();
+		} catch (IOException e) {
+			e.printStackTrace();
+		}
+	}
+
 	/**
 	 * Write string to file
 	 * 
@@ -283,16 +336,16 @@ public class Utils {
 			return null;
 		}
 	}
-	
+
 	/**
-	 * Get package name from the class. Sometimes this maybe tricky,
-	 * since clazz.getPackage() could return null
+	 * Get package name from the class. Sometimes this maybe tricky, since
+	 * clazz.getPackage() could return null
 	 * 
-	 * @param clazz 
-	 * 			- class which package should be determined
+	 * @param clazz
+	 *            - class which package should be determined
 	 * @return package name of the class
 	 */
-	public static String getPackageName(Class<?> clazz){
+	public static String getPackageName(Class<?> clazz) {
 		String packageName = "";
 		if (clazz.getPackage() != null) {
 			packageName = clazz.getPackage().getName();

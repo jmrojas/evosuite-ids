@@ -1,4 +1,21 @@
 /**
+ * Copyright (C) 2011,2012 Gordon Fraser, Andrea Arcuri and EvoSuite
+ * contributors
+ *
+ * This file is part of EvoSuite.
+ *
+ * EvoSuite is free software: you can redistribute it and/or modify it under the
+ * terms of the GNU Public License as published by the Free Software Foundation,
+ * either version 3 of the License, or (at your option) any later version.
+ *
+ * EvoSuite is distributed in the hope that it will be useful, but WITHOUT ANY
+ * WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS FOR
+ * A PARTICULAR PURPOSE. See the GNU Public License for more details.
+ *
+ * You should have received a copy of the GNU Public License along with
+ * EvoSuite. If not, see <http://www.gnu.org/licenses/>.
+ */
+/**
  * 
  */
 package de.unisb.cs.st.evosuite.testcase;
@@ -19,7 +36,8 @@ import de.unisb.cs.st.evosuite.utils.Listenable;
  * @author Sebastian Steenbuck
  * 
  */
-public interface TestCase extends Iterable<StatementInterface>, Cloneable, Listenable<Void> {
+public interface TestCase extends Iterable<StatementInterface>, Cloneable,
+        Listenable<Void> {
 
 	/**
 	 * 
@@ -28,7 +46,7 @@ public interface TestCase extends Iterable<StatementInterface>, Cloneable, Liste
 	public int size();
 
 	public void addStatements(List<? extends StatementInterface> statements);
-	
+
 	/**
 	 * 
 	 * @return true if size()==0
@@ -120,6 +138,19 @@ public interface TestCase extends Iterable<StatementInterface>, Cloneable, Liste
 	 *             if no such object exists
 	 */
 	public VariableReference getRandomObject(Type type, int position)
+	        throws ConstructionFailedException;
+
+	/**
+	 * Get a random object matching type
+	 * 
+	 * @param type
+	 * @param position
+	 *            Upper bound in test case up to which objects are considered
+	 * @return
+	 * @throws ConstructionFailedException
+	 *             if no such object exists
+	 */
+	public VariableReference getRandomNonNullObject(Type type, int position)
 	        throws ConstructionFailedException;
 
 	/**
@@ -291,6 +322,11 @@ public interface TestCase extends Iterable<StatementInterface>, Cloneable, Liste
 
 	public void addCoveredGoal(TestFitnessFunction goal);
 
+	/**
+	 * Remove all covered goals
+	 */
+	public void clearCoveredGoals();
+
 	public Set<TestFitnessFunction> getCoveredGoals();
 
 	public TestCase clone();
@@ -311,5 +347,19 @@ public interface TestCase extends Iterable<StatementInterface>, Cloneable, Liste
 	 * @param visitor
 	 */
 	public void accept(TestVisitor visitor);
+
+	/**
+	 * Retrieve a list of filenames accessed during the last execution
+	 * 
+	 * @return
+	 */
+	public List<String> getAccessedFiles();
+
+	/**
+	 * Keep track of accessed files
+	 * 
+	 * @param files
+	 */
+	public void setAccessedFiles(List<String> files);
 
 }

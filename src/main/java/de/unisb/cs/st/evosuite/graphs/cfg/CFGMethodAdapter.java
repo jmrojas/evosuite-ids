@@ -1,21 +1,20 @@
-/*
- * Copyright (C) 2010 Saarland University
- * 
+/**
+ * Copyright (C) 2011,2012 Gordon Fraser, Andrea Arcuri and EvoSuite
+ * contributors
+ *
  * This file is part of EvoSuite.
- * 
+ *
  * EvoSuite is free software: you can redistribute it and/or modify it under the
- * terms of the GNU Lesser Public License as published by the Free Software
- * Foundation, either version 3 of the License, or (at your option) any later
- * version.
- * 
+ * terms of the GNU Public License as published by the Free Software Foundation,
+ * either version 3 of the License, or (at your option) any later version.
+ *
  * EvoSuite is distributed in the hope that it will be useful, but WITHOUT ANY
  * WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS FOR
- * A PARTICULAR PURPOSE. See the GNU Lesser Public License for more details.
- * 
- * You should have received a copy of the GNU Lesser Public License along with
+ * A PARTICULAR PURPOSE. See the GNU Public License for more details.
+ *
+ * You should have received a copy of the GNU Public License along with
  * EvoSuite. If not, see <http://www.gnu.org/licenses/>.
  */
-
 package de.unisb.cs.st.evosuite.graphs.cfg;
 
 import java.lang.reflect.Modifier;
@@ -43,7 +42,7 @@ import de.unisb.cs.st.evosuite.cfg.instrumentation.MethodInstrumentation;
 import de.unisb.cs.st.evosuite.cfg.instrumentation.MutationInstrumentation;
 import de.unisb.cs.st.evosuite.cfg.instrumentation.PrimePathInstrumentation;
 import de.unisb.cs.st.evosuite.coverage.branch.BranchPool;
-import de.unisb.cs.st.evosuite.coverage.concurrency.ConcurrencyInstrumentation;
+import de.unisb.cs.st.evosuite.javaagent.AnnotatedMethodNode;
 import de.unisb.cs.st.evosuite.testcase.StaticTestCluster;
 
 /**
@@ -94,7 +93,8 @@ public class CFGMethodAdapter extends MethodVisitor {
 		// className,
 		// name.replace('/', '.'), null, desc);
 
-		super(Opcodes.ASM4, new MethodNode(access, name, desc, signature, exceptions));
+		super(Opcodes.ASM4, new AnnotatedMethodNode(access, name, desc, signature,
+		        exceptions));
 
 		this.next = mv;
 		this.className = className; // .replace('/', '.');
@@ -111,10 +111,7 @@ public class CFGMethodAdapter extends MethodVisitor {
 
 		List<MethodInstrumentation> instrumentations = new ArrayList<MethodInstrumentation>();
 		if (StaticTestCluster.isTargetClassName(className)) {
-			if (Properties.CRITERION == Criterion.CONCURRENCY) {
-				instrumentations.add(new ConcurrencyInstrumentation());
-				instrumentations.add(new BranchInstrumentation());
-			} else if (Properties.CRITERION == Criterion.LCSAJ) {
+			if (Properties.CRITERION == Criterion.LCSAJ) {
 				instrumentations.add(new LCSAJsInstrumentation());
 				instrumentations.add(new BranchInstrumentation());
 			} else if (Properties.CRITERION == Criterion.DEFUSE
@@ -153,7 +150,7 @@ public class CFGMethodAdapter extends MethodVisitor {
 
 		// super.visitEnd();
 		// Generate CFG of method
-		MethodNode mn = (MethodNode) mv;
+		MethodNode mn = (AnnotatedMethodNode) mv;
 
 		// Only instrument if the method is (not main and not excluded) or (the
 		// MethodInstrumentation wants it anyway)
@@ -249,10 +246,14 @@ public class CFGMethodAdapter extends MethodVisitor {
 	 * @return A set with all unique methodNames of methods.
 	 */
 	public static Set<String> getMethods(String className) {
-		if (!methods.containsKey(className))
-			return new HashSet<String>();
+		Set<String> targetMethods = new HashSet<String>();
+		for (String currentClass : methods.keySet()) {
+			if (currentClass.equals(className)
+			        || currentClass.startsWith(className + "$"))
+				targetMethods.addAll(methods.get(currentClass));
+		}
 
-		return methods.get(className);
+		return targetMethods;
 	}
 
 	/**

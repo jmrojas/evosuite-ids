@@ -1,4 +1,21 @@
 /**
+ * Copyright (C) 2011,2012 Gordon Fraser, Andrea Arcuri and EvoSuite
+ * contributors
+ *
+ * This file is part of EvoSuite.
+ *
+ * EvoSuite is free software: you can redistribute it and/or modify it under the
+ * terms of the GNU Public License as published by the Free Software Foundation,
+ * either version 3 of the License, or (at your option) any later version.
+ *
+ * EvoSuite is distributed in the hope that it will be useful, but WITHOUT ANY
+ * WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS FOR
+ * A PARTICULAR PURPOSE. See the GNU Public License for more details.
+ *
+ * You should have received a copy of the GNU Public License along with
+ * EvoSuite. If not, see <http://www.gnu.org/licenses/>.
+ */
+/**
  * 
  */
 package de.unisb.cs.st.evosuite.testcase;
@@ -65,6 +82,8 @@ public class ValueMinimizer implements TestVisitor {
 
 		private double lastFitness;
 
+		private final double lastCoverage;
+
 		public SuiteMinimization(TestSuiteFitnessFunction fitness,
 		        TestSuiteChromosome suite, int index) {
 			this.fitness = fitness;
@@ -72,6 +91,7 @@ public class ValueMinimizer implements TestVisitor {
 			this.individual = suite.getTestChromosome(index);
 			this.testIndex = index;
 			this.lastFitness = suite.getFitness();
+			this.lastCoverage = suite.getCoverage();
 		}
 
 		/* (non-Javadoc)
@@ -92,6 +112,7 @@ public class ValueMinimizer implements TestVisitor {
 			} else {
 				individual.setLastExecutionResult(lastResult);
 				suite.setFitness(lastFitness);
+				suite.setCoverage(lastCoverage);
 				return false;
 			}
 		}

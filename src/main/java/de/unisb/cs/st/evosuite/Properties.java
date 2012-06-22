@@ -1,21 +1,20 @@
-/*
- * Copyright (C) 2010 Saarland University
- * 
+/**
+ * Copyright (C) 2011,2012 Gordon Fraser, Andrea Arcuri and EvoSuite
+ * contributors
+ *
  * This file is part of EvoSuite.
- * 
+ *
  * EvoSuite is free software: you can redistribute it and/or modify it under the
- * terms of the GNU Lesser Public License as published by the Free Software
- * Foundation, either version 3 of the License, or (at your option) any later
- * version.
- * 
+ * terms of the GNU Public License as published by the Free Software Foundation,
+ * either version 3 of the License, or (at your option) any later version.
+ *
  * EvoSuite is distributed in the hope that it will be useful, but WITHOUT ANY
  * WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS FOR
- * A PARTICULAR PURPOSE. See the GNU Lesser Public License for more details.
- * 
- * You should have received a copy of the GNU Lesser Public License along with
+ * A PARTICULAR PURPOSE. See the GNU Public License for more details.
+ *
+ * You should have received a copy of the GNU Public License along with
  * EvoSuite. If not, see <http://www.gnu.org/licenses/>.
  */
-
 package de.unisb.cs.st.evosuite;
 
 import java.io.File;
@@ -38,7 +37,11 @@ import java.util.Set;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import de.unisb.cs.st.evosuite.coverage.branch.BranchPool;
+import de.unisb.cs.st.evosuite.graphs.cfg.BytecodeInstructionPool;
+import de.unisb.cs.st.evosuite.testcase.DefaultTestFactory;
 import de.unisb.cs.st.evosuite.testcase.TestCluster;
+import de.unisb.cs.st.evosuite.utils.LoggingUtils;
 import de.unisb.cs.st.evosuite.utils.Utils;
 
 /**
@@ -50,6 +53,8 @@ import de.unisb.cs.st.evosuite.utils.Utils;
  * 
  */
 public class Properties {
+
+	private static final boolean logLevelSet = LoggingUtils.checkAndSetLogLevel();
 
 	private final static Logger logger = LoggerFactory.getLogger(Properties.class);
 
@@ -70,18 +75,21 @@ public class Properties {
 		String description();
 	}
 
+	@Retention(RetentionPolicy.RUNTIME)
 	public @interface IntValue {
 		int min() default Integer.MIN_VALUE;
 
 		int max() default Integer.MAX_VALUE;
 	}
 
+	@Retention(RetentionPolicy.RUNTIME)
 	public @interface LongValue {
 		long min() default Long.MIN_VALUE;
 
 		long max() default Long.MAX_VALUE;
 	}
 
+	@Retention(RetentionPolicy.RUNTIME)
 	public @interface DoubleValue {
 		double min() default -(Double.MAX_VALUE - 1); // FIXXME: Check
 
@@ -96,6 +104,9 @@ public class Properties {
 	@Parameter(key = "test_includes", group = "Test Creation", description = "File containing methods that should be included in testing")
 	public static String TEST_INCLUDES = "test.includes";
 
+	@Parameter(key = "evosuite_use_uispec", group = "Test Creation", description = "If set to true EvoSuite test generation inits UISpec in order to avoid display of UI")
+	public static boolean EVOSUITE_USE_UISPEC = false; 
+	
 	@Parameter(key = "make_accessible", group = "TestCreation", description = "Change default package rights to public package rights (?)")
 	public static boolean MAKE_ACCESSIBLE = true;
 
@@ -129,6 +140,8 @@ public class Properties {
 	public static int STRING_LENGTH = 20;
 
 	@Parameter(key = "epsilon", group = "Test Creation", description = "Epsilon for floats in local search")
+	@Deprecated
+	// does not seem to be used anywhere
 	public static double EPSILON = 0.001;
 
 	@Parameter(key = "max_int", group = "Test Creation", description = "Maximum size of randomly generated integers (minimum range = -1 * max)")
@@ -189,7 +202,7 @@ public class Properties {
 	// ---------------------------------------------------------------
 	// Search algorithm
 	public enum Algorithm {
-		STANDARDGA, STEADYSTATEGA, ONEPLUSONEEA, MUPLUSLAMBDAGA
+		STANDARDGA, STEADYSTATEGA, ONEPLUSONEEA, MUPLUSLAMBDAGA, RANDOM
 	}
 
 	@Parameter(key = "algorithm", group = "Search Algorithm", description = "Search algorithm")
@@ -296,11 +309,15 @@ public class Properties {
 	@Parameter(key = "population_limit", group = "Search Algorithm", description = "What to use as limit for the population size")
 	public static PopulationLimit POPULATION_LIMIT = PopulationLimit.INDIVIDUALS;
 
-	@Parameter(key = "generations", group = "Search Algorithm", description = "Maximum search duration")
+	@Parameter(key = "search_budget", group = "Search Algorithm", description = "Maximum search duration")
 	@LongValue(min = 1)
-	public static long GENERATIONS = 1000000;
+	public static long SEARCH_BUDGET = 1000000;
 
-	public static String PROPERTIES_FILE = "properties_file";
+	@Parameter(key = "OUTPUT_DIR", group = "Runtime", description = "Directory in which to put generated files")
+	public static String OUTPUT_DIR = "evosuite-files";
+
+	public static String PROPERTIES_FILE = OUTPUT_DIR + File.separator
+	        + "evosuite.properties";
 
 	public enum StoppingCondition {
 		MAXSTATEMENTS, MAXTESTS, MAXTIME, MAXGENERATIONS, MAXFITNESSEVALUATIONS
@@ -310,11 +327,36 @@ public class Properties {
 	public static StoppingCondition STOPPING_CONDITION = StoppingCondition.MAXSTATEMENTS;
 
 	public enum CrossoverFunction {
-		SINGLEPOINTRELATIVE, SINGLEPOINTFIXED, SINGLEPOINT
+		SINGLEPOINTRELATIVE, SINGLEPOINTFIXED, SINGLEPOINT, COVERAGE
 	}
 
 	@Parameter(key = "crossover_function", group = "Search Algorithm", description = "Crossover function during search")
 	public static CrossoverFunction CROSSOVER_FUNCTION = CrossoverFunction.SINGLEPOINTRELATIVE;
+
+	public enum TheReplacementFunction {
+		/**
+		 * Indicates a replacement function which works for all chromosomes
+		 * because it solely relies on fitness values.
+		 */
+		FITNESSREPLACEMENT,
+		/**
+		 * EvoSuite's default replacement function which only works on subtypes
+		 * of the default chromosome types. Relies on fitness plus secondary
+		 * goals such as length.
+		 */
+		DEFAULT
+	}
+
+	/**
+	 * During search the genetic algorithm has to decide whether the parent
+	 * chromosomes or the freshly created offspring chromosomes should be
+	 * preferred. If you use EvoSuite with its default chromosomes the
+	 * TheReplacementFunction.DEFAULT is what you want. If your chromosomes are
+	 * not a subclass of the default chromosomes your have to write your own
+	 * replacement function or use TheReplacementFunction.FITNESSREPLACEMENT.
+	 */
+	@Parameter(key = "replacement_function", group = "Search Algorithm", description = "Replacement function for comparing offspring to parents during search")
+	public static TheReplacementFunction REPLACEMENT_FUNCTION = TheReplacementFunction.DEFAULT;
 
 	public enum SelectionFunction {
 		RANK, ROULETTEWHEEL, TOURNAMENT
@@ -344,6 +386,10 @@ public class Properties {
 	@Parameter(key = "minimization_timeout", group = "Search Algorithm", description = "Seconds allowed for minimization at the end")
 	@IntValue(min = 0)
 	public static int MINIMIZATION_TIMEOUT = 600;
+
+	@Parameter(key = "extra_timeout", group = "Search Algorithm", description = "Extra seconds allowed for the search")
+	@IntValue(min = 0)
+	public static int EXTRA_TIMEOUT = 120;
 
 	// ---------------------------------------------------------------
 	// Single branch mode
@@ -441,9 +487,12 @@ public class Properties {
 	public enum OutputGranularity {
 		MERGED, TESTCASE
 	}
-	
+
 	@Parameter(key = "output_granularity", group = "Output", description = "Write all test cases for a class into a single file or to separate files.")
 	public static OutputGranularity OUTPUT_GRANULARITY = OutputGranularity.MERGED;
+
+	@Parameter(key = "max_coverage_depth", group = "Output", description = "Maximum depth in the calltree to count a branch as covered")
+	public static int MAX_COVERAGE_DEPTH = -1;
 
 	//---------------------------------------------------------------
 	// Sandbox
@@ -452,6 +501,9 @@ public class Properties {
 
 	@Parameter(key = "mocks", group = "Sandbox", description = "Usage of the mocks for the IO, Network etc")
 	public static boolean MOCKS = false;
+
+	@Parameter(key = "virtual_fs", group = "Sandbox", description = "Usage of ram fs")
+	public static boolean VIRTUAL_FS = false;
 
 	@Parameter(key = "mock_strategies", group = "Sandbox", description = "Which mocking strategy should be applied")
 	public static String[] MOCK_STRATEGIES = { "" };
@@ -466,6 +518,9 @@ public class Properties {
 	// Experimental
 	@Parameter(key = "calculate_cluster", description = "Automatically calculate test cluster during setup")
 	public static boolean CALCULATE_CLUSTER = false;
+
+	@Parameter(key = "branch_eval", description = "Jeremy's branch evaluation")
+	public static boolean BRANCH_EVAL = false;
 
 	@Parameter(key = "branch_statement", description = "Require statement coverage for branch coverage")
 	public static boolean BRANCH_STATEMENT = false;
@@ -490,6 +545,9 @@ public class Properties {
 	@DoubleValue(min = 0.0, max = 1.0)
 	public static double USAGE_RATE = 0.5;
 
+	@Parameter(key = "instrumentation_skip_debug", description = "Skip debug information in bytecode instrumentation (needed for compatibility with classes transformed by Emma code instrumentation due to an ASM bug)")
+	public static boolean INSTRUMENTATION_SKIP_DEBUG = false;	
+	
 	@Parameter(key = "instrument_parent", description = "Also count coverage goals in superclasses")
 	public static boolean INSTRUMENT_PARENT = false;
 
@@ -546,18 +604,17 @@ public class Properties {
 	@Parameter(key = "error_branches", description = "Instrument code with error checking branches")
 	public static boolean ERROR_BRANCHES = false;
 
-	
 	/*
 	 * FIXME: these 2 following properties will not work if we use the EvoSuite shell script which call
 	 * MasterProcess directly rather than EvoSuite.java
 	 */
-	
+
 	@Parameter(key = "enable_asserts_for_evosuite", description = "When running EvoSuite clients, for debugging purposes check its assserts")
 	public static boolean ENABLE_ASSERTS_FOR_EVOSUITE = false;
-	
+
 	@Parameter(key = "enable_asserts_for_sut", description = "Check asserts in the SUT")
-	public static boolean ENABLE_ASSERTS_FOR_SUT = true; 
-	
+	public static boolean ENABLE_ASSERTS_FOR_SUT = true;
+
 	// ---------------------------------------------------------------
 	// Test Execution
 	@Parameter(key = "timeout", group = "Test Execution", description = "Milliseconds allowed per test")
@@ -569,8 +626,24 @@ public class Properties {
 	@Parameter(key = "mutation_timeouts", group = "Test Execution", description = "Number of timeouts before we consider a mutant killed")
 	public static int MUTATION_TIMEOUTS = 3;
 
+	@Parameter(key = "array_limit", group = "Test Execution", description = "Hard limit on array allocation in the code")
+	public static int ARRAY_LIMIT = 1000000;
+
 	@Parameter(key = "max_mutants", group = "Test Execution", description = "Maximum number of mutants to target at the same time")
 	public static int MAX_MUTANTS = 100;
+
+	@Parameter(key = "replace_calls", group = "Test Execution", description = "Replace nondeterministic calls and System.exit")
+	public static boolean REPLACE_CALLS = false;
+
+	// ---------------------------------------------------------------
+	// Debugging
+
+	@Parameter(key = "debug", group = "Debugging", description = "Enables debugging support in the client VM")
+	public static boolean DEBUG = false;
+
+	@Parameter(key = "port", group = "Debugging", description = "Port on localhost, to which the client VM will listen for a remote debugger; defaults to 1044")
+	@IntValue(min = 1024, max = 65535)
+	public static int PORT = 1044;
 
 	// ---------------------------------------------------------------
 	// TODO: Fix description
@@ -625,7 +698,7 @@ public class Properties {
 
 	@Parameter(key = "ma_target_coverage", group = "Manual algorithm", description = "run Editor at spec. coverage's level")
 	public static int MA_TARGET_COVERAGE = 101;
-	
+
 	@Parameter(key = "ma_branches_calc", group = "Manual algorithm", description = "run expensive branchcalculations")
 	public static boolean MA_BRANCHES_CALC = false;
 
@@ -638,7 +711,7 @@ public class Properties {
 	// Runtime parameters
 
 	public enum Criterion {
-		EXCEPTION, CONCURRENCY, LCSAJ, DEFUSE, ALLDEFS, PATH, BRANCH, STRONGMUTATION, WEAKMUTATION, MUTATION, COMP_LCSAJ_BRANCH, STATEMENT, ANALYZE, DATA
+		EXCEPTION, LCSAJ, DEFUSE, ALLDEFS, PATH, BRANCH, STRONGMUTATION, WEAKMUTATION, MUTATION, COMP_LCSAJ_BRANCH, STATEMENT, ANALYZE, DATA, BEHAVIORAL, IBRANCH
 	}
 
 	/** Cache target class */
@@ -670,9 +743,6 @@ public class Properties {
 	@Parameter(key = "target_method", group = "Runtime", description = "Method for which to generate tests")
 	public static String TARGET_METHOD = "";
 
-	@Parameter(key = "OUTPUT_DIR", group = "Runtime", description = "Directory in which to put generated files")
-	public static String OUTPUT_DIR = "evosuite-files";
-
 	@Parameter(key = "hierarchy_data", group = "Runtime", description = "File in which hierarchy data is stored")
 	public static String HIERARCHY_DATA = "hierarchy.xml";
 
@@ -683,7 +753,7 @@ public class Properties {
 	public static Criterion CRITERION = Criterion.BRANCH;
 
 	public enum Strategy {
-		ONEBRANCH, EVOSUITE
+		ONEBRANCH, EVOSUITE, RANDOM
 	}
 
 	@Parameter(key = "strategy", group = "Runtime", description = "Which mode to use")
@@ -692,16 +762,18 @@ public class Properties {
 	@Parameter(key = "process_communication_port", group = "Runtime", description = "Port at which the communication with the external process is done")
 	public static int PROCESS_COMMUNICATION_PORT = -1;
 
+	@Parameter(key = "progress_status_port", group = "Runtime", description = "Port at which the progress status messages are transmitted")
+	public static int PROGRESS_STATUS_PORT = 20080;
+
 	@Parameter(key = "max_stalled_threads", group = "Runtime", description = "Number of stalled threads")
 	public static int MAX_STALLED_THREADS = 10;
 
 	@Parameter(key = "min_free_mem", group = "Runtime", description = "Minimum amount of available memory")
-	public static int MIN_FREE_MEM = 200000000;
+	public static int MIN_FREE_MEM = 50 * 1000 * 1000;
 
 	@Parameter(key = "client_on_thread", group = "Runtime", description = "Run client process on same JVM of master in separate thread. To be used only for debugging purposes")
 	public static boolean CLIENT_ON_THREAD = false;
-	
-	
+
 	// ---------------------------------------------------------------
 	// Seeding test cases
 
@@ -740,10 +812,7 @@ public class Properties {
 	/**
 	 * Initialize properties from property file or command line parameters
 	 */
-	private void loadProperties() {
-		loadPropertiesFile(System.getProperty(PROPERTIES_FILE,
-		                                      "evosuite-files/evosuite.properties"));
-
+	private void initializeProperties() {
 		for (String parameter : parameterMap.keySet()) {
 			try {
 				String property = System.getProperty(parameter);
@@ -770,6 +839,30 @@ public class Properties {
 		}
 	}
 
+	/**
+	 * Load and initialize a properties file from the default path
+	 */
+	public void loadProperties() {
+		loadPropertiesFile(System.getProperty(PROPERTIES_FILE,
+		                                      "evosuite-files/evosuite.properties"));
+		initializeProperties();
+	}
+
+	/**
+	 * Load and initialize a properties file from a given path
+	 * 
+	 * @param propertiesPath
+	 */
+	public void loadProperties(String propertiesPath) {
+		loadPropertiesFile(propertiesPath);
+		initializeProperties();
+	}
+
+	/**
+	 * Load a properties file
+	 * 
+	 * @param propertiesPath
+	 */
 	public void loadPropertiesFile(String propertiesPath) {
 		properties = new java.util.Properties();
 		try {
@@ -1181,7 +1274,8 @@ public class Properties {
 					PROJECT_PREFIX = CLASS_PREFIX.substring(0, CLASS_PREFIX.indexOf("."));
 				else
 					PROJECT_PREFIX = CLASS_PREFIX;
-				System.out.println("* Using project prefix: " + PROJECT_PREFIX);
+				LoggingUtils.getEvoLogger().info("* Using project prefix: "
+				                                         + PROJECT_PREFIX);
 			}
 		}
 	}
@@ -1192,8 +1286,14 @@ public class Properties {
 	 * @return
 	 */
 	public static Class<?> getTargetClass() {
-		if (TARGET_CLASS_INSTANCE != null)
+		if (TARGET_CLASS_INSTANCE != null
+		        && TARGET_CLASS_INSTANCE.getCanonicalName().equals(TARGET_CLASS))
 			return TARGET_CLASS_INSTANCE;
+
+		BranchPool.reset();
+		TestCluster.reset();
+		DefaultTestFactory.getInstance().reset();
+		BytecodeInstructionPool.clear(); 
 
 		try {
 			TARGET_CLASS_INSTANCE = TestCluster.classLoader.loadClass(TARGET_CLASS);
@@ -1208,7 +1308,10 @@ public class Properties {
 	 * Get class object of class under test
 	 * 
 	 * @return
+	 * 
+	 * @deprecated
 	 */
+	@Deprecated
 	public static Class<?> loadTargetClass() {
 		try {
 			TARGET_CLASS_INSTANCE = TestCluster.classLoader.loadClass(TARGET_CLASS);

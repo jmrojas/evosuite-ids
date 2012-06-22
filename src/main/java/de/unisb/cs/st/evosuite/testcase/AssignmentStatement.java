@@ -1,29 +1,28 @@
-/*
- * Copyright (C) 2010 Saarland University
+/**
+ * Copyright (C) 2011,2012 Gordon Fraser, Andrea Arcuri and EvoSuite
+ * contributors
  * 
  * This file is part of EvoSuite.
  * 
  * EvoSuite is free software: you can redistribute it and/or modify it under the
- * terms of the GNU Lesser Public License as published by the Free Software
- * Foundation, either version 3 of the License, or (at your option) any later
- * version.
+ * terms of the GNU Public License as published by the Free Software Foundation,
+ * either version 3 of the License, or (at your option) any later version.
  * 
  * EvoSuite is distributed in the hope that it will be useful, but WITHOUT ANY
  * WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS FOR
- * A PARTICULAR PURPOSE. See the GNU Lesser Public License for more details.
+ * A PARTICULAR PURPOSE. See the GNU Public License for more details.
  * 
- * You should have received a copy of the GNU Lesser Public License along with
+ * You should have received a copy of the GNU Public License along with
  * EvoSuite. If not, see <http://www.gnu.org/licenses/>.
  */
-
 package de.unisb.cs.st.evosuite.testcase;
 
 import java.io.PrintStream;
 import java.lang.reflect.AccessibleObject;
+import java.lang.reflect.Field;
 import java.lang.reflect.InvocationTargetException;
 import java.util.ArrayList;
 import java.util.HashSet;
-import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -48,31 +47,26 @@ public class AssignmentStatement extends AbstractStatement {
 	public AssignmentStatement(TestCase tc, VariableReference var, VariableReference value) {
 		super(tc, var);
 		this.parameter = value;
+
 		// TODO:
 		// Assignment of an "unassignable" type may happen if we have no generator for
 		// the target class, as we then attempt generating a superclass and try to case
 		// down to the actual class
 		//
-		//assert (this.parameter.getType().equals(value.getType()));
-		//if (!this.parameter.isAssignableTo(retval.getType()))
-		//	logger.warn(parameter.getSimpleClassName() + " " + parameter.getName()
-		//	        + " is not assignable to " + retval.getSimpleClassName() + " "
-		//	        + retval.getName() + " in test " + tc.toCode());
-		//assert (this.parameter.isAssignableTo(retval.getType()));
-		//
-		//		assert (retval.getVariableClass().isAssignableFrom(parameter.getVariableClass()));
 	}
 
 	@Override
 	public StatementInterface copy(TestCase newTestCase, int offset) {
 		try {
-			//logger.info("CLoning : " + getCode());
 			VariableReference newParam = parameter.copy(newTestCase, offset);
 			VariableReference newTarget;
-			if (retval.getAdditionalVariableReference() != null)
-				newTarget = retval.copy(newTestCase, offset);
-			else
-				newTarget = new VariableReferenceImpl(newTestCase, retval.getType());
+
+			// FIXXME: Return value should always be an existing variable
+			//if (retval.getAdditionalVariableReference() != null)
+			newTarget = retval.copy(newTestCase, offset);
+			//else
+			//	newTarget = retval.copy(newTestCase, offset);
+			//newTarget = new VariableReferenceImpl(newTestCase, retval.getType());
 			AssignmentStatement copy = new AssignmentStatement(newTestCase, newTarget,
 			        newParam);
 			// copy.assertions = copyAssertions(newTestCase, offset);
@@ -81,6 +75,7 @@ public class AssignmentStatement extends AbstractStatement {
 			return copy;
 		} catch (Exception e) {
 			logger.info("Error cloning statement " + getCode());
+			logger.info("In test: " + this.tc.toCode());
 			logger.info("New test: " + newTestCase.toCode());
 			e.printStackTrace();
 			assert (false) : e.toString();
@@ -102,8 +97,8 @@ public class AssignmentStatement extends AbstractStatement {
 				try {
 					final Object value = parameter.getObject(scope);
 					retval.setObject(scope, value);
-				} catch (CodeUnderTestException e) {
-					throw CodeUnderTestException.throwException(e.getCause());
+					//} catch (CodeUnderTestException e) {
+					//	throw CodeUnderTestException.throwException(e.getCause());
 				} catch (IllegalArgumentException e) {
 					// FIXXME: IllegalArgumentException may happen when we only have generators
 					// for an abstract supertype and not the concrete type that we need!
@@ -256,6 +251,47 @@ public class AssignmentStatement extends AbstractStatement {
 		return true;
 	}
 
+	/**
+	 * Retrieve the set of FieldReference and ArrayIndex variables that can
+	 * serve as a replacement for retval
+	 * 
+	 * @return
+	 */
+	private Set<VariableReference> getSourceReplacements() {
+		Set<VariableReference> variables = new HashSet<VariableReference>();
+		for (int i = 0; i < retval.getStPosition() && i < tc.size(); i++) {
+			VariableReference value = tc.getReturnValue(i);
+			if (value == null)
+				continue;
+			if (value instanceof ArrayReference) {
+				if (GenericClass.isAssignable(value.getComponentType(),
+				                              parameter.getType())) {
+					for (int index = 0; index < ((ArrayReference) value).getArrayLength(); index++) {
+						variables.add(new ArrayIndex(tc, (ArrayReference) value, index));
+					}
+				}
+			} else if (value instanceof ArrayIndex) {
+				// Don't need to add this because array indices are created for array statement?
+				if (value.isAssignableFrom(parameter.getType())) {
+					variables.add(value);
+				}
+			} else {
+				if (!value.isPrimitive() && !(value instanceof NullReference)) {
+					// add fields of this object to list
+					for (Field field : StaticTestCluster.getAccessibleFields(value.getVariableClass())) {
+						FieldReference f = new FieldReference(tc, field, value);
+						if (f.getDepth() <= 2) {
+							if (f.isAssignableFrom(parameter.getType())) {
+								variables.add(f);
+							}
+						}
+					}
+				}
+			}
+		}
+		return variables;
+	}
+
 	/* (non-Javadoc)
 	 * @see de.unisb.cs.st.evosuite.testcase.StatementInterface#mutate(de.unisb.cs.st.evosuite.testcase.TestCase)
 	 */
@@ -265,49 +301,30 @@ public class AssignmentStatement extends AbstractStatement {
 
 		// Either mutate parameter, or source
 		if (Randomness.nextDouble() < 0.5) {
-			// TODO: Should we restrict to field and array assignments?
-			List<VariableReference> objects = test.getObjects(parameter.getType(),
-			                                                  retval.getStPosition());
+			Set<VariableReference> objects = getSourceReplacements();
 			objects.remove(retval);
 			objects.remove(parameter);
-			Iterator<VariableReference> var = objects.iterator();
-			while (var.hasNext()) {
-				// Only try other array/field references
-				VariableReference v = var.next();
-				if (v.getAdditionalVariableReference() == null)
-					var.remove();
-				// else if (v instanceof ArrayReference) {
-				//	if (!v.isAssignableTo(retval) || !retval.isAssignableTo(v))
-				//		var.remove();
 
-				//}
-			}
-			//for (VariableReference v : objects) {
-			//	if (!v.isAssignableTo(retval.getType())) {
-			//		assert (false);
-			//	}
-			//}
 			if (!objects.isEmpty()) {
 				VariableReference newRetVal = Randomness.choice(objects);
 				retval = newRetVal;
 				assert (isValid());
-				//test.clone();
-
 				return true;
 			}
 
 		} else {
+
 			List<VariableReference> objects = test.getObjects(parameter.getType(),
-			                                                  parameter.getStPosition());
+			                                                  retval.getStPosition());
 			objects.remove(retval);
 			objects.remove(parameter);
 			if (!objects.isEmpty()) {
 				parameter = Randomness.choice(objects);
 				assert (isValid());
-
 				return true;
 			}
 		}
+
 		return false;
 	}
 

@@ -1,21 +1,20 @@
-/*
- * Copyright (C) 2010 Saarland University
+/**
+ * Copyright (C) 2011,2012 Gordon Fraser, Andrea Arcuri and EvoSuite
+ * contributors
  * 
  * This file is part of EvoSuite.
  * 
  * EvoSuite is free software: you can redistribute it and/or modify it under the
- * terms of the GNU Lesser Public License as published by the Free Software
- * Foundation, either version 3 of the License, or (at your option) any later
- * version.
+ * terms of the GNU Public License as published by the Free Software Foundation,
+ * either version 3 of the License, or (at your option) any later version.
  * 
  * EvoSuite is distributed in the hope that it will be useful, but WITHOUT ANY
  * WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS FOR
- * A PARTICULAR PURPOSE. See the GNU Lesser Public License for more details.
+ * A PARTICULAR PURPOSE. See the GNU Public License for more details.
  * 
- * You should have received a copy of the GNU Lesser Public License along with
+ * You should have received a copy of the GNU Public License along with
  * EvoSuite. If not, see <http://www.gnu.org/licenses/>.
  */
-
 package de.unisb.cs.st.evosuite.testcase;
 
 import java.util.Map;
@@ -24,10 +23,6 @@ import org.objectweb.asm.Opcodes;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import de.unisb.cs.st.evosuite.Properties;
-import de.unisb.cs.st.evosuite.Properties.Criterion;
-import de.unisb.cs.st.evosuite.coverage.concurrency.ConcurrencyTracer;
-import de.unisb.cs.st.evosuite.coverage.concurrency.LockRuntime;
 import de.unisb.cs.st.evosuite.javaagent.BooleanHelper;
 
 /**
@@ -52,6 +47,8 @@ public class ExecutionTracer {
 	private boolean killSwitch = false;
 
 	private int num_statements = 0;
+
+	private ExecutionTrace trace;
 
 	private static boolean checkCallerThread = true;
 
@@ -89,7 +86,13 @@ public class ExecutionTracer {
 		ExecutionTracer.checkCallerThread = checkCallerThread;
 	}
 
-	private ExecutionTrace trace;
+	public static void disableTraceCalls() {
+		ExecutionTraceImpl.disableTraceCalls();
+	}
+
+	public static void enableTraceCalls() {
+		ExecutionTraceImpl.enableTraceCalls();
+	}
 
 	public static ExecutionTracer getExecutionTracer() {
 		if (instance == null) {
@@ -102,16 +105,9 @@ public class ExecutionTracer {
 	 * Reset for new execution
 	 */
 	public void clear() {
-		trace = new ExecutionTrace();
+		trace = new ExecutionTraceProxy();
 		BooleanHelper.clearStack();
 		num_statements = 0;
-
-		//#TODO steenbuck: We should be able to register us somewhere, so that we're called before run is executed
-		if (Properties.CRITERION == Criterion.CONCURRENCY) {
-			trace.concurrencyTracer = new ConcurrencyTracer();
-			LockRuntime.tracer = trace.concurrencyTracer;
-			checkCallerThread = false;
-		}
 	}
 
 	/**
@@ -155,6 +151,15 @@ public class ExecutionTracer {
 		// ExecutionTrace copy = trace.clone();
 		// // copy.finishCalls();
 		// return copy;
+	}
+
+	/**
+	 * Return the last explicitly thrown exception
+	 * 
+	 * @return
+	 */
+	public Throwable getLastException() {
+		return trace.getExplicitException();
 	}
 
 	/**
@@ -630,6 +635,24 @@ public class ExecutionTracer {
 		tracer.trace.mutationPassed(mutationId, distance);
 	}
 
+	public static void exceptionThrown(Object exception, String className,
+	        String methodName) {
+		ExecutionTracer tracer = getExecutionTracer();
+		if (tracer.disabled)
+			return;
+
+		if (isThreadNeqCurrentThread())
+			return;
+
+		if (tracer.killSwitch) {
+			logger.info("Raising TimeoutException as kill switch is active - passedLine");
+			throw new TestCaseExecutor.TimeoutExceeded();
+		}
+
+		tracer.trace.setExplicitException((Throwable) exception);
+
+	}
+
 	public static void statementExecuted() {
 		ExecutionTracer tracer = getExecutionTracer();
 		if (tracer.disabled)
@@ -651,6 +674,6 @@ public class ExecutionTracer {
 	}
 
 	private ExecutionTracer() {
-		trace = new ExecutionTrace();
+		trace = new ExecutionTraceProxy();
 	}
 }

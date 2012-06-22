@@ -1,8 +1,26 @@
+/**
+ * Copyright (C) 2011,2012 Gordon Fraser, Andrea Arcuri and EvoSuite
+ * contributors
+ *
+ * This file is part of EvoSuite.
+ *
+ * EvoSuite is free software: you can redistribute it and/or modify it under the
+ * terms of the GNU Public License as published by the Free Software Foundation,
+ * either version 3 of the License, or (at your option) any later version.
+ *
+ * EvoSuite is distributed in the hope that it will be useful, but WITHOUT ANY
+ * WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS FOR
+ * A PARTICULAR PURPOSE. See the GNU Public License for more details.
+ *
+ * You should have received a copy of the GNU Public License along with
+ * EvoSuite. If not, see <http://www.gnu.org/licenses/>.
+ */
 package de.unisb.cs.st.evosuite.junit;
 
 import java.io.PrintStream;
 import java.lang.reflect.AccessibleObject;
 import java.lang.reflect.InvocationTargetException;
+import java.lang.reflect.Type;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashMap;
@@ -59,9 +77,9 @@ public class CompoundTestCase {
 
 		public List<VariableReference> getParams() {
 			return params;
-		}
+	}
 
-		@Override
+	@Override
 		public String toString() {
 			return name;
 		}
@@ -74,55 +92,55 @@ public class CompoundTestCase {
 		protected ReturnStatementPlaceholder(TestCase tc, VariableReference returnValue) {
 			super(tc, returnValue.getType());
 			retval = returnValue;
-		}
+	}
 
-		@Override
+	@Override
 		public StatementInterface copy(TestCase newTestCase, int offset) {
 			throw new UnsupportedOperationException("Method copy not implemented!");
-		}
+	}
 
-		@Override
+	@Override
 		public Throwable execute(Scope scope, PrintStream out) throws InvocationTargetException,
 				IllegalArgumentException, IllegalAccessException, InstantiationException {
 			throw new UnsupportedOperationException("Method execute not implemented!");
-		}
+	}
 
-		@Override
+	@Override
 		public AccessibleObject getAccessibleObject() {
 			throw new UnsupportedOperationException("Method getAccessibleObject not implemented!");
-		}
+	}
 
-		@Override
+	@Override
 		public void getBytecode(GeneratorAdapter mg, Map<Integer, Integer> locals, Throwable exception) {
 			throw new UnsupportedOperationException("Method getBytecode not implemented!");
 		}
 
-		@Override
+	@Override
 		public List<VariableReference> getUniqueVariableReferences() {
 			throw new UnsupportedOperationException("Method getUniqueVariableReferences not implemented!");
-		}
+	}
 
-		@Override
+	@Override
 		public Set<VariableReference> getVariableReferences() {
 			throw new UnsupportedOperationException("Method getVariableReferences not implemented!");
-		}
+	}
 
-		@Override
+	@Override
 		public boolean isAssignmentStatement() {
 			return false;
-		}
+	}
 
 		@Override
 		public void replace(VariableReference oldVar, VariableReference newVar) {
 			if (retval.equals(oldVar)) {
 				retval = newVar;
-			}
 		}
+	}
 
-		@Override
+	@Override
 		public boolean same(StatementInterface s) {
 			throw new UnsupportedOperationException("Method same not implemented!");
-		}
+	}
 
 	}
 
@@ -394,12 +412,12 @@ public class CompoundTestCase {
 		for (MethodDef methodDef : afterMethods) {
 			if (!overridenMethods.contains(methodDef.getName())) {
 				result.addAll(methodDef.getCode());
-			}
-		}
+	}
+	}
 		if (parent != null) {
 			// parent: @After
 			result.addAll(parent.getAfterMethods(methodDefs.keySet()));
-		}
+	}
 		return result;
 	}
 
@@ -407,7 +425,7 @@ public class CompoundTestCase {
 		List<StatementInterface> result = new ArrayList<StatementInterface>();
 		if (parent != null) {
 			result.addAll(parent.getBeforeMethods(methodDefs.keySet()));
-		}
+	}
 		// @Before IF NOT OVERRIDEN
 		// According to Kent Beck, there is no defined order
 		// in which methods of the same leve within one class are called:
@@ -415,8 +433,8 @@ public class CompoundTestCase {
 		for (MethodDef methodDef : beforeMethods) {
 			if (!overridenMethods.contains(methodDef.getName())) {
 				result.addAll(methodDef.getCode());
-			}
-		}
+	}
+	}
 		return result;
 	}
 
@@ -424,7 +442,7 @@ public class CompoundTestCase {
 		List<StatementInterface> result = new ArrayList<StatementInterface>();
 		if (parent != null) {
 			result.addAll(parent.getInitializationCode());
-		}
+	}
 		// initialization
 		result.addAll(fields);
 		// constructor
@@ -436,7 +454,7 @@ public class CompoundTestCase {
 		MethodDef result = methodDefs.get(name);
 		if (result != null) {
 			return result;
-		}
+	}
 		if (parent != null) {
 			return parent.getMethodInternally(name);
 		}
@@ -447,8 +465,8 @@ public class CompoundTestCase {
 		for (MethodDef constructor : constructors) {
 			if (constructor.getParams().isEmpty()) {
 				return constructor.getCode();
-			}
-		}
+	}
+	}
 		if (constructors.size() > 1) {
 			throw new RuntimeException("Found " + constructors.size() + " constructors, but on no-args constructor!");
 		}

@@ -1,4 +1,21 @@
 /**
+ * Copyright (C) 2011,2012 Gordon Fraser, Andrea Arcuri and EvoSuite
+ * contributors
+ * 
+ * This file is part of EvoSuite.
+ * 
+ * EvoSuite is free software: you can redistribute it and/or modify it under the
+ * terms of the GNU Public License as published by the Free Software Foundation,
+ * either version 3 of the License, or (at your option) any later version.
+ * 
+ * EvoSuite is distributed in the hope that it will be useful, but WITHOUT ANY
+ * WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS FOR
+ * A PARTICULAR PURPOSE. See the GNU Public License for more details.
+ * 
+ * You should have received a copy of the GNU Public License along with
+ * EvoSuite. If not, see <http://www.gnu.org/licenses/>.
+ */
+/**
  * 
  */
 package de.unisb.cs.st.evosuite.testsuite;
@@ -98,8 +115,9 @@ public class TestSuiteDSE {
 				test.setLastExecutionResult(runTest(test.getTestCase()));
 				test.setChanged(false);
 			}
-			if (test.getLastExecutionResult().hasTimeout()) {
-				logger.info("Skipping test with timeout");
+			if (test.getLastExecutionResult().hasTimeout()
+			        || test.getLastExecutionResult().hasTestException()) {
+				logger.info("Skipping test with timeout or exception");
 				continue;
 			}
 
@@ -266,7 +284,7 @@ public class TestSuiteDSE {
 							}
 							if (isUncovered(branch)) {
 								logger.info("Branch is not covered!");
-								if (!newChromosome.getLastExecutionResult().exceptions.isEmpty()) {
+								if (!newChromosome.getLastExecutionResult().noThrownExceptions()) {
 									logger.info("Test has exception");
 								} else {
 									logger.info("Old test: " + expandedTest.toCode());
@@ -348,17 +366,17 @@ public class TestSuiteDSE {
 				*/
 			}
 
-			for (Integer branchId : test.getLastExecutionResult().getTrace().covered_predicates.keySet()) {
-				if (test.getLastExecutionResult().getTrace().true_distances.get(branchId) == 0.0)
+			for (Integer branchId : test.getLastExecutionResult().getTrace().getCoveredPredicates()) {
+				if (test.getLastExecutionResult().getTrace().getTrueDistance(branchId) == 0.0)
 					coveredTrue.add(branchId);
-				if (test.getLastExecutionResult().getTrace().false_distances.get(branchId) == 0.0)
+				if (test.getLastExecutionResult().getTrace().getFalseDistance(branchId) == 0.0)
 					coveredFalse.add(branchId);
 				logger.debug("Distances "
 				        + branchId
 				        + ": "
-				        + test.getLastExecutionResult().getTrace().true_distances.get(branchId)
+				        + test.getLastExecutionResult().getTrace().getTrueDistance(branchId)
 				        + "/"
-				        + test.getLastExecutionResult().getTrace().false_distances.get(branchId));
+				        + test.getLastExecutionResult().getTrace().getFalseDistance(branchId));
 
 			}
 		}
@@ -427,7 +445,7 @@ public class TestSuiteDSE {
 	 * @return
 	 */
 	private boolean hasUncoveredBranches(ExecutableChromosome test) {
-		for (Integer branchId : test.getLastExecutionResult().getTrace().covered_predicates.keySet()) {
+		for (Integer branchId : test.getLastExecutionResult().getTrace().getCoveredPredicates()) {
 			if (uncoveredBranches.contains(branchId)) {
 				logger.info("Uncovered branch found: " + branchId + ": "
 				        + BranchPool.getBranch(branchId));

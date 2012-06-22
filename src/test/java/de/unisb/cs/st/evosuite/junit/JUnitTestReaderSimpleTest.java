@@ -1,6 +1,25 @@
+/**
+ * Copyright (C) 2011,2012 Gordon Fraser, Andrea Arcuri and EvoSuite
+ * contributors
+ *
+ * This file is part of EvoSuite.
+ *
+ * EvoSuite is free software: you can redistribute it and/or modify it under the
+ * terms of the GNU Public License as published by the Free Software Foundation,
+ * either version 3 of the License, or (at your option) any later version.
+ *
+ * EvoSuite is distributed in the hope that it will be useful, but WITHOUT ANY
+ * WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS FOR
+ * A PARTICULAR PURPOSE. See the GNU Public License for more details.
+ *
+ * You should have received a copy of the GNU Public License along with
+ * EvoSuite. If not, see <http://www.gnu.org/licenses/>.
+ */
 package de.unisb.cs.st.evosuite.junit;
 
-import org.junit.Assert;
+import junit.framework.Assert;
+
+import org.junit.Ignore;
 import org.junit.Test;
 
 import de.unisb.cs.st.evosuite.Properties;
@@ -10,214 +29,90 @@ public class JUnitTestReaderSimpleTest {
 
 	private static final String SRCDIR = "src/test/java/";
 
+	@Ignore
 	@Test
-	public void testReadNonexistingJUnitTestCase() {
-		try {
-			Properties.PROJECT_PREFIX = "de.unisb.cs.st.evosuite.junit";
-			JUnitTestReader reader = new JUnitTestReader(null, new String[] { SRCDIR });
-			TestCase testCase = reader.readJUnitTestCase(SimpleTestExample.class.getName() + "#nonexistent");
-			Assert.fail("Expected exception on nonexisting test.");
-		} catch (RuntimeException exc) {
-			// Expecting exception stating that test was not found
-		}
-	}
-
-	@Test
-	public void testReadSimpleJUnitTestCase01() {
+	public void testReadComplexJUnitTestCase01() {
 		Properties.PROJECT_PREFIX = "de.unisb.cs.st.evosuite.junit";
 		JUnitTestReader reader = new JUnitTestReader(null, new String[] { SRCDIR });
-		TestCase testCase = reader.readJUnitTestCase(SimpleTestExample.class.getName() + "#test01");
+		TestCase testCase = reader.readJUnitTestCase(SimpleTestExample01.class.getName()
+		        + "#test");
 		testCase.clone();
 		String code = testCase.toCode();
-		String result = "String string0 = \"killSelf\";\n" + //
-				"TestExample.MockingBird testExample_MockingBird0 = new TestExample.MockingBird(string0);\n" + //
-				"int int0 = 10;\n" + //
-				"testExample_MockingBird0.executeCmd(int0);\n";
+		String result = "String var0 = \"killSelf\";\n" + //
+		        "TestExample.MockingBird bird = new TestExample.MockingBird(var0);\n" + //
+		        "int var2 = 10;\n" + //
+		        "bird.executeCmd(var2);\n";
 		Assert.assertEquals(result, code);
 	}
 
+	@Ignore
 	@Test
-	public void testReadSimpleJUnitTestCase02() {
+	public void testReadComplexJUnitTestCase02() {
 		Properties.PROJECT_PREFIX = "de.unisb.cs.st.evosuite.junit";
 		JUnitTestReader reader = new JUnitTestReader(null, new String[] { SRCDIR });
-		TestCase testCase = reader.readJUnitTestCase(SimpleTestExample.class.getName() + "#test02");
+		TestCase testCase = reader.readJUnitTestCase(SimpleTestExample02.class.getName()
+		        + "#test");
 		testCase.clone();
 		String code = testCase.toCode();
-		String result = "String string0 = \"killSelf\";\n" + //
-				"TestExample.MockingBird testExample_MockingBird0 = MockingBird.create(string0);\n" + //
-				"int int0 = 10;\n" + //
-				"testExample_MockingBird0.executeCmd(int0);\n";
+		String result = "String var0 = \"killSelf\";\n" + //
+		        "TestExample.MockingBird bird = MockingBird.create(var0);\n" + //
+		        "int var2 = 10;\n" + //
+		        "bird.executeCmd(var2);\n";
 		Assert.assertEquals(result, code);
 	}
 
+	@Ignore
 	@Test
-	public void testReadSimpleJUnitTestCase03() {
+	public void testReadComplexJUnitTestCase03() {
 		Properties.PROJECT_PREFIX = "de.unisb.cs.st.evosuite.junit";
 		JUnitTestReader reader = new JUnitTestReader(null, new String[] { SRCDIR });
-		TestCase testCase = reader.readJUnitTestCase(SimpleTestExample.class.getName() + "#test03");
-		testCase = testCase.clone();
-		String code = testCase.toCode();
-		String result = "String string0 = \"dd.MMM.yyyy\";\n" + //
-				"Locale locale0 = Locale.FRENCH;\n" + //
-				"SimpleDateFormat simpleDateFormat0 = new SimpleDateFormat(string0, locale0);\n" + //
-				"long long0 = System.currentTimeMillis();\n" + //
-				"String string1 = simpleDateFormat0.format(long0);\n" + //
-				"PrintStream printStream0 = System.out;\n" + //
-				"printStream0.println(string1);\n" + //
-				"String string2 = \"11.sept..2007\";\n" + //
-				"PrintStream printStream1 = System.out;\n" + //
-				"printStream1.println(string2);\n" + //
-				"Date date0 = simpleDateFormat0.parse(string2);\n" + //
-				"PrintStream printStream2 = System.out;\n" + //
-				"printStream2.println(date0);\n";
-		Assert.assertEquals(result, code);
-	}
-
-	@Test
-	public void testReadSimpleJUnitTestCase04() {
-		Properties.PROJECT_PREFIX = "de.unisb.cs.st.evosuite.junit";
-		JUnitTestReader reader = new JUnitTestReader(null, new String[] { SRCDIR });
-		TestCase testCase = reader.readJUnitTestCase(SimpleTestExample.class.getName() + "#test04");
-		testCase = testCase.clone();
-		String code = testCase.toCode();
-		String result = "String string0 = \"killSelf\";\n" + //
-				"String string1 = new String(string0);\n" + //
-				"TestExample.MockingBird testExample_MockingBird0 = new TestExample.MockingBird(string1);\n" + //
-				"String string2 = \"You\";\n" + //
-				"String string3 = new String(string2);\n" + //
-				"TestExample.MockingBird testExample_MockingBird1 = testExample_MockingBird0.doIt(string3);\n" + //
-				"String string4 = \"Me\";\n" + //
-				"TestExample.MockingBird testExample_MockingBird2 = testExample_MockingBird1.doIt(string4);\n" + //
-				"String string5 = \"Them\";\n" + //
-				"TestExample.MockingBird testExample_MockingBird3 = testExample_MockingBird2.doIt(string5);\n" + //
-				"String string6 = \"Everybody!\";\n" + //
-				"testExample_MockingBird3.doIt(string6);\n";
-		Assert.assertEquals(result, code);
-	}
-
-	@Test
-	public void testReadSimpleJUnitTestCase05() {
-		Properties.PROJECT_PREFIX = "de.unisb.cs.st.evosuite.junit";
-		JUnitTestReader reader = new JUnitTestReader(null, new String[] { SRCDIR });
-		TestCase testCase = reader.readJUnitTestCase(SimpleTestExample.class.getName() + "#test05");
+		TestCase testCase = reader.readJUnitTestCase(SimpleTestExample03.class.getName()
+		        + "#test");
+		// TODO Implement correct cloning of BoundVariableReferences: testCase =
 		testCase.clone();
 		String code = testCase.toCode();
-		String result = "String string0 = \"killSelf\";\n" + //
-				"String string1 = \"flyAway\";\n" + //
-				"TestExample.MockingBird testExample_MockingBird0 = MockingBird.create(string1);\n" + //
-				"int int0 = 10;\n" + //
-				"testExample_MockingBird0.executeCmd(int0);\n";
+		String result = "String var0 = \"dd.MMM.yyyy\";\n" + //
+		        "Locale var1 = Locale.FRENCH;\n" + //
+		        "SimpleDateFormat formatter = new SimpleDateFormat(var0, var1);\n" + //
+		        "long var3 = System.currentTimeMillis();\n" + //
+		        "String var4 = formatter.format((Object) var3);\n" + //
+		        "PrintStream var5 = System.out;\n" + //
+		        "var5.println(var4);\n" + //
+		        "String var7 = \"11.sept..2007\";\n" + //
+		        "PrintStream var8 = System.out;\n" + //
+		        "var8.println(var7);\n" + //
+		        "Date result = formatter.parse(var7);\n";
 		Assert.assertEquals(result, code);
 	}
 
+	@Ignore
 	@Test
-	public void testReadSimpleJUnitTestCase06() {
+	public void testReadComplexJUnitTestCase04() {
 		Properties.PROJECT_PREFIX = "de.unisb.cs.st.evosuite.junit";
 		JUnitTestReader reader = new JUnitTestReader(null, new String[] { SRCDIR });
-		TestCase testCase = reader.readJUnitTestCase(SimpleTestExample.class.getName() + "#test06");
-		testCase.clone();
+		TestCase testCase = reader.readJUnitTestCase(SimpleTestExample04.class.getName()
+		        + "#test");
+		// TODO Implement correct cloning of BoundVariableReferences: testCase =
+		// testCase.clone();
 		String code = testCase.toCode();
-		String result = "int int0 = 2;\n" + //
-				"int int1 = 5;\n" + //
-				"int[][] intArray0 = new int[2][5];\n" + //
-				"int int2 = 0;\n" + //
-				"int int3 = 0;\n" + //
-				"int int4 = int2 * int3;\n" + //
-				"intArray0[0][0] = int4;\n" + //
-				"int int5 = 0;\n" + //
-				"int int6 = 1;\n" + //
-				"int int7 = int5 * int6;\n" + //
-				"intArray0[0][1] = int7;\n" + //
-				"int int8 = 0;\n" + //
-				"int int9 = 2;\n" + //
-				"int int10 = int8 * int9;\n" + //
-				"intArray0[0][2] = int10;\n" + //
-				"int int11 = 0;\n" + //
-				"int int12 = 3;\n" + //
-				"int int13 = int11 * int12;\n" + //
-				"intArray0[0][3] = int13;\n" + //
-				"int int14 = 0;\n" + //
-				"int int15 = 4;\n" + //
-				"int int16 = int14 * int15;\n" + //
-				"intArray0[0][4] = int16;\n" + //
-				"int int17 = 1;\n" + //
-				"int int18 = 0;\n" + //
-				"int int19 = int17 * int18;\n" + //
-				"intArray0[1][0] = int19;\n" + //
-				"int int20 = 1;\n" + //
-				"int int21 = 1;\n" + //
-				"int int22 = int20 * int21;\n" + //
-				"intArray0[1][1] = int22;\n" + //
-				"int int23 = 1;\n" + //
-				"int int24 = 2;\n" + //
-				"int int25 = int23 * int24;\n" + //
-				"intArray0[1][2] = int25;\n" + //
-				"int int26 = 1;\n" + //
-				"int int27 = 3;\n" + //
-				"int int28 = int26 * int27;\n" + //
-				"intArray0[1][3] = int28;\n" + //
-				"int int29 = 1;\n" + //
-				"int int30 = 4;\n" + //
-				"int int31 = int29 * int30;\n" + //
-				"intArray0[1][4] = int31;\n";
+		System.out.println(code);
+		String result = "String var0 = \"killSelf\";\n" + //
+		        "String var1 = new String(var0);\n" + //
+		        "TestExample.MockingBird bird = new TestExample.MockingBird(var1);\n" + //
+		        "String var3 = \"You\";\n" + //
+		        "String var4 = new String(var3);\n" + //
+		        "TestExample.MockingBird var5 = bird.doIt(var4);\n" + //
+		        "String var6 = \"Me\";\n" + //
+		        "TestExample.MockingBird var7 = var5.doIt(var6);\n" + //
+		        "String var8 = \"Them\";\n" + //
+		        "TestExample.MockingBird var9 = var7.doIt(var8);\n" + //
+		        "String var10 = \"Everybody!\";\n" + //
+		        "TestExample.MockingBird var11 = var9.doIt(var10);\n";
 		Assert.assertEquals(result, code);
 	}
 
-	@Test
-	public void testReadSimpleJUnitTestCase07() {
-		Properties.PROJECT_PREFIX = "de.unisb.cs.st.evosuite.junit";
-		JUnitTestReader reader = new JUnitTestReader(null, new String[] { SRCDIR });
-		TestCase testCase = reader.readJUnitTestCase(SimpleTestExample.class.getName() + "#test07");
-		testCase.clone();
-		String code = testCase.toCode();
-		String result = "int int0 = 5;\n" + //
-				"int int1 = 5;\n" + //
-				"int int2 = 0;\n" + //
-				"BufferedImage bufferedImage0 = TestExample.createImage(int0, int1, int2);\n" + //
-				"int[][] intArray0 = new int[5][5];\n" + //
-				"bufferedImage0.getWidth();\n" + //
-				"bufferedImage0.getHeight();\n" + //
-				"intArray0[0][0] = intArray0[1][4];\n" + //
-				"int int3 = 4;\n" + //
-				"int int4 = 5;\n" + //
-				"int int5 = TestExample.doCalc(int3, int4);\n" + //
-				"int int6 = 3;\n" + //
-				"int int7 = int6 + int5;\n" + //
-				"intArray0[0][1] = int7;\n";
-		Assert.assertEquals(result, code);
-	}
-
-	@Test
-	public void testReadSimpleJUnitTestCase08() {
-		Properties.PROJECT_PREFIX = "de.unisb.cs.st.evosuite.junit";
-		JUnitTestReader reader = new JUnitTestReader(null, new String[] { SRCDIR });
-		TestCase testCase = reader.readJUnitTestCase(SimpleTestExample.class.getName() + "#test08");
-		testCase.clone();
-		String code = testCase.toCode();
-		String result = "String[] stringArray0 = new String[0];\n" + //
-				"TestExample.sysoutArray(stringArray0);\n" + //
-				"String[] stringArray1 = new String[0];\n" + //
-				"TestExample.sysoutArray(stringArray1);\n" + //
-				"String[] stringArray2 = new String[1];\n" + //
-				"String string0 = \"Test\";\n" + //
-				"stringArray2[0] = string0;\n" + //
-				"TestExample.sysoutArray(stringArray2);\n" + //
-				"String[] stringArray3 = new String[1];\n" + //
-				"String string1 = \"Test\";\n" + //
-				"stringArray3[0] = string1;\n" + //
-				"TestExample.sysoutArray(stringArray3);\n" + //
-				"String[] stringArray4 = new String[5];\n" + //
-				"String string2 = \"This \";\n" + //
-				"stringArray4[0] = string2;\n" + //
-				"String string3 = \"is \";\n" + //
-				"stringArray4[1] = string3;\n" + //
-				"String string4 = \"a \";\n" + //
-				"stringArray4[2] = string4;\n" + //
-				"String string5 = \"Test\";\n" + //
-				"stringArray4[3] = string5;\n" + //
-				"String string6 = \"!\";\n" + //
-				"stringArray4[4] = string6;\n" + //
-				"TestExample.sysoutArray(stringArray4);\n";
-		Assert.assertEquals(result, code);
-	}
+	// TODO Create a test that test reusing a variable:
+	// a = new Something();
+	// a = new SomethingElse();
+	// a.doSomething();
 }

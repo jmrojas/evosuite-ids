@@ -1,21 +1,20 @@
-/*
- * Copyright (C) 2010 Saarland University
- * 
+/**
+ * Copyright (C) 2011,2012 Gordon Fraser, Andrea Arcuri and EvoSuite
+ * contributors
+ *
  * This file is part of EvoSuite.
- * 
+ *
  * EvoSuite is free software: you can redistribute it and/or modify it under the
- * terms of the GNU Lesser Public License as published by the Free Software
- * Foundation, either version 3 of the License, or (at your option) any later
- * version.
- * 
+ * terms of the GNU Public License as published by the Free Software Foundation,
+ * either version 3 of the License, or (at your option) any later version.
+ *
  * EvoSuite is distributed in the hope that it will be useful, but WITHOUT ANY
  * WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS FOR
- * A PARTICULAR PURPOSE. See the GNU Lesser Public License for more details.
- * 
- * You should have received a copy of the GNU Lesser Public License along with
+ * A PARTICULAR PURPOSE. See the GNU Public License for more details.
+ *
+ * You should have received a copy of the GNU Public License along with
  * EvoSuite. If not, see <http://www.gnu.org/licenses/>.
  */
-
 package de.unisb.cs.st.evosuite.testcase;
 
 import java.io.Serializable;
@@ -51,6 +50,8 @@ public class DefaultTestCase implements TestCase, Serializable {
 	private static final long serialVersionUID = -689512549778944250L;
 
 	private static Logger logger = LoggerFactory.getLogger(DefaultTestCase.class);
+
+	private List<String> accessedFiles = new ArrayList<String>();
 
 	/** The statements */
 	protected final ListenableList<StatementInterface> statements;
@@ -134,7 +135,7 @@ public class DefaultTestCase implements TestCase, Serializable {
 	private void addFields(List<VariableReference> variables, VariableReference var,
 	        Type type) {
 
-		if (!var.isPrimitive()) {
+		if (!var.isPrimitive() && !(var instanceof NullReference)) {
 			// add fields of this object to list
 			for (Field field : StaticTestCluster.getAccessibleFields(var.getVariableClass())) {
 				FieldReference f = new FieldReference(this, field, var);
@@ -253,6 +254,26 @@ public class DefaultTestCase implements TestCase, Serializable {
 	        throws ConstructionFailedException {
 		assert (type != null);
 		List<VariableReference> variables = getObjects(type, position);
+		if (variables.isEmpty())
+			throw new ConstructionFailedException("Found no variables of type " + type
+			        + " at position " + position);
+
+		return Randomness.choice(variables);
+	}
+
+	/* (non-Javadoc)
+	 * @see de.unisb.cs.st.evosuite.testcase.TestCase#getRandomObject(java.lang.reflect.Type, int)
+	 */
+	@Override
+	public VariableReference getRandomNonNullObject(Type type, int position)
+	        throws ConstructionFailedException {
+		assert (type != null);
+		List<VariableReference> variables = getObjects(type, position);
+		Iterator<VariableReference> iterator = variables.iterator();
+		while (iterator.hasNext()) {
+			if (iterator.next() instanceof NullReference)
+				iterator.remove();
+		}
 		if (variables.isEmpty())
 			throw new ConstructionFailedException("Found no variables of type " + type
 			        + " at position " + position);
@@ -531,10 +552,11 @@ public class DefaultTestCase implements TestCase, Serializable {
 		for (StatementInterface s : statements) {
 			StatementInterface copy = s.clone(t);
 			t.statements.add(copy);
-			copy.SetRetval(s.getReturnValue().clone(t));
+			copy.setRetval(s.getReturnValue().clone(t));
 			copy.setAssertions(s.copyAssertions(t, 0));
 		}
 		t.coveredGoals.addAll(coveredGoals);
+		t.accessedFiles.addAll(accessedFiles);
 		//t.exception_statement = exception_statement;
 		//t.exceptionThrown = exceptionThrown;
 		return t;
@@ -682,6 +704,14 @@ public class DefaultTestCase implements TestCase, Serializable {
 	}
 
 	/* (non-Javadoc)
+	 * @see de.unisb.cs.st.evosuite.testcase.TestCase#clearCoveredGoals()
+	 */
+	@Override
+	public void clearCoveredGoals() {
+		coveredGoals.clear();
+	}
+
+	/* (non-Javadoc)
 	 * @see java.lang.Iterable#iterator()
 	 */
 	@Override
@@ -755,6 +785,21 @@ public class DefaultTestCase implements TestCase, Serializable {
 		}
 	}
 
+	/* (non-Javadoc)
+	 * @see de.unisb.cs.st.evosuite.testcase.TestCase#getAccessedFiles()
+	 */
+	@Override
+	public List<String> getAccessedFiles() {
+		return accessedFiles;
+	}
+
+	/* (non-Javadoc)
+	 * @see de.unisb.cs.st.evosuite.testcase.TestCase#setAccessedFiles(java.util.List)
+	 */
+	@Override
+	public void setAccessedFiles(List<String> files) {
+		accessedFiles = files;
+	}
 	/*
 	private void readObject(ObjectInputStream ois) throws ClassNotFoundException,
 	        IOException {

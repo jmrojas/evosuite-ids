@@ -18,10 +18,12 @@ import de.unisb.cs.st.evosuite.testcase.VariableReference;
 import de.unisb.cs.st.evosuite.utils.Listener;
 
 /**
- * This is a wrapper for a {@link TestCase} that allows {@link StatementInterface}s to reference this test case and still exchange the wrapped test case.
+ * This is a wrapper for a {@link TestCase} that allows
+ * {@link StatementInterface}s to reference this test case and still exchange
+ * the wrapped test case.
  * 
  * @author roessler
- *
+ * 
  */
 public class DelegatingTestCase implements TestCase {
 
@@ -71,6 +73,11 @@ public class DelegatingTestCase implements TestCase {
 	}
 
 	@Override
+	public void clearCoveredGoals() {
+		delegate.clearCoveredGoals();
+	}
+
+	@Override
 	public TestCase clone() {
 		return delegate.clone();
 	}
@@ -83,6 +90,11 @@ public class DelegatingTestCase implements TestCase {
 	@Override
 	public Set<Class<?>> getAccessedClasses() {
 		return delegate.getAccessedClasses();
+	}
+
+	@Override
+	public List<String> getAccessedFiles() {
+		return delegate.getAccessedFiles();
 	}
 
 	@Override
@@ -122,6 +134,11 @@ public class DelegatingTestCase implements TestCase {
 	@Override
 	public List<VariableReference> getObjects(Type type, int position) {
 		return delegate.getObjects(type, position);
+	}
+
+	@Override
+	public VariableReference getRandomNonNullObject(Type type, int position) throws ConstructionFailedException {
+		return delegate.getRandomNonNullObject(type, position);
 	}
 
 	@Override
@@ -221,6 +238,11 @@ public class DelegatingTestCase implements TestCase {
 	@Override
 	public void replace(VariableReference var1, VariableReference var2) {
 		delegate.replace(var1, var2);
+	}
+
+	@Override
+	public void setAccessedFiles(List<String> files) {
+		delegate.setAccessedFiles(files);
 	}
 
 	public void setDelegate(TestCase delegate) {

@@ -1,3 +1,20 @@
+/**
+ * Copyright (C) 2011,2012 Gordon Fraser, Andrea Arcuri and EvoSuite
+ * contributors
+ *
+ * This file is part of EvoSuite.
+ *
+ * EvoSuite is free software: you can redistribute it and/or modify it under the
+ * terms of the GNU Public License as published by the Free Software Foundation,
+ * either version 3 of the License, or (at your option) any later version.
+ *
+ * EvoSuite is distributed in the hope that it will be useful, but WITHOUT ANY
+ * WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS FOR
+ * A PARTICULAR PURPOSE. See the GNU Public License for more details.
+ *
+ * You should have received a copy of the GNU Public License along with
+ * EvoSuite. If not, see <http://www.gnu.org/licenses/>.
+ */
 package de.unisb.cs.st.evosuite.testcase;
 
 import java.lang.reflect.Array;
@@ -25,7 +42,7 @@ public class ArrayIndex extends VariableReferenceImpl {
 	 * Index in the array
 	 */
 	private List<Integer> indices;
-	
+
 	/**
 	 * If this variable is contained in an array, this is the reference to the
 	 * array
@@ -175,8 +192,8 @@ public class ArrayIndex extends VariableReferenceImpl {
 		try {
 			for (int idx = 0; idx < indices.size() - 1; idx++) {
 				if (arrayObject == null) {
-					throw new CodeUnderTestException(new NullPointerException());
-				}
+				throw new CodeUnderTestException(new NullPointerException());
+			}
 				arrayObject = Array.get(arrayObject, indices.get(idx));
 			}
 			Object result = Array.get(arrayObject, indices.get(indices.size() - 1));
@@ -200,8 +217,8 @@ public class ArrayIndex extends VariableReferenceImpl {
 		try {
 			for (int idx = 0; idx < indices.size() - 1; idx++) {
 				if (arrayObject == null) {
-					throw new CodeUnderTestException(new NullPointerException());
-				}
+				throw new CodeUnderTestException(new NullPointerException());
+			}
 				arrayObject = Array.get(arrayObject, indices.get(idx));
 			}
 			Array.set(arrayObject, indices.get(indices.size() - 1), value);

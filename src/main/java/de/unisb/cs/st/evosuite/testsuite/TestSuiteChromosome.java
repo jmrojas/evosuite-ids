@@ -1,18 +1,18 @@
-/*
- * Copyright (C) 2010 Saarland University
+/**
+ * Copyright (C) 2011,2012 Gordon Fraser, Andrea Arcuri and EvoSuite
+ * contributors
  * 
  * This file is part of EvoSuite.
  * 
  * EvoSuite is free software: you can redistribute it and/or modify it under the
- * terms of the GNU Lesser Public License as published by the Free Software
- * Foundation, either version 3 of the License, or (at your option) any later
- * version.
+ * terms of the GNU Public License as published by the Free Software Foundation,
+ * either version 3 of the License, or (at your option) any later version.
  * 
  * EvoSuite is distributed in the hope that it will be useful, but WITHOUT ANY
  * WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS FOR
- * A PARTICULAR PURPOSE. See the GNU Lesser Public License for more details.
+ * A PARTICULAR PURPOSE. See the GNU Public License for more details.
  * 
- * You should have received a copy of the GNU Lesser Public License along with
+ * You should have received a copy of the GNU Public License along with
  * EvoSuite. If not, see <http://www.gnu.org/licenses/>.
  */
 package de.unisb.cs.st.evosuite.testsuite;
@@ -49,6 +49,10 @@ public class TestSuiteChromosome extends AbstractTestSuiteChromosome<TestChromos
 	/** Secondary objectives used during ranking */
 	private static final List<SecondaryObjective> secondaryObjectives = new ArrayList<SecondaryObjective>();
 
+	public TestSuiteChromosome() {
+		super();
+	}
+
 	public TestSuiteChromosome(ChromosomeFactory<TestChromosome> testChromosomeFactory) {
 		super(testChromosomeFactory);
 	}
@@ -58,12 +62,6 @@ public class TestSuiteChromosome extends AbstractTestSuiteChromosome<TestChromos
 	}
 
 	private static final long serialVersionUID = 88380759969800800L;
-
-	public void addTest(TestCase test) {
-		TestChromosome c = new TestChromosome();
-		c.setTestCase(test);
-		addTest(c);
-	}
 
 	/**
 	 * Create a deep copy of this test suite
@@ -153,7 +151,7 @@ public class TestSuiteChromosome extends AbstractTestSuiteChromosome<TestChromos
 			if (test.getLastExecutionResult() == null)
 				continue;
 
-			for (Entry<Integer, Integer> entry : test.getLastExecutionResult().getTrace().covered_predicates.entrySet()) {
+			for (Entry<Integer, Integer> entry : test.getLastExecutionResult().getTrace().getPredicateExecutionCount().entrySet()) {
 				if (!covered.containsKey(entry.getKey())) {
 					covered.put(entry.getKey(), 0);
 				}
@@ -223,6 +221,17 @@ public class TestSuiteChromosome extends AbstractTestSuiteChromosome<TestChromos
 	}
 
 	/**
+	 * Add a test to a test suite
+	 * 
+	 * @param test
+	 */
+	public void addTest(TestCase test) {
+		TestChromosome c = new TestChromosome();
+		c.setTestCase(test);
+		addTest(c);
+	}
+
+	/**
 	 * For manual algorithm
 	 * 
 	 * @param testCase
@@ -237,6 +246,14 @@ public class TestSuiteChromosome extends AbstractTestSuiteChromosome<TestChromos
 				}
 			}
 		}
+	}
+
+	/**
+	 * Remove all tests
+	 */
+	public void clearTests() {
+		tests.clear();
+		unmodifiableTests.clear();
 	}
 
 	public void restoreTests(ArrayList<TestCase> backup) {

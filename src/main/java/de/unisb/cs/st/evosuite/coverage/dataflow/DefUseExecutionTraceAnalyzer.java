@@ -1,3 +1,20 @@
+/**
+ * Copyright (C) 2011,2012 Gordon Fraser, Andrea Arcuri and EvoSuite
+ * contributors
+ * 
+ * This file is part of EvoSuite.
+ * 
+ * EvoSuite is free software: you can redistribute it and/or modify it under the
+ * terms of the GNU Public License as published by the Free Software Foundation,
+ * either version 3 of the License, or (at your option) any later version.
+ * 
+ * EvoSuite is distributed in the hope that it will be useful, but WITHOUT ANY
+ * WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS FOR
+ * A PARTICULAR PURPOSE. See the GNU Public License for more details.
+ * 
+ * You should have received a copy of the GNU Public License along with
+ * EvoSuite. If not, see <http://www.gnu.org/licenses/>.
+ */
 package de.unisb.cs.st.evosuite.coverage.dataflow;
 
 import java.util.ArrayList;
@@ -13,7 +30,7 @@ import de.unisb.cs.st.evosuite.graphs.GraphPool;
 import de.unisb.cs.st.evosuite.graphs.cfg.BytecodeInstruction;
 import de.unisb.cs.st.evosuite.testcase.ExecutionResult;
 import de.unisb.cs.st.evosuite.testcase.ExecutionTrace;
-import de.unisb.cs.st.evosuite.testcase.ExecutionTrace.MethodCall;
+import de.unisb.cs.st.evosuite.testcase.MethodCall;
 
 /**
  * 
@@ -33,12 +50,11 @@ public abstract class DefUseExecutionTraceAnalyzer {
 	 * If no such definition exists -1 is returned
 	 */
 	public static int getPreviousDefinitionId(String targetVariable,
-			ExecutionTrace objectTrace, Integer targetDUPos, Integer objectId) {
+	        ExecutionTrace objectTrace, Integer targetDUPos, Integer objectId) {
 
 		int prevPos = -1;
 		int prevDef = -1;
-		Map<Integer, Integer> defMap = objectTrace.passedDefinitions.get(
-				targetVariable).get(objectId);
+		Map<Integer, Integer> defMap = objectTrace.getPassedDefinitions(targetVariable).get(objectId);
 		for (Integer duPos : defMap.keySet())
 			if (duPos < targetDUPos && duPos > prevPos) {
 				prevDef = defMap.get(duPos);
@@ -56,13 +72,11 @@ public abstract class DefUseExecutionTraceAnalyzer {
 	 * 
 	 * If no such definition exists Integer.MAX_VALUE is returned
 	 */
-	public static int getNextOverwritingDefinitionPosition(
-			Definition targetDefinition, ExecutionTrace objectTrace,
-			Integer goalDefPos, Integer objectId) {
+	public static int getNextOverwritingDefinitionPosition(Definition targetDefinition,
+	        ExecutionTrace objectTrace, Integer goalDefPos, Integer objectId) {
 
 		int lastPos = Integer.MAX_VALUE;
-		Map<Integer, HashMap<Integer, Integer>> objectMap = objectTrace.passedDefinitions
-				.get(targetDefinition.getDUVariableName());
+		Map<Integer, HashMap<Integer, Integer>> objectMap = objectTrace.getPassedDefinitions(targetDefinition.getDUVariableName());
 		if (objectMap == null)
 			return lastPos;
 		Map<Integer, Integer> defMap = objectMap.get(objectId);
@@ -70,7 +84,7 @@ public abstract class DefUseExecutionTraceAnalyzer {
 			return lastPos;
 		for (Integer defPos : defMap.keySet())
 			if (defPos > goalDefPos && defPos < lastPos
-					&& defMap.get(defPos) != targetDefinition.getDefId())
+			        && defMap.get(defPos) != targetDefinition.getDefId())
 				lastPos = defPos;
 
 		return lastPos;
@@ -79,11 +93,10 @@ public abstract class DefUseExecutionTraceAnalyzer {
 	/**
 	 * Returns all the duCounterPositions of the targetUse in the given trace
 	 */
-	public static List<Integer> getUsePositions(Use targetUse,
-			ExecutionTrace trace, int objectId) {
+	public static List<Integer> getUsePositions(Use targetUse, ExecutionTrace trace,
+	        int objectId) {
 		ArrayList<Integer> r = new ArrayList<Integer>();
-		Map<Integer, HashMap<Integer, Integer>> objectMap = trace.passedUses
-				.get(targetUse.getDUVariableName());
+		Map<Integer, HashMap<Integer, Integer>> objectMap = trace.getPassedUses(targetUse.getDUVariableName());
 		if (objectMap == null)
 			return r;
 		Map<Integer, Integer> useMap = objectMap.get(objectId);
@@ -99,12 +112,11 @@ public abstract class DefUseExecutionTraceAnalyzer {
 	/**
 	 * Returns all the duCounterPositions of the goalUse in the given trace
 	 */
-	public static List<Integer> getDefinitionPositions(
-			Definition targetDefinition, ExecutionTrace trace, int objectId) {
+	public static List<Integer> getDefinitionPositions(Definition targetDefinition,
+	        ExecutionTrace trace, int objectId) {
 
 		ArrayList<Integer> r = new ArrayList<Integer>();
-		Map<Integer, HashMap<Integer, Integer>> objectMap = trace.passedDefinitions
-				.get(targetDefinition.getDUVariableName());
+		Map<Integer, HashMap<Integer, Integer>> objectMap = trace.getPassedDefinitions(targetDefinition.getDUVariableName());
 		if (objectMap == null)
 			return r;
 		Map<Integer, Integer> defMap = objectMap.get(objectId);
@@ -127,15 +139,13 @@ public abstract class DefUseExecutionTraceAnalyzer {
 	 * is detected this method throws an IllegalStateException!
 	 */
 	public static Map<Integer, Integer> getOverwritingDefinitionsBetween(
-			Definition targetDefinition, ExecutionTrace trace,
-			int startingDUPos, int endDUPos, int objectId) {
+	        Definition targetDefinition, ExecutionTrace trace, int startingDUPos,
+	        int endDUPos, int objectId) {
 
 		if (startingDUPos > endDUPos)
-			throw new IllegalArgumentException(
-					"start must be lower or equal end");
+			throw new IllegalArgumentException("start must be lower or equal end");
 		Map<Integer, Integer> r = new HashMap<Integer, Integer>();
-		Map<Integer, HashMap<Integer, Integer>> objectMap = trace.passedDefinitions
-				.get(targetDefinition.getDUVariableName());
+		Map<Integer, HashMap<Integer, Integer>> objectMap = trace.getPassedDefinitions(targetDefinition.getDUVariableName());
 		if (objectMap == null)
 			return r;
 		Map<Integer, Integer> defMap = objectMap.get(objectId);
@@ -147,20 +157,20 @@ public abstract class DefUseExecutionTraceAnalyzer {
 			int defId = defMap.get(defPos);
 			if (defId == targetDefinition.getDefId())
 				throw new IllegalStateException(
-						"expect given trace not to have passed goalDefinition in the given duCounter-range");
+				        "expect given trace not to have passed goalDefinition in the given duCounter-range");
 			if (r.get(defId) == null)
 				r.put(defId, defPos);
 		}
 		return r;
 	}
 
-	public static Set<BytecodeInstruction> getDefinitionsIn(
-			String targetVariable, Set<BytecodeInstruction> vertices) {
+	public static Set<BytecodeInstruction> getDefinitionsIn(String targetVariable,
+	        Set<BytecodeInstruction> vertices) {
 		Set<BytecodeInstruction> r = new HashSet<BytecodeInstruction>();
 		for (BytecodeInstruction vertex : vertices) {
-//			if (!vertex.isDefinition())
-//				continue;
-			if(!DefUsePool.isKnownAsDefinition(vertex))
+			//			if (!vertex.isDefinition())
+			//				continue;
+			if (!DefUsePool.isKnownAsDefinition(vertex))
 				continue;
 			Definition currentDefinition = DefUseFactory.makeDefinition(vertex);
 			if (currentDefinition.getDUVariableName().equals(targetVariable))
@@ -174,17 +184,14 @@ public abstract class DefUseExecutionTraceAnalyzer {
 	 * overwriting definitions for the given targetDefinition
 	 */
 	public static Set<BytecodeInstruction> getOverwritingDefinitionsIn(
-			Definition targetDefinition,
-			Collection<BytecodeInstruction> vertices) {
+	        Definition targetDefinition, Collection<BytecodeInstruction> vertices) {
 		Set<BytecodeInstruction> r = new HashSet<BytecodeInstruction>();
 		for (BytecodeInstruction vertex : vertices) {
 			if (!vertex.isDefinition())
 				continue;
-			BytecodeInstruction vertexInOtherGraph = GraphPool.getRawCFG(
-					vertex.getClassName(), vertex.getMethodName())
-					.getInstruction(vertex.getInstructionId());
-			Definition currentDefinition = DefUseFactory
-					.makeDefinition(vertexInOtherGraph);
+			BytecodeInstruction vertexInOtherGraph = GraphPool.getRawCFG(vertex.getClassName(),
+			                                                             vertex.getMethodName()).getInstruction(vertex.getInstructionId());
+			Definition currentDefinition = DefUseFactory.makeDefinition(vertexInOtherGraph);
 			if (isOverwritingDefinition(targetDefinition, currentDefinition))
 				r.add(vertex);
 		}
@@ -196,14 +203,13 @@ public abstract class DefUseExecutionTraceAnalyzer {
 	 * are different
 	 */
 	public static boolean isOverwritingDefinition(Definition targetDefinition,
-			Definition definition) {
+	        Definition definition) {
 
 		if (definition.getDefId() == -1)
 			throw new IllegalArgumentException(
-					"expect given Definition to have it's defId set");
-		return targetDefinition.getDUVariableName().equals(
-				definition.getDUVariableName())
-				&& targetDefinition.getDefId() != definition.getDefId();
+			        "expect given Definition to have it's defId set");
+		return targetDefinition.getDUVariableName().equals(definition.getDUVariableName())
+		        && targetDefinition.getDefId() != definition.getDefId();
 	}
 
 	/**
@@ -211,12 +217,11 @@ public abstract class DefUseExecutionTraceAnalyzer {
 	 * usePos
 	 */
 	public static int getActiveDefinitionIdAt(String targetVariable,
-			ExecutionTrace trace, int usePos, int objectId) {
+	        ExecutionTrace trace, int usePos, int objectId) {
 
 		int lastDef = -1;
 		int lastPos = -1;
-		Map<Integer, HashMap<Integer, Integer>> objectMap = trace.passedDefinitions
-				.get(targetVariable);
+		Map<Integer, HashMap<Integer, Integer>> objectMap = trace.getPassedDefinitions(targetVariable);
 		if (objectMap == null)
 			return -1;
 		Map<Integer, Integer> defMap = objectMap.get(objectId);
@@ -238,24 +243,72 @@ public abstract class DefUseExecutionTraceAnalyzer {
 	 * ExecutionTrace
 	 */
 	public static void printFinishCalls(ExecutionTrace trace) {
-		for (MethodCall call : trace.finished_calls) {
-			System.out.println("Found MethodCall for: " + call.methodName
-					+ " on object " + call.callingObjectID);
+		for (MethodCall call : trace.getMethodCalls()) {
+			System.out.println("Found MethodCall for: " + call.methodName + " on object "
+			        + call.callingObjectID);
 			System.out.println("#passed branches: " + call.branchTrace.size());
 			for (int i = 0; i < call.defuseCounterTrace.size(); i++) {
 				System.out.println(i + ". at Branch " + call.branchTrace.get(i)
-						+ " true_dist: " + call.trueDistanceTrace.get(i)
-						+ " false_dist: " + call.falseDistanceTrace.get(i)
-						+ " duCounter: " + call.defuseCounterTrace.get(i));
+				        + " true_dist: " + call.trueDistanceTrace.get(i)
+				        + " false_dist: " + call.falseDistanceTrace.get(i)
+				        + " duCounter: " + call.defuseCounterTrace.get(i));
 				System.out.println();
 			}
 		}
 	}
 
 	public static Set<DefUseCoverageTestFitness> getCoveredGoals(
-			List<ExecutionResult> results) {
+	        List<ExecutionResult> results) {
 
-//		System.out.println("start");
+		// did an experiment here: subject ncs.Bessj
+		// so as it turns out the getCoveredGoals() might have to run through up
+		// to 50k entry big duTraces and thus take up another 20-25% memory, but
+		// if you disable this you have to take more time in single fitness
+		// calculations and gain worse coverage / less statements per time
+		// so for ncs.Bessj with this disabled:
+
+		/*
+		 * ida@ubuntu:~/Bachelor/again/evosuite/examples/ncs$ ^C
+		 * ida@ubuntu:~/Bachelor/again/evosuite/examples/ncs$ ../../EvoSuite
+		 * -generateSuite -criterion defuse -class ncs.Bessj Generating tests
+		 * for class ncs.Bessj Test criterion: All DU Pairs Setting up search
+		 * algorithm for whole suite generation Goal computation took: 41ms
+		 * Starting evolution Alternative fitness calculation disabled!
+		 * [Progress:=====> 19%] [Cov:========================> 71%] Search
+		 * finished after 600s and 6 generations, 19420 statements, best
+		 * individual has fitness 46.49999999592326 Minimizing result Generated
+		 * 4 tests with total length 17 Resulting TestSuite's coverage: 71%
+		 * GA-Budget: - ShutdownTestWriter : 0 / 0 - GlobalTime : 602 / 600
+		 * Finished! - ZeroFitness : 46 / 0 - MaxStatements : 20.881 / 100.000
+		 * Covered 92/129 goals Time spent optimizing covered goals analysis:
+		 * 0ms Time spent executing tests: 59980ms Writing JUnit test cases to
+		 * evosuite-tests/DEFUSE Time spent calculating single fitnesses:
+		 * 540751ms Done!
+		 */
+
+		// and enabled:
+		/*
+		 * ida@ubuntu:~/Bachelor/again/evosuite/examples/ncs$ ../../EvoSuite
+		 * -generateSuite -criterion defuse -class ncs.Bessj Generating tests
+		 * for class ncs.Bessj Test criterion: All DU Pairs Setting up search
+		 * algorithm for whole suite generation Goal computation took: 42ms
+		 * Starting evolution Alternative fitness calculation disabled!
+		 * [Progress:=======> 25%] [Cov:========================> 71%] Search
+		 * finished after 600s and 11 generations, 25732 statements, best
+		 * individual has fitness 46.49999999553073 Minimizing result Generated
+		 * 4 tests with total length 19 Resulting TestSuite's coverage: 71%
+		 * GA-Budget: - ShutdownTestWriter : 0 / 0 - MaxStatements : 28.030 /
+		 * 100.000 - ZeroFitness : 46 / 0 - GlobalTime : 604 / 600 Finished!
+		 * Covered 92/129 goals Time spent optimizing covered goals analysis:
+		 * 414365ms Time spent executing tests: 87669ms Writing JUnit test cases
+		 * to evosuite-tests/DEFUSE Time spent calculating single fitnesses:
+		 * 100324ms Done!
+		 */
+
+		// so we have 25% more executed statements, which means this will stay
+		// enabled
+
+		//		System.out.println("start");
 		long start = System.currentTimeMillis();
 
 		Set<DefUseCoverageTestFitness> r = new HashSet<DefUseCoverageTestFitness>();
@@ -266,20 +319,17 @@ public abstract class DefUseExecutionTraceAnalyzer {
 		}
 
 		timeGetCoveredGoals += System.currentTimeMillis() - start;
-//		System.out.println("end");
-		
+		//		System.out.println("end");
+
 		return r;
 	}
 
-	public static Set<DefUseCoverageTestFitness> getCoveredGoals(
-			ExecutionResult result) {
+	public static Set<DefUseCoverageTestFitness> getCoveredGoals(ExecutionResult result) {
 
 		Set<DefUseCoverageTestFitness> r = new HashSet<DefUseCoverageTestFitness>();
 
-		Map<String, HashMap<Integer, HashMap<Integer, Integer>>> passedDefs = result
-				.getTrace().passedDefinitions;
-		Map<String, HashMap<Integer, HashMap<Integer, Integer>>> passedUses = result
-				.getTrace().passedUses;
+		Map<String, HashMap<Integer, HashMap<Integer, Integer>>> passedDefs = result.getTrace().getDefinitionData();
+		Map<String, HashMap<Integer, HashMap<Integer, Integer>>> passedUses = result.getTrace().getUseData();
 
 		for (String goalVariable : passedDefs.keySet()) {
 			if (passedUses.get(goalVariable) == null)
@@ -290,19 +340,16 @@ public abstract class DefUseExecutionTraceAnalyzer {
 
 				// DONE sort use map too, merge to one big trace => way better
 				// performance
-				Map<Integer, Integer> currentDefMap = passedDefs.get(
-						goalVariable).get(objectId);
-				Map<Integer, Integer> currentUseMap = passedUses.get(
-						goalVariable).get(objectId);
+				Map<Integer, Integer> currentDefMap = passedDefs.get(goalVariable).get(objectId);
+				Map<Integer, Integer> currentUseMap = passedUses.get(goalVariable).get(objectId);
 
 				List<Integer> duCounterTrace = new ArrayList<Integer>(
-						currentDefMap.keySet());
+				        currentDefMap.keySet());
 				duCounterTrace.addAll(currentUseMap.keySet());
-//				System.out.println(duCounterTrace.size()); oO for ncs.Bessj these can be up to 50k entries big
+				//				System.out.println(duCounterTrace.size()); oO for ncs.Bessj these can be up to 50k entries big
 				Collections.sort(duCounterTrace);
 				int traceLength = duCounterTrace.size();
-				Integer[] sortedDefDUTrace = duCounterTrace
-						.toArray(new Integer[traceLength]);
+				Integer[] sortedDefDUTrace = duCounterTrace.toArray(new Integer[traceLength]);
 
 				int activeDef = -1;
 				for (int i = 0; i < traceLength; i++) {
@@ -312,9 +359,9 @@ public abstract class DefUseExecutionTraceAnalyzer {
 						activeDef = currentDefMap.get(currentDUCounter);
 					} else if (activeDef != -1) {
 						int currentUse = currentUseMap.get(currentDUCounter);
-						DefUseCoverageTestFitness currentGoal = DefUseCoverageFactory
-								.retrieveGoal(activeDef, currentUse);
-						if(currentGoal != null)
+						DefUseCoverageTestFitness currentGoal = DefUseCoverageFactory.retrieveGoal(activeDef,
+						                                                                           currentUse);
+						if (currentGoal != null)
 							r.add(currentGoal);
 					}
 				}
@@ -324,36 +371,36 @@ public abstract class DefUseExecutionTraceAnalyzer {
 		return r;
 	}
 
-//	private static Set<DefUseCoverageTestFitness> getGoalsFor(int activeDef,
-//			Set<Integer> coveredUses) {
-//
-//		Set<DefUseCoverageTestFitness> r = new HashSet<DefUseCoverageTestFitness>();
-//		Definition def = DefUsePool.getDefinitionByDefId(activeDef);
-//
-//		List<DefUseCoverageTestFitness> validGoals = DefUseCoverageFactory
-//				.getDUGoals();
-//
-//		for (Integer coveredUse : coveredUses) {
-//			Use use = DefUsePool.getUseByUseId(coveredUse);
-//			DefUseCoverageTestFitness goal = DefUseCoverageFactory.createGoal(
-//					def, use);
-//
-//			if (validGoals.contains(goal))
-//				r.add(goal);
-//		}
-//
-//		return r;
-//	}
-//
-//	public static Set<Integer> getUsesBetween(
-//			Map<Integer, Integer> currentUseMap, int currentDUCounter,
-//			int nextDUCounter) {
-//
-//		Set<Integer> r = new HashSet<Integer>();
-//		for (Integer duCounter : currentUseMap.keySet())
-//			if (currentDUCounter < duCounter && duCounter < nextDUCounter)
-//				r.add(currentUseMap.get(duCounter));
-//
-//		return r;
-//	}
+	//	private static Set<DefUseCoverageTestFitness> getGoalsFor(int activeDef,
+	//			Set<Integer> coveredUses) {
+	//
+	//		Set<DefUseCoverageTestFitness> r = new HashSet<DefUseCoverageTestFitness>();
+	//		Definition def = DefUsePool.getDefinitionByDefId(activeDef);
+	//
+	//		List<DefUseCoverageTestFitness> validGoals = DefUseCoverageFactory
+	//				.getDUGoals();
+	//
+	//		for (Integer coveredUse : coveredUses) {
+	//			Use use = DefUsePool.getUseByUseId(coveredUse);
+	//			DefUseCoverageTestFitness goal = DefUseCoverageFactory.createGoal(
+	//					def, use);
+	//
+	//			if (validGoals.contains(goal))
+	//				r.add(goal);
+	//		}
+	//
+	//		return r;
+	//	}
+	//
+	//	public static Set<Integer> getUsesBetween(
+	//			Map<Integer, Integer> currentUseMap, int currentDUCounter,
+	//			int nextDUCounter) {
+	//
+	//		Set<Integer> r = new HashSet<Integer>();
+	//		for (Integer duCounter : currentUseMap.keySet())
+	//			if (currentDUCounter < duCounter && duCounter < nextDUCounter)
+	//				r.add(currentUseMap.get(duCounter));
+	//
+	//		return r;
+	//	}
 }

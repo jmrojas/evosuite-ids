@@ -1,27 +1,23 @@
-/*
- * Copyright (C) 2010 Saarland University
- * 
+/**
+ * Copyright (C) 2011,2012 Gordon Fraser, Andrea Arcuri and EvoSuite
+ * contributors
+ *
  * This file is part of EvoSuite.
- * 
+ *
  * EvoSuite is free software: you can redistribute it and/or modify it under the
- * terms of the GNU Lesser Public License as published by the Free Software
- * Foundation, either version 3 of the License, or (at your option) any later
- * version.
- * 
+ * terms of the GNU Public License as published by the Free Software Foundation,
+ * either version 3 of the License, or (at your option) any later version.
+ *
  * EvoSuite is distributed in the hope that it will be useful, but WITHOUT ANY
  * WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS FOR
- * A PARTICULAR PURPOSE. See the GNU Lesser Public License for more details.
- * 
- * You should have received a copy of the GNU Lesser Public License along with
+ * A PARTICULAR PURPOSE. See the GNU Public License for more details.
+ *
+ * You should have received a copy of the GNU Public License along with
  * EvoSuite. If not, see <http://www.gnu.org/licenses/>.
  */
-
 package de.unisb.cs.st.evosuite.javaagent;
 
 import java.io.PrintWriter;
-import java.lang.instrument.ClassFileTransformer;
-import java.lang.instrument.IllegalClassFormatException;
-import java.security.ProtectionDomain;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -45,7 +41,7 @@ import de.unisb.cs.st.evosuite.testcase.StaticTestCluster;
  * @author Gordon Fraser
  * 
  */
-public class BytecodeInstrumentation implements ClassFileTransformer {
+public class BytecodeInstrumentation {
 
 	private static Logger logger = LoggerFactory.getLogger(BytecodeInstrumentation.class);
 
@@ -83,10 +79,17 @@ public class BytecodeInstrumentation implements ClassFileTransformer {
 			|| classNameWithDots.startsWith("org.junit");
 	}
 
-	public boolean isTargetProject(String classNameWithDots) {
-		return (classNameWithDots.startsWith(Properties.PROJECT_PREFIX) //
-				|| (!Properties.TARGET_CLASS_PREFIX.isEmpty() && classNameWithDots.startsWith(Properties.TARGET_CLASS_PREFIX)))
-		        && !isSharedClass(classNameWithDots);
+	public static boolean isTargetProject(String className) {
+		return (className.startsWith(Properties.PROJECT_PREFIX) || (!Properties.TARGET_CLASS_PREFIX.isEmpty() && className.startsWith(Properties.TARGET_CLASS_PREFIX)))
+		        && !className.startsWith("java.")
+		        && !className.startsWith("sun.")
+		        && !className.startsWith("de.unisb.cs.st.evosuite")
+		        && !className.startsWith("javax.")
+		        && !className.startsWith("org.xml")
+		        && !className.startsWith("org.w3c")
+		        && !className.startsWith("apple.")
+		        && !className.startsWith("com.apple.")
+		        && !className.startsWith("daikon.");
 	}
 
 	public boolean shouldTransform(String className) {
@@ -119,92 +122,43 @@ public class BytecodeInstrumentation implements ClassFileTransformer {
 		logger.info("Loading bytecode transformer for " + Properties.PROJECT_PREFIX);
 	}
 
-	/*
-	 * (non-Javadoc)
-	 * 
-	 * @see
-	 * java.lang.instrument.ClassFileTransformer#transform(java.lang.ClassLoader
-	 * , java.lang.String, java.lang.Class, java.security.ProtectionDomain,
-	 * byte[])
-	 */
-	@Override
-	public byte[] transform(ClassLoader loader, String className,
-	        Class<?> classBeingRedefined, ProtectionDomain protectionDomain,
-	        byte[] classfileBuffer) throws IllegalClassFormatException {
-		if (className == null) {
-			return classfileBuffer;
-		}
-		String classNameWithDots = className.replace('/', '.');
-		
-		if (isSharedClass(classNameWithDots)) {
-			return classfileBuffer;
-		}
-
-		if (!isTargetProject(classNameWithDots)) {
-			return classfileBuffer;
-		}
-
-		try {
-			return transformBytes(className, new ClassReader(classfileBuffer));
-		} catch (Throwable t) {
-			logger.error("Transformation of class " + className + " failed", t);
-			// TODO why all the redundant printStackTrace()s?
-			// StringWriter writer = new StringWriter();
-			// t.printStackTrace(new PrintWriter(writer));
-			// logger.fatal(writer.getBuffer().toString());
-			// LogManager.shutdown();
-			System.out.flush();
-			System.exit(0);
-			// throw new RuntimeException(e.getMessage());
-		}
-		return classfileBuffer;
-	}
-
 	public byte[] transformBytes(String className, ClassReader reader) {
+		int readFlags = ClassReader.SKIP_FRAMES;
+		
+		if (Properties.INSTRUMENTATION_SKIP_DEBUG)
+			readFlags |= ClassReader.SKIP_DEBUG;
+
 		String classNameWithDots = className.replace('/', '.');
 		
 		if (isSharedClass(classNameWithDots)) {
 			throw new RuntimeException("Should not transform a shared class! Load by parent (JVM) classloader.");
 		}
 		
-		// logger.debug("Removing calls to System.exit() from class: "
-		// + classNameWithDots);
-		// classfileBuffer = systemExitTransformer
-		// .transformBytecode(classfileBuffer);
 		TransformationStatistics.reset();
 
 		ClassWriter writer = new ClassWriter(ClassWriter.COMPUTE_MAXS);
 
 		ClassVisitor cv = writer;
-		// if(logger.isDebugEnabled())
-		if (logger.isDebugEnabled())
+		if (logger.isDebugEnabled()) {
 			cv = new TraceClassVisitor(cv, new PrintWriter(System.out));
-
-		/*
-		if (Properties.TT && classNameWithDots.startsWith(Properties.CLASS_PREFIX)) {
-			ClassNode cn = new ClassNode();
-			reader.accept(cn, ClassReader.SKIP_FRAMES); //  | ClassReader.SKIP_DEBUG
-			BooleanTestabilityPlaceholderTransformer.transform(cn);
-			cv = cn;
 		}
-		*/
+
 		// Apply transformations to class under test and its owned
 		// classes
 		if (isTargetClassName(classNameWithDots)) {
 			logger.debug("Applying target transformation");
 			// Print out bytecode if debug is enabled
 			cv = new AccessibleClassAdapter(cv, className);
-			// cv = new TraceClassVisitor(cv, new PrintWriter(System.out));
-			// cv = new CheckClassAdapter(cv, true);
-			// cv = new TraceClassVisitor(cv, new PrintWriter(System.out));
 			for (ClassAdapterFactory factory : externalPostVisitors) {
 				cv = factory.getVisitor(cv, className);
 			}
 			cv = new ExecutionPathClassAdapter(cv, className);
 			cv = new CFGClassAdapter(cv, className);
 
-			if (Properties.ERROR_BRANCHES)
+			if (Properties.ERROR_BRANCHES) {
 				cv = new ErrorConditionClassAdapter(cv, className);
+			}
+			//cv = new BoundaryValueClassAdapter(cv, className);
 
 			for (ClassAdapterFactory factory : externalPreVisitors) {
 				cv = factory.getVisitor(cv, className);
@@ -212,12 +166,13 @@ public class BytecodeInstrumentation implements ClassFileTransformer {
 
 		} else {
 			logger.debug("Not applying target transformation");
-			cv = new YieldAtLineNumberClassAdapter(cv);
+			cv = new NonTargetClassAdapter(cv, className);
 
 			if (Properties.MAKE_ACCESSIBLE) {
 				// Convert protected/default access to public access
 				cv = new AccessibleClassAdapter(cv, className);
 			}
+			// If we are doing testability transformation on all classes we need to create the CFG first
 			if (Properties.TT && classNameWithDots.startsWith(Properties.CLASS_PREFIX)) {
 				cv = new CFGClassAdapter(cv, className);
 			}
@@ -232,17 +187,24 @@ public class BytecodeInstrumentation implements ClassFileTransformer {
 			cv = new StaticInitializationClassAdapter(cv, className);
 		}
 
-		//		if (classNameWithDots.equals(Properties.TARGET_CLASS)) {
+		// Replace calls to System.exit, Random.*, and System.currentTimeMillis
+		// and/or replace calls to FileInputStream.available and FIS.skip
+		if (Properties.REPLACE_CALLS || Properties.VIRTUAL_FS) {
+			cv = new MethodCallReplacementClassAdapter(cv, className);
+		}
+		
+		// Testability Transformations
 		if (classNameWithDots.startsWith(Properties.PROJECT_PREFIX)
 		        || (!Properties.TARGET_CLASS_PREFIX.isEmpty() && classNameWithDots.startsWith(Properties.TARGET_CLASS_PREFIX))
 		        || shouldTransform(classNameWithDots)) {
-			ClassNode cn = new ClassNode();
-			reader.accept(cn, ClassReader.SKIP_FRAMES); // | ClassReader.SKIP_DEBUG); //  | ClassReader.SKIP_DEBUG
+			ClassNode cn = new AnnotatedClassNode();
+			reader.accept(cn, readFlags);
 			logger.info("Starting transformation of " + className);
 			ComparisonTransformation cmp = new ComparisonTransformation(cn);
 			if (isTargetClassName(classNameWithDots)
-			        || shouldTransform(classNameWithDots))
+			        || shouldTransform(classNameWithDots)) {
 				cn = cmp.transform();
+			}
 
 			if (Properties.STRING_REPLACEMENT) {
 				StringTransformation st = new StringTransformation(cn);
@@ -280,7 +242,7 @@ public class BytecodeInstrumentation implements ClassFileTransformer {
 			cn.accept(cv);
 
 		} else {
-			reader.accept(cv, ClassReader.SKIP_FRAMES); // | ClassReader.SKIP_DEBUG); //  | ClassReader.SKIP_DEBUG
+			reader.accept(cv, readFlags);
 		}
 
 		// Print out bytecode if debug is enabled

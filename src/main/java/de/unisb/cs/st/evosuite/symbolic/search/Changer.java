@@ -1,7 +1,25 @@
+/**
+ * Copyright (C) 2011,2012 Gordon Fraser, Andrea Arcuri and EvoSuite
+ * contributors
+ *
+ * This file is part of EvoSuite.
+ *
+ * EvoSuite is free software: you can redistribute it and/or modify it under the
+ * terms of the GNU Public License as published by the Free Software Foundation,
+ * either version 3 of the License, or (at your option) any later version.
+ *
+ * EvoSuite is distributed in the hope that it will be useful, but WITHOUT ANY
+ * WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS FOR
+ * A PARTICULAR PURPOSE. See the GNU Public License for more details.
+ *
+ * You should have received a copy of the GNU Public License along with
+ * EvoSuite. If not, see <http://www.gnu.org/licenses/>.
+ */
 package de.unisb.cs.st.evosuite.symbolic.search;
 
 import java.math.BigDecimal;
 import java.math.RoundingMode;
+import java.util.Collection;
 import java.util.HashMap;
 import java.util.List;
 
@@ -121,7 +139,7 @@ public class Changer {
 		intVar.setConcreteValue(newVal);
 	}
 
-	public boolean strLocalSearch(StringVariable strVar, List<Constraint<?>> cnstr,
+	public boolean strLocalSearch(StringVariable strVar, Collection<Constraint<?>> cnstr,
 	        HashMap<String, Object> varsToChange) {
 
 		// try to remove each
@@ -216,8 +234,8 @@ public class Changer {
 		return improvement;
 	}
 
-	public boolean intLocalSearch(IntegerVariable intVar, List<Constraint<?>> cnstr,
-	        HashMap<String, Object> varsToChange) {
+	public boolean intLocalSearch(IntegerVariable intVar,
+	        Collection<Constraint<?>> cnstr, HashMap<String, Object> varsToChange) {
 		double newDist;
 		boolean improvement = false;
 		boolean done = false;
@@ -266,7 +284,7 @@ public class Changer {
 		return false;
 	}
 
-	public boolean realLocalSearch(RealVariable realVar, List<Constraint<?>> cnstr,
+	public boolean realLocalSearch(RealVariable realVar, Collection<Constraint<?>> cnstr,
 	        HashMap<String, Object> varsToChange) {
 		boolean improvement = false;
 
@@ -290,7 +308,7 @@ public class Changer {
 		return false;
 	}
 
-	private boolean doRealSearch(RealVariable realVar, List<Constraint<?>> cnstr,
+	private boolean doRealSearch(RealVariable realVar, Collection<Constraint<?>> cnstr,
 	        double delta, double factor) {
 
 		double newDist;
@@ -343,7 +361,8 @@ public class Changer {
 		return improvement;
 	}
 
-	private boolean afterCommaSearchV2(RealVariable realVar, List<Constraint<?>> cnstr) {
+	private boolean afterCommaSearchV2(RealVariable realVar,
+	        Collection<Constraint<?>> cnstr) {
 		boolean improvement = false;
 		//		int maxPrecision = realVar.getMaxValue() > Float.MAX_VALUE ? 15 : 7;
 		int maxPrecision = 15;
@@ -473,8 +492,8 @@ public class Changer {
 		}
 	}
 
-	private void iterate(RealVariable realVar, List<Constraint<?>> cnstr, double delta,
-	        double factor) {
+	private void iterate(RealVariable realVar, Collection<Constraint<?>> cnstr,
+	        double delta, double factor) {
 
 		log.debug("[Loop] Trying increment " + delta + " of " + realVar.toString());
 
@@ -496,7 +515,8 @@ public class Changer {
 		log.debug("Final value of this iteration: " + realVar);
 	}
 
-	private void iterate(IntegerVariable intVar, List<Constraint<?>> cnstr, long delta) {
+	private void iterate(IntegerVariable intVar, Collection<Constraint<?>> cnstr,
+	        long delta) {
 
 		log.debug("Trying increment " + delta + " of " + intVar.toString());
 

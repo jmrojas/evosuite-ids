@@ -1,25 +1,26 @@
-/*
- * Copyright (C) 2010 Saarland University
+/**
+ * Copyright (C) 2011,2012 Gordon Fraser, Andrea Arcuri and EvoSuite
+ * contributors
  * 
  * This file is part of EvoSuite.
  * 
  * EvoSuite is free software: you can redistribute it and/or modify it under the
- * terms of the GNU Lesser Public License as published by the Free Software
- * Foundation, either version 3 of the License, or (at your option) any later
- * version.
+ * terms of the GNU Public License as published by the Free Software Foundation,
+ * either version 3 of the License, or (at your option) any later version.
  * 
  * EvoSuite is distributed in the hope that it will be useful, but WITHOUT ANY
  * WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS FOR
- * A PARTICULAR PURPOSE. See the GNU Lesser Public License for more details.
+ * A PARTICULAR PURPOSE. See the GNU Public License for more details.
  * 
- * You should have received a copy of the GNU Lesser Public License along with
+ * You should have received a copy of the GNU Public License along with
  * EvoSuite. If not, see <http://www.gnu.org/licenses/>.
  */
-
 package de.unisb.cs.st.evosuite.testsuite;
 
 import java.io.File;
 import java.io.Serializable;
+import java.lang.reflect.Constructor;
+import java.lang.reflect.Method;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Map;
@@ -27,10 +28,13 @@ import java.util.Map.Entry;
 import java.util.Set;
 
 import org.apache.commons.lang3.StringEscapeUtils;
+import org.objectweb.asm.Type;
 
 import de.unisb.cs.st.evosuite.Properties;
 import de.unisb.cs.st.evosuite.TestSuiteGenerator;
+import de.unisb.cs.st.evosuite.coverage.branch.Branch;
 import de.unisb.cs.st.evosuite.coverage.branch.BranchCoverageFactory;
+import de.unisb.cs.st.evosuite.coverage.branch.BranchCoverageTestFitness;
 import de.unisb.cs.st.evosuite.coverage.branch.BranchPool;
 import de.unisb.cs.st.evosuite.coverage.dataflow.DefUseCoverageFactory;
 import de.unisb.cs.st.evosuite.ga.Chromosome;
@@ -39,7 +43,10 @@ import de.unisb.cs.st.evosuite.ga.stoppingconditions.MaxFitnessEvaluationsStoppi
 import de.unisb.cs.st.evosuite.ga.stoppingconditions.MaxStatementsStoppingCondition;
 import de.unisb.cs.st.evosuite.ga.stoppingconditions.MaxTestsStoppingCondition;
 import de.unisb.cs.st.evosuite.graphs.cfg.CFGMethodAdapter;
+import de.unisb.cs.st.evosuite.testcase.ConstructorStatement;
+import de.unisb.cs.st.evosuite.testcase.ExecutionResult;
 import de.unisb.cs.st.evosuite.testcase.ExecutionTrace;
+import de.unisb.cs.st.evosuite.testcase.MethodStatement;
 import de.unisb.cs.st.evosuite.testcase.TestCase;
 import de.unisb.cs.st.evosuite.testcase.TestCaseExecutor;
 import de.unisb.cs.st.evosuite.testcase.TestChromosome;
@@ -98,7 +105,7 @@ public class SearchStatistics extends ReportGenerator implements Serializable {
 		sb.append("<div id=\"post\">");
 
 		// Resulting test case
-		sb.append("<h2 class=title>Test suite</h2>\n");
+		sb.append("<h2 class=title id=tests>Test suite</h2>\n<div class=tests>\n");
 		if (run.tests != null) {
 			int num = 0;
 			for (TestCase test : run.tests) {
@@ -139,7 +146,7 @@ public class SearchStatistics extends ReportGenerator implements Serializable {
 		} else {
 			sb.append("No test cases generated");
 		}
-		sb.append("</div>");
+		sb.append("</div></div>");
 		sb.append("<div id=\"post\">");
 
 		// Source code
@@ -157,7 +164,7 @@ public class SearchStatistics extends ReportGenerator implements Serializable {
 		 */
 
 		// Chart of fitness
-		if (do_plot) {
+		if (Properties.PLOT) {
 			if (run.fitness_history.isEmpty()) {
 				sb.append("<h2>No fitness history</h2>\n");
 			} else {
@@ -219,8 +226,8 @@ public class SearchStatistics extends ReportGenerator implements Serializable {
 		// Source code
 		try {
 			Iterable<String> source = html_analyzer.getClassContent(run.className);
-			sb.append("<h2 class=title>Source Code</h2>\n");
-			sb.append("<p>");
+			sb.append("<h2 class=title id=source>Source Code</h2>\n");
+			sb.append("<div class=source><p>");
 			sb.append("<pre class=\"prettyprint\" style=\"border: 1px solid #888;padding: 2px\">");
 			int linecount = 1;
 			for (String line : source) {
@@ -239,7 +246,7 @@ public class SearchStatistics extends ReportGenerator implements Serializable {
 			}
 			sb.append("</pre>\n");
 
-			sb.append("</p>\n");
+			sb.append("</p></div>\n");
 		} catch (Exception e) {
 			// Don't display source if there is an error
 		}
@@ -264,8 +271,8 @@ public class SearchStatistics extends ReportGenerator implements Serializable {
 	}
 
 	@Override
-	public void minimized(Chromosome result) {
-		TestSuiteChromosome best = (TestSuiteChromosome) result;
+	public void minimized(Chromosome chromosome) {
+		TestSuiteChromosome best = (TestSuiteChromosome) chromosome;
 		StatisticEntry entry = statistics.get(statistics.size() - 1);
 		entry.tests = best.getTests();
 		// TODO: Remember which lines were covered
@@ -283,30 +290,28 @@ public class SearchStatistics extends ReportGenerator implements Serializable {
 		// could ask every suite fitness how many goals were covered
 
 		logger.debug("Calculating coverage of best individual with fitness "
-		        + result.getFitness());
+		        + chromosome.getFitness());
 
 		Map<Integer, Double> true_distance = new HashMap<Integer, Double>();
 		Map<Integer, Double> false_distance = new HashMap<Integer, Double>();
 		Map<Integer, Integer> predicate_count = new HashMap<Integer, Integer>();
 		Set<String> covered_methods = new HashSet<String>();
+		Map<String, Set<Class<?>>> implicitTypesOfExceptions = new HashMap<String, Set<Class<?>>>();
+		Map<String, Set<Class<?>>> explicitTypesOfExceptions = new HashMap<String, Set<Class<?>>>();
+
+		Map<TestCase, Map<Integer, Boolean>> isExceptionExplicit = new HashMap<TestCase, Map<Integer, Boolean>>();
 
 		logger.debug("Calculating line coverage");
 
 		for (TestChromosome test : best.tests) {
-			// ExecutionTrace trace = test.last_result.trace;
-			// //executeTest(test.test, entry.className);
-			ExecutionTrace trace = executeTest(test.getTestCase(), entry.className);
-
-			// if(test.last_result != null)
-			// trace = test.last_result.trace;
-			/*
-			 * else trace = executeTest(test.test, entry.className);
-			 */
+			ExecutionResult result = executeTest(test.getTestCase(), entry.className);
+			ExecutionTrace trace = result.getTrace();
 			entry.coverage.addAll(getCoveredLines(trace, entry.className));
+			isExceptionExplicit.put(test.getTestCase(), result.explicitExceptions);
 
-			covered_methods.addAll(trace.covered_methods.keySet());
+			covered_methods.addAll(trace.getCoveredMethods());
 
-			for (Entry<Integer, Double> e : trace.true_distances.entrySet()) {
+			for (Entry<Integer, Double> e : trace.getTrueDistances().entrySet()) {
 				if (!predicate_count.containsKey(e.getKey()))
 					predicate_count.put(e.getKey(), 1);
 				else
@@ -317,7 +322,7 @@ public class SearchStatistics extends ReportGenerator implements Serializable {
 					true_distance.put(e.getKey(), e.getValue());
 				}
 			}
-			for (Entry<Integer, Double> e : trace.false_distances.entrySet()) {
+			for (Entry<Integer, Double> e : trace.getFalseDistances().entrySet()) {
 				if (!predicate_count.containsKey(e.getKey()))
 					predicate_count.put(e.getKey(), 1);
 				else
@@ -328,6 +333,62 @@ public class SearchStatistics extends ReportGenerator implements Serializable {
 					false_distance.put(e.getKey(), e.getValue());
 				}
 			}
+
+		}
+
+		for (TestCase test : entry.results.keySet()) {
+			Map<Integer, Throwable> exceptions = entry.results.get(test);
+			//iterate on the indexes of the statements that resulted in an exception
+			for (Integer i : exceptions.keySet()) {
+				Throwable t = exceptions.get(i);
+				if (t instanceof SecurityException && Properties.SANDBOX)
+					continue;
+				if (i >= test.size()) {
+					// Timeouts are put after the last statement if the process was forcefully killed
+					continue;
+				}
+
+				String methodName = "";
+				boolean sutException = false;
+
+				if (test.getStatement(i) instanceof MethodStatement) {
+					MethodStatement ms = (MethodStatement) test.getStatement(i);
+					Method method = ms.getMethod();
+					methodName = method.getName() + Type.getMethodDescriptor(method);
+					if (method.getDeclaringClass().equals(Properties.getTargetClass()))
+						sutException = true;
+				} else if (test.getStatement(i) instanceof ConstructorStatement) {
+					ConstructorStatement cs = (ConstructorStatement) test.getStatement(i);
+					Constructor<?> constructor = cs.getConstructor();
+					methodName = "<init>" + Type.getConstructorDescriptor(constructor);
+					if (constructor.getDeclaringClass().equals(Properties.getTargetClass()))
+						sutException = true;
+				}
+				boolean notDeclared = !test.getStatement(i).getDeclaredExceptions().contains(t.getClass());
+				if (notDeclared && sutException) {
+					/*
+					 * we need to distinguish whether it is explicit (ie "throw" in the code, eg for validating
+					 * input for pre-condition) or implicit ("likely" a real fault).
+					 */
+
+					/*
+					 * FIXME: need to find a way to calculate it
+					 */
+					boolean isExplicit = isExceptionExplicit.get(test).containsKey(i)
+					        && isExceptionExplicit.get(test).get(i);
+					if (isExplicit) {
+						if (!explicitTypesOfExceptions.containsKey(methodName))
+							explicitTypesOfExceptions.put(methodName,
+							                              new HashSet<Class<?>>());
+						explicitTypesOfExceptions.get(methodName).add(t.getClass());
+					} else {
+						if (!implicitTypesOfExceptions.containsKey(methodName))
+							implicitTypesOfExceptions.put(methodName,
+							                              new HashSet<Class<?>>());
+						implicitTypesOfExceptions.get(methodName).add(t.getClass());
+					}
+				}
+			}
 		}
 
 		int num_covered = 0;
@@ -336,15 +397,52 @@ public class SearchStatistics extends ReportGenerator implements Serializable {
 			// logger.info("Key: "+key);
 			double df = true_distance.get(key);
 			double dt = false_distance.get(key);
+			Branch b = BranchPool.getBranch(key);
+			//if (!b.isInstrumented()) {
 			if (df == 0.0)
 				num_covered++;
 			if (dt == 0.0)
 				num_covered++;
+			//}
+			if (b.isInstrumented()) {
+				entry.error_branches++;
+				if (df == 0.0)
+					entry.error_branches_covered++;
+				if (dt == 0.0)
+					entry.error_branches_covered++;
+			}
+		}
 
+		for (String methodName : CFGMethodAdapter.getMethodsPrefix(Properties.TARGET_CLASS)) {
+			boolean allArtificial = true;
+			int splitPoint = methodName.lastIndexOf(".");
+			String cName = methodName.substring(0, splitPoint);
+			String mName = methodName.substring(splitPoint + 1);
+			boolean hasBranches = false;
+			for (Branch b : BranchPool.retrieveBranchesInMethod(cName, mName)) {
+				hasBranches = true;
+				if (!b.isInstrumented()) {
+					allArtificial = false;
+					break;
+				}
+			}
+			if (hasBranches && allArtificial) {
+				entry.error_branchless_methods++;
+				if (covered_methods.contains(methodName)) {
+					entry.error_branchless_methods_covered++;
+				}
+			}
+		}
+
+		int coveredBranchlessMethods = 0;
+		for (String branchlessMethod : BranchPool.getBranchlessMethodsMemberClasses(Properties.TARGET_CLASS)) {
+			if (covered_methods.contains(branchlessMethod))
+				coveredBranchlessMethods++;
 		}
 
 		entry.covered_branches = num_covered; // + covered branchless methods?
 		entry.covered_methods = covered_methods.size();
+		entry.covered_branchless_methods = coveredBranchlessMethods;
 		//System.out.println(covered_methods);
 
 		// DONE make this work for other criteria too. this will only work for
@@ -374,8 +472,8 @@ public class SearchStatistics extends ReportGenerator implements Serializable {
 		entry.goalCoverage = "";
 		for (TestFitnessFunction fitness : factory.getCoverageGoals()) {
 			boolean covered = false;
-			for (TestChromosome test : best.tests) {
-				if (fitness.isCovered(test)) {
+			for (TestChromosome test1 : best.tests) {
+				if (fitness.isCovered(test1)) {
 					covered = true;
 					entry.goalCoverage += "1";
 					break;
@@ -384,7 +482,31 @@ public class SearchStatistics extends ReportGenerator implements Serializable {
 			if (!covered)
 				entry.goalCoverage += "0";
 		}
+		entry.explicitMethodExceptions = getNumExceptions(explicitTypesOfExceptions);
+		entry.explicitTypeExceptions = getNumClassExceptions(explicitTypesOfExceptions);
 
+		entry.implicitMethodExceptions = getNumExceptions(implicitTypesOfExceptions);
+		entry.implicitTypeExceptions = getNumClassExceptions(implicitTypesOfExceptions);
+
+		// TODO: Only counting implicit exceptions as long as we don't distinguish
+		entry.exceptions = implicitTypesOfExceptions;
+
+	}
+
+	private static int getNumExceptions(Map<String, Set<Class<?>>> exceptions) {
+		int total = 0;
+		for (Set<Class<?>> exceptionSet : exceptions.values()) {
+			total += exceptionSet.size();
+		}
+		return total;
+	}
+
+	private static int getNumClassExceptions(Map<String, Set<Class<?>>> exceptions) {
+		Set<Class<?>> classExceptions = new HashSet<Class<?>>();
+		for (Set<Class<?>> exceptionSet : exceptions.values()) {
+			classExceptions.addAll(exceptionSet);
+		}
+		return classExceptions.size();
 	}
 
 	public void writeStatistics() {
@@ -395,24 +517,22 @@ public class SearchStatistics extends ReportGenerator implements Serializable {
 	@Override
 	public void searchFinished(GeneticAlgorithm algorithm) {
 		Chromosome result = algorithm.getBestIndividual();
-		if (statistics.size() > 0) {
-			StatisticEntry entry = statistics.get(statistics.size() - 1);
-	
-			entry.end_time = System.currentTimeMillis();
-			entry.result_tests_executed = MaxTestsStoppingCondition.getNumExecutedTests();
-			entry.result_statements_executed = MaxStatementsStoppingCondition.getNumExecutedStatements();
-			entry.testExecutionTime = TestCaseExecutor.timeExecuted;
-			entry.goalComputationTime = AbstractFitnessFactory.goalComputationTime;
-			entry.covered_goals = TestSuiteFitnessFunction.getCoveredGoals();
-			entry.timedOut = TestSuiteGenerator.global_time.isFinished();
-			entry.stoppingCondition = TestSuiteGenerator.stopping_condition.getCurrentValue();
-			entry.globalTimeStoppingCondition = TestSuiteGenerator.global_time.getCurrentValue();
-	
-			if (result instanceof TestSuiteChromosome) {
-				TestSuiteChromosome best = (TestSuiteChromosome) result;
-				entry.size_final = best.size();
-				entry.length_final = best.totalLengthOfTestCases();
-			}
+		StatisticEntry entry = statistics.get(statistics.size() - 1);
+
+		entry.end_time = System.currentTimeMillis();
+		entry.result_tests_executed = MaxTestsStoppingCondition.getNumExecutedTests();
+		entry.result_statements_executed = MaxStatementsStoppingCondition.getNumExecutedStatements();
+		entry.testExecutionTime = TestCaseExecutor.timeExecuted;
+		entry.goalComputationTime = AbstractFitnessFactory.goalComputationTime;
+		entry.covered_goals = TestSuiteFitnessFunction.getCoveredGoals();
+		entry.timedOut = TestSuiteGenerator.global_time.isFinished();
+		entry.stoppingCondition = TestSuiteGenerator.stopping_condition.getCurrentValue();
+		entry.globalTimeStoppingCondition = TestSuiteGenerator.global_time.getCurrentValue();
+
+		if (result instanceof TestSuiteChromosome) {
+			TestSuiteChromosome best = (TestSuiteChromosome) result;
+			entry.size_final = best.size();
+			entry.length_final = best.totalLengthOfTestCases();
 		}
 	}
 
@@ -434,10 +554,18 @@ public class SearchStatistics extends ReportGenerator implements Serializable {
 		// defuse nor analyze we might need to ensure that du-goal-computation
 		// went through
 		entry.paramDUGoalCount = DefUseCoverageFactory.getParamGoalsCount();
-		entry.intraDUGoalCount = DefUseCoverageFactory.getIntraGoalsCount();
-		entry.interDUGoalCount = DefUseCoverageFactory.getInterGoalsCount();
+		entry.intraDUGoalCount = DefUseCoverageFactory.getIntraMethodGoalsCount();
+		entry.interDUGoalCount = DefUseCoverageFactory.getIntraClassGoalsCount();
 
 		entry.total_goals = TestSuiteGenerator.getFitnessFactory().getCoverageGoals().size();
+
+		for (TestFitnessFunction f : TestSuiteGenerator.getFitnessFactory().getCoverageGoals()) {
+			if (f instanceof BranchCoverageTestFitness) {
+				BranchCoverageTestFitness b = (BranchCoverageTestFitness) f;
+				if (b.getBranch() != null && b.getBranch().isInstrumented()) {
+				}
+			}
+		}
 
 		// removed the code below with the one above, in order to have these
 		// values for other criteria as well
@@ -456,17 +584,15 @@ public class SearchStatistics extends ReportGenerator implements Serializable {
 	public void iteration(GeneticAlgorithm algorithm) {
 		super.iteration(algorithm);
 
-		if (statistics.size() > 0) {
-			StatisticEntry entry = statistics.get(statistics.size() - 1);
-			Chromosome best = algorithm.getBestIndividual();
-			if (best instanceof TestSuiteChromosome) {
-				entry.length_history.add(((TestSuiteChromosome) best).totalLengthOfTestCases());
-				entry.coverage_history.add(((TestSuiteChromosome) best).coverage);
-				entry.tests_executed.add(MaxTestsStoppingCondition.getNumExecutedTests());
-				entry.statements_executed.add(MaxStatementsStoppingCondition.getNumExecutedStatements());
-				entry.fitness_evaluations.add(MaxFitnessEvaluationsStoppingCondition.getNumFitnessEvaluations());
-				entry.timeStamps.add(System.currentTimeMillis() - entry.creationTime);
-			}
+		StatisticEntry entry = statistics.get(statistics.size() - 1);
+		Chromosome best = algorithm.getBestIndividual();
+		if (best instanceof TestSuiteChromosome) {
+			entry.length_history.add(((TestSuiteChromosome) best).totalLengthOfTestCases());
+			entry.coverage_history.add(((TestSuiteChromosome) best).coverage);
+			entry.tests_executed.add(MaxTestsStoppingCondition.getNumExecutedTests());
+			entry.statements_executed.add(MaxStatementsStoppingCondition.getNumExecutedStatements());
+			entry.fitness_evaluations.add(MaxFitnessEvaluationsStoppingCondition.getNumFitnessEvaluations());
+			entry.timeStamps.add(System.currentTimeMillis() - entry.creationTime);
 		}
 	}
 

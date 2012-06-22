@@ -1,4 +1,21 @@
 /**
+ * Copyright (C) 2011,2012 Gordon Fraser, Andrea Arcuri and EvoSuite
+ * contributors
+ *
+ * This file is part of EvoSuite.
+ *
+ * EvoSuite is free software: you can redistribute it and/or modify it under the
+ * terms of the GNU Public License as published by the Free Software Foundation,
+ * either version 3 of the License, or (at your option) any later version.
+ *
+ * EvoSuite is distributed in the hope that it will be useful, but WITHOUT ANY
+ * WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS FOR
+ * A PARTICULAR PURPOSE. See the GNU Public License for more details.
+ *
+ * You should have received a copy of the GNU Public License along with
+ * EvoSuite. If not, see <http://www.gnu.org/licenses/>.
+ */
+/**
  * 
  */
 package de.unisb.cs.st.evosuite.testcase;
@@ -47,7 +64,7 @@ public abstract class TestCluster {
 	 * 
 	 * @return
 	 */
-	public static TestCluster getInstance() {
+	public static synchronized TestCluster getInstance() {
 		if (instance == null) {
 			instance = new StaticTestCluster();
 			// instance = LazyTestCluster.getInstance();
@@ -65,6 +82,13 @@ public abstract class TestCluster {
 	private static List<String> finalClasses = new ArrayList<String>();
 
 	private static Set<Method> staticInitializers = new HashSet<Method>();
+
+	public static void reset() {
+		classLoader = new InstrumentingClassLoader();
+		finalClasses.clear();
+		staticInitializers.clear();
+		instance = null;
+	}
 
 	public static void registerStaticInitializer(String className) {
 		finalClasses.add(className);
@@ -97,7 +121,9 @@ public abstract class TestCluster {
 	 * Call each of the duplicated static constructors
 	 */
 	public void resetStaticClasses() {
-		ExecutionTracer.disable();
+		boolean tracerEnabled = ExecutionTracer.isEnabled();
+		if (tracerEnabled)
+			ExecutionTracer.disable();
 		loadStaticInitializers();
 		logger.debug("Static initializers: " + staticInitializers.size());
 		for (Method m : staticInitializers) {
@@ -120,7 +146,8 @@ public abstract class TestCluster {
 			}
 			;
 		}
-		ExecutionTracer.enable();
+		if (tracerEnabled)
+			ExecutionTracer.enable();
 	}
 
 	/**
@@ -249,6 +276,13 @@ public abstract class TestCluster {
 	 * @return
 	 */
 	public abstract List<AccessibleObject> getTestCalls();
+
+	/**
+	 * Add a test call
+	 * 
+	 * @return
+	 */
+	public abstract void addTestCall(AccessibleObject call);
 
 	/**
 	 * Determine if we have generators for all parameters, and delete method if

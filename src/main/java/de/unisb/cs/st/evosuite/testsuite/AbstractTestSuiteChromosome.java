@@ -1,6 +1,24 @@
+/**
+ * Copyright (C) 2011,2012 Gordon Fraser, Andrea Arcuri and EvoSuite
+ * contributors
+ *
+ * This file is part of EvoSuite.
+ *
+ * EvoSuite is free software: you can redistribute it and/or modify it under the
+ * terms of the GNU Public License as published by the Free Software Foundation,
+ * either version 3 of the License, or (at your option) any later version.
+ *
+ * EvoSuite is distributed in the hope that it will be useful, but WITHOUT ANY
+ * WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS FOR
+ * A PARTICULAR PURPOSE. See the GNU Public License for more details.
+ *
+ * You should have received a copy of the GNU Public License along with
+ * EvoSuite. If not, see <http://www.gnu.org/licenses/>.
+ */
 package de.unisb.cs.st.evosuite.testsuite;
 
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.List;
 
 import de.unisb.cs.st.evosuite.Properties;
@@ -18,14 +36,26 @@ public abstract class AbstractTestSuiteChromosome<T extends ExecutableChromosome
 	protected List<T> tests = new ArrayList<T>();
 	protected List<Boolean> unmodifiableTests = new ArrayList<Boolean>();
 	protected ChromosomeFactory<T> testChromosomeFactory;
-	
+
 	/*
 	 * coverage is used only for output/statistics purposes
 	 */
 	protected double coverage = 0.0;
 
+
+	/**
+	 * only used for testing/debugging
+	 */
+	protected AbstractTestSuiteChromosome(){
+		super();
+	}
+	
 	protected AbstractTestSuiteChromosome(ChromosomeFactory<T> testChromosomeFactory) {
 		this.testChromosomeFactory = testChromosomeFactory;
+	}
+
+	public ChromosomeFactory<T> getTestChromosomeFactory() {
+		return testChromosomeFactory;
 	}
 
 	/**
@@ -50,6 +80,15 @@ public abstract class AbstractTestSuiteChromosome<T extends ExecutableChromosome
 		tests.add(test);
 		unmodifiableTests.add(false);
 		this.setChanged(true);
+	}
+
+	public void addTests(Collection<T> tests) {
+		for (T test : tests) {
+			tests.add(test);
+			unmodifiableTests.add(false);
+		}
+		if (!tests.isEmpty())
+			this.setChanged(true);
 	}
 
 	public void addUnmodifiableTest(T test) {

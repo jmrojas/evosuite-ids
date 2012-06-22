@@ -1,21 +1,20 @@
-/*
- * Copyright (C) 2010 Saarland University
- * 
+/**
+ * Copyright (C) 2011,2012 Gordon Fraser, Andrea Arcuri and EvoSuite
+ * contributors
+ *
  * This file is part of EvoSuite.
- * 
+ *
  * EvoSuite is free software: you can redistribute it and/or modify it under the
- * terms of the GNU Lesser Public License as published by the Free Software
- * Foundation, either version 3 of the License, or (at your option) any later
- * version.
- * 
+ * terms of the GNU Public License as published by the Free Software Foundation,
+ * either version 3 of the License, or (at your option) any later version.
+ *
  * EvoSuite is distributed in the hope that it will be useful, but WITHOUT ANY
  * WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS FOR
- * A PARTICULAR PURPOSE. See the GNU Lesser Public License for more details.
- * 
- * You should have received a copy of the GNU Lesser Public License along with
+ * A PARTICULAR PURPOSE. See the GNU Public License for more details.
+ *
+ * You should have received a copy of the GNU Public License along with
  * EvoSuite. If not, see <http://www.gnu.org/licenses/>.
  */
-
 package de.unisb.cs.st.evosuite.assertion;
 
 import java.io.File;
@@ -101,12 +100,12 @@ public class InspectorManager {
 				        + " for class " + clazz.getName() + " in file " + name);
 				num_old = num;
 			} catch (FileNotFoundException e) {
-				logger.info("Could not find file " + name);
+				logger.debug("Could not find file " + name);
 			} catch (ClassNotFoundException e) {
-				logger.info("Could not find inspector class " + name);
+				logger.debug("Could not find inspector class " + name);
 			}
 		}
-		logger.info("Loaded " + num + " inspectors");
+		logger.debug("Loaded " + num + " inspectors");
 	}
 
 	public static InspectorManager getInstance() {
@@ -128,7 +127,7 @@ public class InspectorManager {
 			        && !method.getName().equals("hashCode")
 			        && !method.getDeclaringClass().equals(Object.class)
 			        && !method.getName().equals("pop")) { // FIXXME
-				logger.info("Inspector for class " + clazz.getSimpleName() + ": "
+				logger.debug("Inspector for class " + clazz.getSimpleName() + ": "
 				        + method.getName());
 				inspectorList.add(new Inspector(clazz, method));
 			}

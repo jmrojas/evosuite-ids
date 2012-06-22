@@ -1,21 +1,20 @@
-/*
- * Copyright (C) 2010 Saarland University
- * 
+/**
+ * Copyright (C) 2011,2012 Gordon Fraser, Andrea Arcuri and EvoSuite
+ * contributors
+ *
  * This file is part of EvoSuite.
- * 
+ *
  * EvoSuite is free software: you can redistribute it and/or modify it under the
- * terms of the GNU Lesser Public License as published by the Free Software
- * Foundation, either version 3 of the License, or (at your option) any later
- * version.
- * 
+ * terms of the GNU Public License as published by the Free Software Foundation,
+ * either version 3 of the License, or (at your option) any later version.
+ *
  * EvoSuite is distributed in the hope that it will be useful, but WITHOUT ANY
  * WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS FOR
- * A PARTICULAR PURPOSE. See the GNU Lesser Public License for more details.
- * 
- * You should have received a copy of the GNU Lesser Public License along with
+ * A PARTICULAR PURPOSE. See the GNU Public License for more details.
+ *
+ * You should have received a copy of the GNU Public License along with
  * EvoSuite. If not, see <http://www.gnu.org/licenses/>.
  */
-
 package de.unisb.cs.st.evosuite.setup;
 
 import java.io.ByteArrayOutputStream;
@@ -50,6 +49,7 @@ import de.unisb.cs.st.evosuite.callgraph.DistanceTransformer.ClassEntry;
 import de.unisb.cs.st.evosuite.classcreation.ClassFactory;
 import de.unisb.cs.st.evosuite.javaagent.CIClassAdapter;
 import de.unisb.cs.st.evosuite.javaagent.EmptyVisitor;
+import de.unisb.cs.st.evosuite.utils.LoggingUtils;
 import de.unisb.cs.st.evosuite.utils.StringUtil;
 import de.unisb.cs.st.evosuite.utils.Utils;
 
@@ -58,6 +58,8 @@ import de.unisb.cs.st.evosuite.utils.Utils;
  * 
  */
 public class ScanProject {
+
+	private static final boolean logLevelSet = LoggingUtils.checkAndSetLogLevel();
 
 	protected static Logger logger = LoggerFactory.getLogger(ScanProject.class);
 
@@ -123,36 +125,36 @@ public class ScanProject {
 	private static Set<Class<?>> findClasses(File directory, String packageName)
 	        throws ClassNotFoundException {
 		Set<Class<?>> classes = new HashSet<Class<?>>();
-		System.out.println("* Searching in: " + directory);
+		LoggingUtils.getEvoLogger().info("* Searching in: " + directory);
 		if (!directory.exists()) {
 			return classes;
 		}
 		File[] files = directory.listFiles();
 		for (File file : files) {
-			System.out.println("* Found class file: " + file);
+			LoggingUtils.getEvoLogger().info("* Found class file: " + file);
 			if (file.isDirectory()) {
 				assert !file.getName().contains(".");
 				classes.addAll(findClasses(file, packageName + "." + file.getName()));
 			} else if (file.getName().endsWith(".class")) {
 				if (Properties.STUBS) {
-					System.out.println("* Stubs enabled");
+					LoggingUtils.getEvoLogger().info("* Stubs enabled");
 					Class<?> clazz = Class.forName(packageName + '.'
 					        + file.getName().substring(0, file.getName().length() - 6));
 
 					if (Modifier.isAbstract(clazz.getModifiers()) && !clazz.isInterface()) {
-						System.out.println("* Creating concrete stub for abstract class "
-						        + clazz.getName());
+						LoggingUtils.getEvoLogger().info("* Creating concrete stub for abstract class "
+						                                         + clazz.getName());
 						ClassFactory cf = new ClassFactory();
 						Class<?> stub = cf.createClass(clazz);
 						if (stub != null)
 							classes.add(stub);
 					} else {
-						System.out.println("* Not creating concrete stub for abstract class "
-						        + clazz.getName());
+						LoggingUtils.getEvoLogger().info("* Not creating concrete stub for abstract class "
+						                                         + clazz.getName());
 
 					}
 				} else {
-					System.out.println("* Stubs disabled");
+					LoggingUtils.getEvoLogger().info("* Stubs disabled");
 
 				}
 				try {
@@ -280,14 +282,10 @@ public class ScanProject {
 		//} else
 		if (directory.getName().endsWith(".class")) {
 			Set<Class<?>> set = new HashSet<Class<?>>();
-			ByteArrayOutputStream byteStream = new ByteArrayOutputStream();
-			PrintStream outStream = new PrintStream(byteStream);
 
 			System.out.println("* Loading class " + directory.getName());
-			PrintStream old_out = System.out;
-			PrintStream old_err = System.err;
-			System.setOut(outStream);
-			System.setErr(outStream);
+			LoggingUtils.muteCurrentOutAndErrStream();
+
 			try {
 				File file = new File(directory.getPath());
 				byte[] array = new byte[(int) file.length()];
@@ -306,8 +304,7 @@ public class ScanProject {
 				//Class<?> clazz = classLoader.loadClass(directory.getPath());
 				//Class<?> clazz = new FileClassLoader().loadClass(directory.getPath());
 
-				System.setOut(old_out);
-				System.setErr(old_err);
+				LoggingUtils.restorePreviousOutAndErrStream();
 
 				//clazz = Class.forName(clazz.getName());
 				set.add(clazz);
@@ -319,16 +316,14 @@ public class ScanProject {
 					}
 				}
 			} catch (IllegalAccessError e) {
-				System.setOut(old_out);
-				System.setErr(old_err);
+				LoggingUtils.restorePreviousOutAndErrStream();
 
 				System.out.println("  Cannot access class "
 				        + directory.getName().substring(0,
 				                                        directory.getName().length() - 6)
 				        + ": " + e);
 			} catch (NoClassDefFoundError e) {
-				System.setOut(old_out);
-				System.setErr(old_err);
+				LoggingUtils.restorePreviousOutAndErrStream();
 
 				System.out.println("  Error while loading "
 				        + directory.getName().substring(0,
@@ -336,23 +331,20 @@ public class ScanProject {
 				        + ": Cannot find " + e.getMessage());
 				//e.printStackTrace();
 			} catch (ExceptionInInitializerError e) {
-				System.setOut(old_out);
-				System.setErr(old_err);
+				LoggingUtils.restorePreviousOutAndErrStream();
 
 				System.out.println("  Exception in initializer of "
 				        + directory.getName().substring(0,
 				                                        directory.getName().length() - 6));
 			} catch (ClassNotFoundException e) {
-				System.setOut(old_out);
-				System.setErr(old_err);
+				LoggingUtils.restorePreviousOutAndErrStream();
 
 				System.out.println("  Class not found in classpath: "
 				        + directory.getName().substring(0,
 				                                        directory.getName().length() - 6)
 				        + ": " + e);
 			} catch (Throwable e) {
-				System.setOut(old_out);
-				System.setErr(old_err);
+				LoggingUtils.restorePreviousOutAndErrStream();
 
 				System.out.println("  Unexpected error: "
 				        + directory.getName().substring(0,
@@ -514,6 +506,16 @@ public class ScanProject {
 		for (Class<?> clazz : classes) {
 			names.add(clazz.getName());
 		}
+
+		if (names.size() == 1) {
+			String className = names.get(0);
+			if (className.contains(".")) {
+				return className.substring(0, className.lastIndexOf("."));
+			} else {
+				return ""; // class without package name
+			}
+		}
+
 		String[] nameArray = new String[names.size()];
 		names.toArray(nameArray);
 		String prefix = StringUtil.getCommonPrefix(nameArray);

@@ -1,3 +1,20 @@
+/**
+ * Copyright (C) 2011,2012 Gordon Fraser, Andrea Arcuri and EvoSuite
+ * contributors
+ *
+ * This file is part of EvoSuite.
+ *
+ * EvoSuite is free software: you can redistribute it and/or modify it under the
+ * terms of the GNU Public License as published by the Free Software Foundation,
+ * either version 3 of the License, or (at your option) any later version.
+ *
+ * EvoSuite is distributed in the hope that it will be useful, but WITHOUT ANY
+ * WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS FOR
+ * A PARTICULAR PURPOSE. See the GNU Public License for more details.
+ *
+ * You should have received a copy of the GNU Public License along with
+ * EvoSuite. If not, see <http://www.gnu.org/licenses/>.
+ */
 package de.unisb.cs.st.evosuite.junit;
 
 import java.lang.reflect.Array;
@@ -268,7 +285,6 @@ public class TestExtractingVisitor extends LoggingVisitor {
 	private Integer lineNumber = null;
 
 	private static final HashSet<Class<?>> PRIMITIVE_CLASSES = new HashSet<Class<?>>();
-
 	static {
 		PRIMITIVE_CLASSES.add(Long.class);
 		PRIMITIVE_CLASSES.add(Integer.class);
@@ -282,7 +298,6 @@ public class TestExtractingVisitor extends LoggingVisitor {
 	}
 
 	private final static HashMap<Character, Class<?>> PRIMITIVE_SIGNATURE_MAPPING = new HashMap<Character, Class<?>>();
-
 	static {
 		PRIMITIVE_SIGNATURE_MAPPING.put('B', Byte.TYPE);
 		PRIMITIVE_SIGNATURE_MAPPING.put('C', Character.TYPE);
@@ -296,7 +311,6 @@ public class TestExtractingVisitor extends LoggingVisitor {
 	}
 
 	private final static HashMap<String, Class<?>> PRIMITIVE_TYPECODE_MAPPING = new HashMap<String, Class<?>>();
-
 	static {
 		PRIMITIVE_TYPECODE_MAPPING.put("byte", Byte.TYPE);
 		PRIMITIVE_TYPECODE_MAPPING.put("char", Character.TYPE);
@@ -442,12 +456,12 @@ public class TestExtractingVisitor extends LoggingVisitor {
 			testCase.addStatement(methodStatement);
 			return;
 		}
-		VariableReference retVal = retrieveResultReference(methodInvocation);
+			VariableReference retVal = retrieveResultReference(methodInvocation);
 		retVal.setOriginalCode(methodInvocation.toString());
 		methodStatement = new ValidMethodStatement(testCase.getReference(), method, callee, retVal, params);
 		if (!(parent instanceof Block)) {
-			nestedCallResults.push(retVal);
-		}
+				nestedCallResults.push(retVal);
+			}
 		testCase.addStatement(methodStatement);
 	}
 
@@ -484,7 +498,7 @@ public class TestExtractingVisitor extends LoggingVisitor {
 		// TODO-JRO Implement method endVisit
 		logger.warn("Method endVisit not implemented!");
 		super.endVisit(node);
-	}
+		}
 
 	@Override
 	public void endVisit(SwitchStatement node) {
@@ -628,7 +642,7 @@ public class TestExtractingVisitor extends LoggingVisitor {
 		cursorableTrace = testValuesDeterminer.getMethodTrace(currentMethodName);
 		calleeResultMap.clear();
 		return saveMethodCodeExtraction(methodDeclaration);
-	}
+		}
 
 	@Override
 	public boolean visit(SingleVariableDeclaration variableDeclaration) {
@@ -767,7 +781,7 @@ public class TestExtractingVisitor extends LoggingVisitor {
 		if (argument instanceof ITypeBinding) {
 			ITypeBinding binding = (ITypeBinding) argument;
 			return retrieveTypeClass(binding);
-		}
+				}
 		if (argument instanceof IVariableBinding) {
 			IVariableBinding variableBinding = (IVariableBinding) argument;
 			return retrieveTypeClass(variableBinding.getType());
@@ -821,17 +835,17 @@ public class TestExtractingVisitor extends LoggingVisitor {
 				MethodInvocation parentMethodInvocation = (MethodInvocation) typeExpression;
 				IMethodBinding parentMethodBinding = parentMethodInvocation.resolveMethodBinding();
 				return retrieveTypeClass(parentMethodBinding.getDeclaringClass());
-			} else {
+				} else {
 				return retrieveTypeClass(typeExpression);
 			}
 		}
 		if (argument instanceof ArrayAccess) {
 			ArrayAccess arrayAccess = (ArrayAccess) argument;
 			return retrieveTypeClass(arrayAccess.getArray());
-		}
+				}
 		if (argument instanceof Class<?>) {
 			return (Class<?>) argument;
-		}
+			}
 		if (argument instanceof ClassInstanceCreation) {
 			return retrieveTypeClass(((ClassInstanceCreation) argument).resolveTypeBinding());
 		}
@@ -844,7 +858,7 @@ public class TestExtractingVisitor extends LoggingVisitor {
 	protected VariableReference retrieveVariableReference(Object argument, Class<?> varType) {
 		if (argument instanceof ClassInstanceCreation) {
 			return retrieveVariableReference((ClassInstanceCreation) argument, varType);
-		}
+			}
 		if (argument instanceof VariableDeclarationFragment) {
 			return retrieveVariableReference((VariableDeclarationFragment) argument);
 		}
@@ -1195,11 +1209,11 @@ public class TestExtractingVisitor extends LoggingVisitor {
 						false);
 				testCase.addStatement(charAssignment);
 				return charAssignment.getReturnValue();
-			}
+		}
 			PrimitiveStatement<?> numberAssignment = createPrimitiveStatement(typeClass, 0);
 			testCase.addStatement(numberAssignment);
 			return numberAssignment.getReturnValue();
-		}
+	}
 		PrimitiveStatement<?> nullAssignment = new NullStatement(testCase.getReference(), typeClass);
 		testCase.addStatement(nullAssignment);
 		return nullAssignment.getReturnValue();
@@ -1235,8 +1249,8 @@ public class TestExtractingVisitor extends LoggingVisitor {
 				try {
 					return clazz.getDeclaredMethod(methodName, paramClasses);
 				} catch (Exception exc2) {
-					throw new RuntimeException(exc);
-				}
+				throw new RuntimeException(exc);
+			}
 			}
 		} catch (WrongMethodBindingException exc) {
 			logger.debug("The resolved method binding is wrong. Will manually correct it...");

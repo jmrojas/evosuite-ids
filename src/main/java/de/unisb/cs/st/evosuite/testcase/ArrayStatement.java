@@ -1,18 +1,18 @@
-/*
- * Copyright (C) 2010 Saarland University
- * 
+/**
+ * Copyright (C) 2011,2012 Gordon Fraser, Andrea Arcuri and EvoSuite
+ * contributors
+ *
  * This file is part of EvoSuite.
- * 
+ *
  * EvoSuite is free software: you can redistribute it and/or modify it under the
- * terms of the GNU Lesser Public License as published by the Free Software
- * Foundation, either version 3 of the License, or (at your option) any later
- * version.
- * 
+ * terms of the GNU Public License as published by the Free Software Foundation,
+ * either version 3 of the License, or (at your option) any later version.
+ *
  * EvoSuite is distributed in the hope that it will be useful, but WITHOUT ANY
  * WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS FOR
- * A PARTICULAR PURPOSE. See the GNU Lesser Public License for more details.
- * 
- * You should have received a copy of the GNU Lesser Public License along with
+ * A PARTICULAR PURPOSE. See the GNU Public License for more details.
+ *
+ * You should have received a copy of the GNU Public License along with
  * EvoSuite. If not, see <http://www.gnu.org/licenses/>.
  */
 
@@ -33,6 +33,7 @@ import org.objectweb.asm.Type;
 import org.objectweb.asm.commons.GeneratorAdapter;
 
 import de.unisb.cs.st.evosuite.Properties;
+import de.unisb.cs.st.evosuite.utils.LoggingUtils;
 import de.unisb.cs.st.evosuite.utils.Randomness;
 
 /**
@@ -229,8 +230,18 @@ public class ArrayStatement extends AbstractStatement {
 		int maxAssignment = 0;
 		for (StatementInterface statement : test) {
 			for (VariableReference var : statement.getVariableReferences()) {
-				if (var.getAdditionalVariableReference() == this) {
-					ArrayIndex index = (ArrayIndex) var;
+				if (var.getAdditionalVariableReference() == this.retval) {
+					VariableReference currentVar = var;
+					while (currentVar instanceof FieldReference) {
+						currentVar = ((FieldReference) currentVar).getSource();
+					}
+					if (!(currentVar instanceof ArrayIndex)) {
+						LoggingUtils.getEvoLogger().error("Found assignment to array without ArrayIndex:");
+						LoggingUtils.getEvoLogger().error(test.toCode());
+						LoggingUtils.getEvoLogger().error(statement.getPosition() + ", "
+						                                          + statement.getCode());
+					}
+					ArrayIndex index = (ArrayIndex) currentVar;
 					maxAssignment = Math.max(maxAssignment, index.getArrayIndex());
 				}
 			}
@@ -239,10 +250,12 @@ public class ArrayStatement extends AbstractStatement {
 		int dim = Randomness.nextInt(lengths.length - 1);
 		int newLength = lengths[dim];
 		while (newLength == lengths[dim]) {
-			if (Randomness.nextDouble() <= Properties.RANDOM_PERTURBATION)
-				newLength = Randomness.nextInt(maxAssignment, Properties.MAX_ARRAY) + 1;
-			else {
-				int max = Math.min(Math.abs(lengths[dim] - maxAssignment), Properties.MAX_DELTA);
+			if (Randomness.nextDouble() <= Properties.RANDOM_PERTURBATION) {
+				newLength = Randomness.nextInt(maxAssignment, 
+											   Math.max(maxAssignment + 1,
+													   	Properties.MAX_ARRAY)) + 1;
+			} else {
+				int max = Math.min(Math.abs(lengths[dim] - maxAssignment - 1), Properties.MAX_DELTA);
 				if (max > 0)
 					newLength = lengths[dim] + Randomness.nextInt(2 * max) - max;
 				else
@@ -250,6 +263,10 @@ public class ArrayStatement extends AbstractStatement {
 			}
 		}
 
+		// TODO: Need to make sure this doesn't happen by construction
+		if (newLength <= 0)
+			newLength = 1;
+		
 		logger.debug("Changing array length from " + lengths[dim] + " to " + newLength);
 		lengths[dim] = newLength;
 		return true;
