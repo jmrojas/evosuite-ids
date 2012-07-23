@@ -36,8 +36,7 @@ import java.util.Set;
 
 import org.evosuite.coverage.branch.BranchPool;
 import org.evosuite.graphs.cfg.BytecodeInstructionPool;
-import org.evosuite.testcase.DefaultTestFactory;
-import org.evosuite.testcase.TestCluster;
+import org.evosuite.setup.TestCluster;
 import org.evosuite.utils.LoggingUtils;
 import org.evosuite.utils.Utils;
 import org.slf4j.Logger;
@@ -681,6 +680,9 @@ public class Properties {
 	@Parameter(key = "instrument_parent", description = "Also count coverage goals in superclasses")
 	public static boolean INSTRUMENT_PARENT = false;
 
+	@Parameter(key = "instrument_context", description = "Also instrument methods called from the SUT")
+	public static boolean INSTRUMENT_CONTEXT = false;
+
 	/** Constant <code>BREAK_ON_EXCEPTION=true</code> */
 	@Parameter(key = "break_on_exception", description = "Stop test execution if exception occurrs")
 	public static boolean BREAK_ON_EXCEPTION = true;
@@ -1032,9 +1034,10 @@ public class Properties {
 	/**
 	 * Load and initialize a properties file from the default path
 	 */
-	public void loadProperties() {
+	public void loadProperties(boolean silent) {
 		loadPropertiesFile(System.getProperty(PROPERTIES_FILE,
-		                                      "evosuite-files/evosuite.properties"));
+		                                      "evosuite-files/evosuite.properties"),
+		                   silent);
 		initializeProperties();
 	}
 
@@ -1044,8 +1047,8 @@ public class Properties {
 	 * @param propertiesPath
 	 *            a {@link java.lang.String} object.
 	 */
-	public void loadProperties(String propertiesPath) {
-		loadPropertiesFile(propertiesPath);
+	public void loadProperties(String propertiesPath, boolean silent) {
+		loadPropertiesFile(propertiesPath, silent);
 		initializeProperties();
 	}
 
@@ -1055,21 +1058,29 @@ public class Properties {
 	 * @param propertiesPath
 	 *            a {@link java.lang.String} object.
 	 */
-	public void loadPropertiesFile(String propertiesPath) {
+	public void loadPropertiesFile(String propertiesPath, boolean silent) {
 		properties = new java.util.Properties();
 		try {
 			InputStream in = null;
 			File propertiesFile = new File(propertiesPath);
 			if (propertiesFile.exists()) {
 				in = new FileInputStream(propertiesPath);
-				logger.info("* Properties loaded from configuration file "
-				        + propertiesFile.getAbsolutePath());
+				properties.load(in);
+
+				if (!silent)
+					LoggingUtils.getEvoLogger().info("* Properties loaded from "
+					                                         + propertiesFile.getAbsolutePath());
 			} else {
 				propertiesPath = "evosuite.properties";
 				in = this.getClass().getClassLoader().getResourceAsStream(propertiesPath);
-				logger.info("* Properties loaded from default configuration file.");
+				if (in != null) {
+					properties.load(in);
+					if (!silent)
+						LoggingUtils.getEvoLogger().info("* Properties loaded from "
+						                                         + this.getClass().getClassLoader().getResource(propertiesPath).getPath());
+				}
+				//logger.info("* Properties loaded from default configuration file.");
 			}
-			properties.load(in);
 		} catch (FileNotFoundException e) {
 			logger.info("- Error: Could not find configuration file " + propertiesPath);
 		} catch (IOException e) {
@@ -1494,7 +1505,7 @@ public class Properties {
 	}
 
 	/** Singleton instance */
-	private static Properties instance = new Properties(true);
+	private static Properties instance = null; //new Properties(true, true);
 
 	/** Internal properties hashmap */
 	private java.util.Properties properties;
@@ -1506,7 +1517,18 @@ public class Properties {
 	 */
 	public static Properties getInstance() {
 		if (instance == null)
-			instance = new Properties(true);
+			instance = new Properties(true, false);
+		return instance;
+	}
+
+	/**
+	 * Singleton accessor
+	 * 
+	 * @return a {@link org.evosuite.Properties} object.
+	 */
+	public static Properties getInstanceSilent() {
+		if (instance == null)
+			instance = new Properties(true, true);
 		return instance;
 	}
 
@@ -1525,10 +1547,10 @@ public class Properties {
 	}
 
 	/** Constructor */
-	private Properties(boolean loadProperties) {
+	private Properties(boolean loadProperties, boolean silent) {
 		reflectMap();
 		if (loadProperties)
-			loadProperties();
+			loadProperties(silent);
 		if (TARGET_CLASS != null && !TARGET_CLASS.equals("")) {
 			if (TARGET_CLASS.contains(".")) {
 				CLASS_PREFIX = TARGET_CLASS.substring(0, TARGET_CLASS.lastIndexOf('.'));
@@ -1539,8 +1561,8 @@ public class Properties {
 					PROJECT_PREFIX = CLASS_PREFIX.substring(0, CLASS_PREFIX.indexOf("."));
 				else
 					PROJECT_PREFIX = CLASS_PREFIX;
-				LoggingUtils.getEvoLogger().info("* Using project prefix: "
-				                                         + PROJECT_PREFIX);
+				//LoggingUtils.getEvoLogger().info("* Using project prefix: "
+				//                                         + PROJECT_PREFIX);
 			}
 		}
 	}
@@ -1557,7 +1579,7 @@ public class Properties {
 
 		BranchPool.reset();
 		TestCluster.reset();
-		DefaultTestFactory.getInstance().reset();
+		org.evosuite.testcase.TestFactory.getInstance().reset();
 		BytecodeInstructionPool.clear();
 
 		try {
@@ -1662,7 +1684,7 @@ public class Properties {
 	 * </p>
 	 */
 	public void resetToDefaults() {
-		instance = new Properties(false);
+		instance = new Properties(false, true);
 		for (Field f : Properties.class.getFields()) {
 			if (f.isAnnotationPresent(Parameter.class)) {
 				if (defaultMap.containsKey(f)) {
