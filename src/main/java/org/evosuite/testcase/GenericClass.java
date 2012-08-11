@@ -185,6 +185,58 @@ public class GenericClass implements Serializable {
 		return WRAPPER_TYPES.contains(raw_class);
 	}
 
+	public Class<?> getUnboxedType() {
+		if (isWrapperType()) {
+			if (raw_class.equals(Integer.class))
+				return int.class;
+			else if (raw_class.equals(Byte.class))
+				return byte.class;
+			else if (raw_class.equals(Short.class))
+				return short.class;
+			else if (raw_class.equals(Long.class))
+				return long.class;
+			else if (raw_class.equals(Float.class))
+				return float.class;
+			else if (raw_class.equals(Double.class))
+				return double.class;
+			else if (raw_class.equals(Character.class))
+				return char.class;
+			else if (raw_class.equals(Boolean.class))
+				return boolean.class;
+			else if (raw_class.equals(Void.class))
+				return void.class;
+			else
+				throw new RuntimeException("Unknown boxed type: " + raw_class);
+		}
+		return raw_class;
+	}
+
+	public Class<?> getBoxedType() {
+		if (isPrimitive()) {
+			if (raw_class.equals(int.class))
+				return Integer.class;
+			else if (raw_class.equals(byte.class))
+				return Byte.class;
+			else if (raw_class.equals(short.class))
+				return Short.class;
+			else if (raw_class.equals(long.class))
+				return Long.class;
+			else if (raw_class.equals(float.class))
+				return Float.class;
+			else if (raw_class.equals(double.class))
+				return Double.class;
+			else if (raw_class.equals(char.class))
+				return Character.class;
+			else if (raw_class.equals(boolean.class))
+				return Boolean.class;
+			else if (raw_class.equals(void.class))
+				return Void.class;
+			else
+				throw new RuntimeException("Unknown unboxed type: " + raw_class);
+		}
+		return raw_class;
+	}
+
 	/**
 	 * <p>
 	 * isSubclass
