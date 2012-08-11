@@ -51,6 +51,20 @@ public class StringMultipleExpression extends StringBinaryExpression implements
 	        Expression<?> _right, ArrayList<Expression<?>> _other, String con) {
 		super(_left, _op, _right, con);
 		this.other_v = _other;
+		
+		if (_left.containsSymbolicVariable()) {
+			this.containsSymbolicVariable=true;
+		} else if (_right.containsSymbolicVariable()) {
+			this.containsSymbolicVariable=true;
+		} else {
+			for (Expression<?> expression : _other) {
+				if (expression.containsSymbolicVariable()) {
+					this.containsSymbolicVariable=true;
+					break;
+				}
+			}
+		}
+		
 		if (getSize() > Properties.DSE_CONSTRAINT_LENGTH)
 			throw new ConstraintTooLongException();
 	}
@@ -132,7 +146,7 @@ public class StringMultipleExpression extends StringBinaryExpression implements
 	/** {@inheritDoc} */
 	@Override
 	public int getSize() {
-	    if (size == 0) {
+	    if (size == 0 && other_v!=null) {
 	        int other_size = 0;
 	        for (int i = 0; i < other_v.size(); i++) {
 	            other_size += other_v.get(i).getSize();   
