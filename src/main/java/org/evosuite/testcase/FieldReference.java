@@ -26,14 +26,18 @@ import java.io.ObjectOutputStream;
 import java.lang.reflect.Field;
 import java.lang.reflect.Modifier;
 import java.lang.reflect.Type;
+import java.util.Map;
 
+import org.objectweb.asm.commons.GeneratorAdapter;
 import org.evosuite.Properties;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 /**
- * <p>FieldReference class.</p>
- *
+ * <p>
+ * FieldReference class.
+ * </p>
+ * 
  * @author Gordon Fraser
  */
 public class FieldReference extends VariableReferenceImpl {
@@ -47,11 +51,16 @@ public class FieldReference extends VariableReferenceImpl {
 	private VariableReference source;
 
 	/**
-	 * <p>Constructor for FieldReference.</p>
-	 *
-	 * @param testCase a {@link org.evosuite.testcase.TestCase} object.
-	 * @param field a {@link java.lang.reflect.Field} object.
-	 * @param source a {@link org.evosuite.testcase.VariableReference} object.
+	 * <p>
+	 * Constructor for FieldReference.
+	 * </p>
+	 * 
+	 * @param testCase
+	 *            a {@link org.evosuite.testcase.TestCase} object.
+	 * @param field
+	 *            a {@link java.lang.reflect.Field} object.
+	 * @param source
+	 *            a {@link org.evosuite.testcase.VariableReference} object.
 	 */
 	public FieldReference(TestCase testCase, Field field, VariableReference source) {
 		super(testCase, field.getGenericType());
@@ -68,11 +77,15 @@ public class FieldReference extends VariableReferenceImpl {
 	 * We need this constructor to work around a bug in Java Generics which
 	 * causes a java.lang.reflect.GenericSignatureFormatError when accessing
 	 * getType
-	 *
-	 * @param testCase a {@link org.evosuite.testcase.TestCase} object.
-	 * @param field a {@link java.lang.reflect.Field} object.
-	 * @param fieldType a {@link java.lang.reflect.Type} object.
-	 * @param source a {@link org.evosuite.testcase.VariableReference} object.
+	 * 
+	 * @param testCase
+	 *            a {@link org.evosuite.testcase.TestCase} object.
+	 * @param field
+	 *            a {@link java.lang.reflect.Field} object.
+	 * @param fieldType
+	 *            a {@link java.lang.reflect.Type} object.
+	 * @param source
+	 *            a {@link org.evosuite.testcase.VariableReference} object.
 	 */
 	public FieldReference(TestCase testCase, Field field, Type fieldType,
 	        VariableReference source) {
@@ -87,10 +100,14 @@ public class FieldReference extends VariableReferenceImpl {
 	}
 
 	/**
-	 * <p>Constructor for FieldReference.</p>
-	 *
-	 * @param testCase a {@link org.evosuite.testcase.TestCase} object.
-	 * @param field a {@link java.lang.reflect.Field} object.
+	 * <p>
+	 * Constructor for FieldReference.
+	 * </p>
+	 * 
+	 * @param testCase
+	 *            a {@link org.evosuite.testcase.TestCase} object.
+	 * @param field
+	 *            a {@link java.lang.reflect.Field} object.
 	 */
 	public FieldReference(TestCase testCase, Field field) {
 		super(testCase, field.getGenericType());
@@ -102,10 +119,13 @@ public class FieldReference extends VariableReferenceImpl {
 	 * We need this constructor to work around a bug in Java Generics which
 	 * causes a java.lang.reflect.GenericSignatureFormatError when accessing
 	 * getType
-	 *
-	 * @param testCase a {@link org.evosuite.testcase.TestCase} object.
-	 * @param type a {@link java.lang.reflect.Type} object.
-	 * @param field a {@link java.lang.reflect.Field} object.
+	 * 
+	 * @param testCase
+	 *            a {@link org.evosuite.testcase.TestCase} object.
+	 * @param type
+	 *            a {@link java.lang.reflect.Type} object.
+	 * @param field
+	 *            a {@link java.lang.reflect.Field} object.
 	 */
 	public FieldReference(TestCase testCase, Field field, Type type) {
 		super(testCase, type);
@@ -115,7 +135,7 @@ public class FieldReference extends VariableReferenceImpl {
 
 	/**
 	 * Access the field
-	 *
+	 * 
 	 * @return a {@link java.lang.reflect.Field} object.
 	 */
 	public Field getField() {
@@ -124,7 +144,7 @@ public class FieldReference extends VariableReferenceImpl {
 
 	/**
 	 * Access the source object
-	 *
+	 * 
 	 * @return a {@link org.evosuite.testcase.VariableReference} object.
 	 */
 	public VariableReference getSource() {
@@ -133,7 +153,7 @@ public class FieldReference extends VariableReferenceImpl {
 
 	/**
 	 * {@inheritDoc}
-	 *
+	 * 
 	 * Return the actual object represented by this variable for a given scope
 	 */
 	@Override
@@ -165,7 +185,7 @@ public class FieldReference extends VariableReferenceImpl {
 
 	/**
 	 * {@inheritDoc}
-	 *
+	 * 
 	 * Set the actual object represented by this variable in a given scope
 	 */
 	@Override
@@ -304,7 +324,7 @@ public class FieldReference extends VariableReferenceImpl {
 
 	/**
 	 * {@inheritDoc}
-	 *
+	 * 
 	 * Return name for source code representation
 	 */
 	@Override
@@ -317,7 +337,7 @@ public class FieldReference extends VariableReferenceImpl {
 
 	/**
 	 * {@inheritDoc}
-	 *
+	 * 
 	 * Create a copy of the current variable
 	 */
 	@Override
@@ -341,7 +361,7 @@ public class FieldReference extends VariableReferenceImpl {
 	/**
 	 * Determine the nesting level of the field access (I.e., how many dots in
 	 * the expression)
-	 *
+	 * 
 	 * @return a int.
 	 */
 	public int getDepth() {
@@ -389,6 +409,45 @@ public class FieldReference extends VariableReferenceImpl {
 		} else if (!source.equals(other.source))
 			return false;
 		return true;
+	}
+
+	private boolean isStatic() {
+		return Modifier.isStatic(field.getModifiers());
+	}
+
+	/* (non-Javadoc)
+	 * @see org.evosuite.testcase.VariableReferenceImpl#loadBytecode(org.objectweb.asm.commons.GeneratorAdapter, java.util.Map)
+	 */
+	@Override
+	public void loadBytecode(GeneratorAdapter mg, Map<Integer, Integer> locals) {
+		if (!isStatic()) {
+			source.loadBytecode(mg, locals);
+			mg.getField(org.objectweb.asm.Type.getType(source.getVariableClass()),
+			            field.getName(),
+			            org.objectweb.asm.Type.getType(getVariableClass()));
+		} else {
+			mg.getStatic(org.objectweb.asm.Type.getType(source.getVariableClass()),
+			             field.getName(),
+			             org.objectweb.asm.Type.getType(getVariableClass()));
+		}
+	}
+
+	/* (non-Javadoc)
+	 * @see org.evosuite.testcase.VariableReferenceImpl#storeBytecode(org.objectweb.asm.commons.GeneratorAdapter, java.util.Map)
+	 */
+	@Override
+	public void storeBytecode(GeneratorAdapter mg, Map<Integer, Integer> locals) {
+		if (!isStatic()) {
+			source.loadBytecode(mg, locals);
+			mg.swap();
+			mg.putField(org.objectweb.asm.Type.getType(source.getVariableClass()),
+			            field.getName(),
+			            org.objectweb.asm.Type.getType(getVariableClass()));
+		} else {
+			mg.putStatic(org.objectweb.asm.Type.getType(source.getVariableClass()),
+			             field.getName(),
+			             org.objectweb.asm.Type.getType(getVariableClass()));
+		}
 	}
 
 	/* (non-Javadoc)
