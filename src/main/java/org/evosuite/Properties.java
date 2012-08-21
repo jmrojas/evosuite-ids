@@ -1574,6 +1574,26 @@ public class Properties {
 	 * 
 	 * @return a {@link java.lang.Class} object.
 	 */
+	public static Class<?> resetTargetClass() {
+		BranchPool.reset();
+		TestCluster.reset();
+		org.evosuite.testcase.TestFactory.getInstance().reset();
+		BytecodeInstructionPool.clear();
+
+		try {
+			TARGET_CLASS_INSTANCE = TestCluster.classLoader.loadClass(TARGET_CLASS);
+			return TARGET_CLASS_INSTANCE;
+		} catch (ClassNotFoundException e) {
+			System.err.println("* Could not find class under test: " + TARGET_CLASS);
+		}
+		return null;
+	}
+
+	/**
+	 * Get class object of class under test
+	 * 
+	 * @return a {@link java.lang.Class} object.
+	 */
 	@Deprecated
 	public static Class<?> loadTargetClass() {
 		try {
@@ -1662,7 +1682,7 @@ public class Properties {
 	 * </p>
 	 */
 	public void resetToDefaults() {
-		instance = new Properties(false, true);
+		Properties.instance = new Properties(false, true);
 		for (Field f : Properties.class.getFields()) {
 			if (f.isAnnotationPresent(Parameter.class)) {
 				if (defaultMap.containsKey(f)) {
