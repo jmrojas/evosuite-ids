@@ -858,4 +858,99 @@ public class SymbolicObserverTest {
 		printConstraints(branch_conditions);
 		assertEquals(1, branch_conditions.size());
 	}
+
+	private static DefaultTestCase build_test_input_13()
+			throws SecurityException, NoSuchMethodException,
+			NoSuchFieldException {
+
+		Method checkDoubleEquals = Assertions.class.getMethod("checkEquals",
+				double.class, double.class);
+		TestCaseBuilder tc = new TestCaseBuilder();
+
+		VariableReference int0 = tc.appendIntPrimitive(10);
+		VariableReference int1 = tc.appendIntPrimitive(20);
+		tc.appendMethod(null, checkDoubleEquals, int0, int1);
+
+		return tc.getDefaultTestCase();
+	}
+
+	@Test
+	public void test13() throws SecurityException, NoSuchMethodException,
+			NoSuchFieldException {
+		Properties.CLIENT_ON_THREAD = true;
+		Properties.PRINT_TO_SYSTEM = true;
+		Properties.TIMEOUT = 5000000;
+
+		DefaultTestCase tc = build_test_input_13();
+
+		System.out.println("TestCase=");
+		System.out.println(tc.toCode());
+
+		ConcolicExecution concolicExecutor = new ConcolicExecution();
+		List<BranchCondition> branch_conditions = concolicExecutor
+				.executeConcolic(tc);
+
+		printConstraints(branch_conditions);
+		assertEquals(1, branch_conditions.size());
+	}
+
+	public static abstract class Boxer {
+
+		public static Integer boxInteger(Integer i) {
+			return i;
+		}
+
+		public static int unboxInteger(int i) {
+			return i;
+		}
+	}
+
+	@Test
+	public void test_input_14() {
+		int int0 = Integer.MAX_VALUE;
+		Integer integer0 = Boxer.boxInteger(int0);
+		int int1 = Boxer.unboxInteger(integer0);
+		Assertions.checkEquals(int0, int1);
+	}
+
+	private static DefaultTestCase build_test_input_14()
+			throws SecurityException, NoSuchMethodException,
+			NoSuchFieldException {
+
+		Method checkIntEquals = Assertions.class.getMethod("checkEquals",
+				int.class, int.class);
+
+		Method boxInteger = Boxer.class.getMethod("boxInteger", Integer.class);
+
+		Method unboxInteger = Boxer.class.getMethod("unboxInteger", int.class);
+
+		TestCaseBuilder tc = new TestCaseBuilder();
+
+		VariableReference int0 = tc.appendIntPrimitive(Integer.MAX_VALUE);
+		VariableReference integer0 = tc.appendMethod(null, boxInteger, int0);
+		VariableReference int1 = tc.appendMethod(null, unboxInteger, integer0);
+		tc.appendMethod(null, checkIntEquals, int0, int1);
+
+		return tc.getDefaultTestCase();
+	}
+
+	@Test
+	public void test14() throws SecurityException, NoSuchMethodException,
+			NoSuchFieldException {
+		Properties.CLIENT_ON_THREAD = true;
+		Properties.PRINT_TO_SYSTEM = true;
+		Properties.TIMEOUT = 5000000;
+
+		DefaultTestCase tc = build_test_input_14();
+
+		System.out.println("TestCase=");
+		System.out.println(tc.toCode());
+
+		ConcolicExecution concolicExecutor = new ConcolicExecution();
+		List<BranchCondition> branch_conditions = concolicExecutor
+				.executeConcolic(tc);
+
+		printConstraints(branch_conditions);
+		assertEquals(1, branch_conditions.size());
+	}
 }
