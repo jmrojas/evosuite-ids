@@ -62,8 +62,6 @@ public class Seeker implements Solver {
 
 	static Logger log = LoggerFactory.getLogger(Seeker.class);
 
-	//static Logger log = JPF.getLogger("org.evosuite.symbolic.search.Seeker");
-
 	/* The idea here is to get the expressions and build the constraint 
 	 * dynamically here using Java reflection. This should save us some time
 	 * since we wan't do the evaluation of the constraints in JPF 
@@ -99,16 +97,20 @@ public class Seeker implements Solver {
 				done = true;
 				for (Variable<?> var : vars) {
 
-					log.debug("Variable: " + var);
+					log.debug("Variable: " + var + ", " + vars);
 					Changer changer = new Changer();
 
 					if (var instanceof StringVariable) {
 						log.debug("searching for string " + var);
 						StringVariable strVar = (StringVariable) var;
-						if (changer.strLocalSearch(strVar, constraints, result)) {
-							searchSuccess = true;
-							done = false;
-							//break;
+						try {
+							if (changer.strLocalSearch(strVar, constraints, result)) {
+								searchSuccess = true;
+								done = false;
+								//break;
+							}
+						} catch (Throwable t) {
+							log.info("Exception during search: " + t);
 						}
 					}
 					if (var instanceof IntegerVariable) {

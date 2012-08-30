@@ -133,7 +133,16 @@ public class TestSuiteDSE {
 				continue;
 			}
 
-			TestCase expandedTest = expandTestCase(test.getTestCase().clone());
+			TestCase newTest = test.getTestCase().clone();
+			// TODO: We could cut away the call that leads to an exception?
+			/*
+			if (!test.getLastExecutionResult().noThrownExceptions()) {
+				while (newTest.size() - 1 >= test.getLastExecutionResult().getFirstPositionOfThrownException()) {
+					newTest.remove(newTest.size() - 1);
+				}
+			}
+			*/
+			TestCase expandedTest = expandTestCase(newTest);
 			newTestSuite.addTest(expandedTest);
 		}
 		return newTestSuite;
@@ -240,6 +249,11 @@ public class TestSuiteDSE {
 		while (hasNextBranchCondition() && !DSEBudget.isFinished()) {
 			logger.info("DSE time remaining: " + DSEBudget.getTimeRemaining());
 			logger.info("Branches remaining: " + unsolvedBranchConditions.size());
+			for (TestBranchPair b : unsolvedBranchConditions) {
+				logger.info(b.branch.getFullName() + " : "
+				        + b.branch.getInstructionIndex() + ", "
+				        + b.branch.getReachingConstraints().size());
+			}
 			TestBranchPair next = getNextBranchCondition();
 			BranchCondition branch = next.branch;
 			logger.info("Chosen branch condition: " + branch);
@@ -253,7 +267,9 @@ public class TestSuiteDSE {
 				//TestChromosome newTestChromosome = expandedTests.addTest(newTest);
 				TestChromosome newTestChromosome = new TestChromosome();
 				newTestChromosome.setTestCase(newTest);
-				expandedTests.addTest(newTestChromosome);
+				// expandedTests.addTest(newTestChromosome);
+				// updatePathConstraints(newTestChromosome);
+				// calculateUncoveredBranches();
 
 				if (fitness.getFitness(expandedTests) < originalFitness) {
 					logger.info("New test improves fitness to {}",
@@ -289,7 +305,7 @@ public class TestSuiteDSE {
 	 */
 	// @SuppressWarnings("rawtypes")
 	// @SuppressWarnings("rawtypes")
-	@SuppressWarnings("unchecked")
+	@SuppressWarnings({ "unchecked", "rawtypes" })
 	private TestCase negateCondition(Set<Constraint<?>> reachingConstraints,
 	        Constraint<?> localConstraint, TestCase test) {
 		List<Constraint<?>> constraints = new LinkedList<Constraint<?>>();
@@ -324,18 +340,10 @@ public class TestSuiteDSE {
 
 		nrCurrConstraints = constraints.size();
 		nrConstraints += nrCurrConstraints;
-		/*
-		 * counter = 0; for (Constraint cnstr : constraints) {
-		 * logger.debug("Cnstr " + (counter++) + " : " + cnstr + " dist: " +
-		 * DistanceEstimator.getDistance(constraints)); }
-		 */
+
 		logger.info("Applying local search");
 		Seeker skr = new Seeker();
 		Map<String, Object> values = skr.getModel(constraints);
-
-		// TODO Let's hope you get to delete this at some point ;P
-		// CVC3Solver solver = new CVC3Solver();
-		// Map<String, Object> values = solver.getModel(constraints);
 
 		if (values != null && !values.isEmpty()) {
 			TestCase newTest = test.clone();
