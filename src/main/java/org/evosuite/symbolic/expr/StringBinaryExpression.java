@@ -108,6 +108,9 @@ public class StringBinaryExpression extends StringExpression implements
 		if (obj == this) {
 			return true;
 		}
+		if (obj == null) {
+			return false;
+		}
 		if (obj instanceof StringBinaryExpression) {
 			StringBinaryExpression other = (StringBinaryExpression) obj;
 			return this.op.equals(other.op) && this.getSize() == other.getSize()
@@ -157,7 +160,7 @@ public class StringBinaryExpression extends StringExpression implements
 			return first + ((String) second);
 		case CHARAT:
 			int indx = (int) ExpressionHelper.getLongResult(right);
-			return Character.toString(first.charAt(indx));
+			return Integer.toString(first.charAt(indx));
 		default:
 			log.warn("StringBinaryExpression: unimplemented operator! Operator"
 			        + op.toString());
