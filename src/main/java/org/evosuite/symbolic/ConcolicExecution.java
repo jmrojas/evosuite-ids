@@ -17,7 +17,6 @@
  */
 package org.evosuite.symbolic;
 
-import java.text.MessageFormat;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -32,6 +31,7 @@ import org.evosuite.symbolic.vm.OtherVM;
 import org.evosuite.symbolic.vm.PathConstraint;
 import org.evosuite.symbolic.vm.SymbolicEnvironment;
 import org.evosuite.testcase.DefaultTestCase;
+import org.evosuite.testcase.ExecutionResult;
 import org.evosuite.testcase.TestCaseExecutor;
 import org.evosuite.testcase.TestChromosome;
 import org.slf4j.Logger;
@@ -49,7 +49,7 @@ import edu.uta.cse.dsc.instrument.DscInstrumentingClassLoader;
  * 
  * @author Gordon Fraser
  */
-public class ConcolicExecution {
+public abstract class ConcolicExecution {
 
 	private static Logger logger = LoggerFactory.getLogger(ConcolicExecution.class);
 
@@ -106,10 +106,14 @@ public class ConcolicExecution {
 		TestCaseExecutor.getInstance().addObserver(symbolicExecObserver);
 
 		logger.info("Starting concolic execution");
-		TestCaseExecutor.runTest(defaultTestCase);
+		ExecutionResult result = TestCaseExecutor.runTest(defaultTestCase);
 		List<BranchCondition> branches = pc.getBranchConditions();
 		logger.info("Concolic execution ended with " + branches.size()
 		        + " branches collected");
+		if (!result.noThrownExceptions()) {
+			int idx = result.getFirstPositionOfThrownException();
+			logger.info("Exception thrown: " + result.getExceptionThrownAtPosition(idx));
+		}
 		logNrOfConstraints(branches);
 
 		logger.debug("Cleaning concolic execution");
@@ -120,21 +124,15 @@ public class ConcolicExecution {
 	}
 
 	private static void logNrOfConstraints(List<BranchCondition> branches) {
-		int nrOfConstantConstraints = 0;
 		int nrOfConstraints = 0;
 		for (BranchCondition branchCondition : branches) {
+
 			Constraint<?> constraint = branchCondition.getLocalConstraint();
-			if (!constraint.getLeftOperand().containsSymbolicVariable()
-			        && !constraint.getRightOperand().containsSymbolicVariable()) {
-				nrOfConstantConstraints++;
-			}
+			Object leftVal = constraint.getLeftOperand().execute();
+			Object rightVal = constraint.getRightOperand().execute();
 			nrOfConstraints++;
 		}
-		double percentage = (double) nrOfConstantConstraints / (double) nrOfConstraints;
 
-		logger.debug("nrOfConstantConstraints=" + nrOfConstantConstraints);
 		logger.debug("nrOfConstraints=" + nrOfConstraints);
-		logger.debug("Percentage of constant constraints="
-		        + MessageFormat.format("{0,number,percent}", percentage));
 	}
 }
