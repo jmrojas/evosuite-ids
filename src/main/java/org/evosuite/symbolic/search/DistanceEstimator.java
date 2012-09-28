@@ -22,10 +22,13 @@ import java.util.Collection;
 import org.evosuite.symbolic.expr.Comparator;
 import org.evosuite.symbolic.expr.Constraint;
 import org.evosuite.symbolic.expr.Expression;
+import org.evosuite.symbolic.expr.Operator;
 import org.evosuite.symbolic.expr.bv.IntegerConstant;
+import org.evosuite.symbolic.expr.bv.IntegerUnaryExpression;
 import org.evosuite.symbolic.expr.bv.IntegerValue;
 import org.evosuite.symbolic.expr.bv.IntegerVariable;
 import org.evosuite.symbolic.expr.bv.StringComparison;
+import org.evosuite.symbolic.expr.bv.StringMultipleComparison;
 import org.evosuite.symbolic.expr.fp.RealConstant;
 import org.evosuite.symbolic.expr.fp.RealValue;
 import org.evosuite.symbolic.expr.fp.RealVariable;
@@ -150,16 +153,34 @@ public abstract class DistanceEstimator {
 				return true;
 			}
 		}
+
+		if (exprLeft instanceof StringMultipleComparison
+		        && exprRight instanceof IntegerConstant) {
+			if (((IntegerConstant) exprRight).getConcreteValue() == 0
+			        && (cmpr == Comparator.EQ || cmpr == Comparator.NE)) {
+				return true;
+			}
+		}
+
 		return false;
 	}
 
 	public static double getStringDist(Constraint<?> target) {
 		Expression<?> exprLeft = target.getLeftOperand();
 		Comparator cmpr = target.getComparator();
-		StringComparison scTarget = (StringComparison) exprLeft;
-		log.debug("Calculating distance of constraint " + target);
+		double distance = 0.0;
 
-		double distance = getStringDistance(scTarget);
+		if (exprLeft instanceof StringComparison) {
+			StringComparison scTarget = (StringComparison) exprLeft;
+			distance = getStringDistance(scTarget);
+			log.debug("Calculating distance of constraint " + target);
+		} else if (exprLeft instanceof StringMultipleComparison) {
+			StringMultipleComparison scTarget = (StringMultipleComparison) exprLeft;
+			distance = getStringDistance(scTarget);
+			log.debug("Calculating distance of constraint " + target);
+		} else {
+			assert (false) : "Invalid string comparison";
+		}
 		if (cmpr == Comparator.NE) {
 			return distance;
 		} else {
@@ -187,6 +208,34 @@ public abstract class DistanceEstimator {
 				return DistanceEstimator.StrContains(first, second);
 			case PATTERNMATCHES:
 				return DistanceEstimator.RegexMatches(second, first);
+			default:
+				log.warn("StringComparison: unimplemented operator!"
+				        + comparison.getOperator());
+				return Double.MAX_VALUE;
+			}
+		} catch (Exception e) {
+			return Double.MAX_VALUE;
+		}
+	}
+
+	public static double getStringDistance(StringMultipleComparison comparison) {
+		try {
+			String first = comparison.getLeftOperand().execute();
+			String second = (String) comparison.getRightOperand().execute();
+
+			switch (comparison.getOperator()) {
+			case STARTSWITH:
+				long start = (Long) comparison.getOther().get(0).execute();
+				return DistanceEstimator.StrStartsWith(first, second, (int) start);
+			case REGIONMATCHES:
+				long frstStart = (Long) comparison.getOther().get(0).execute();
+				long secStart = (Long) comparison.getOther().get(1).execute();
+				long length = (Long) comparison.getOther().get(2).execute();
+				long ignoreCase = (Long) comparison.getOther().get(3).execute();
+
+				return DistanceEstimator.StrRegionMatches(first, (int) frstStart, second,
+				                                          (int) secStart, (int) length,
+				                                          ignoreCase != 0);
 			default:
 				log.warn("StringComparison: unimplemented operator!"
 				        + comparison.getOperator());
@@ -243,6 +292,47 @@ public abstract class DistanceEstimator {
 
 		long left = (Long) target.getLeftOperand().execute();
 		long right = (Long) target.getRightOperand().execute();
+
+		if (target.getLeftOperand() instanceof IntegerUnaryExpression) {
+			if (((IntegerUnaryExpression) target.getLeftOperand()).getOperator() == Operator.ISDIGIT) {
+				long left_operand = ((IntegerUnaryExpression) target.getLeftOperand()).getOperand().execute();
+				char theChar = (char) left_operand;
+				if ((target.getComparator() == Comparator.EQ && right == 1L)
+				        || (target.getComparator() == Comparator.NE && right == 0L)) {
+					if (theChar < '0')
+						return '0' - theChar;
+					else if (theChar > '9')
+						return theChar - '9';
+					else
+						return 0;
+				} else if ((target.getComparator() == Comparator.EQ && right == 0L)
+				        || (target.getComparator() == Comparator.NE && right == 1L)) {
+					if (theChar < '0' || theChar > '9')
+						return 0;
+					else
+						return Math.min(Math.abs('9' - theChar), Math.abs(theChar - '0'));
+				}
+
+			} else if (((IntegerUnaryExpression) target.getLeftOperand()).getOperator() == Operator.ISLETTER) {
+				long left_operand = ((IntegerUnaryExpression) target.getLeftOperand()).getOperand().execute();
+				char theChar = (char) left_operand;
+				if ((target.getComparator() == Comparator.EQ && right == 1L)
+				        || (target.getComparator() == Comparator.NE && right == 0L)) {
+					if (theChar < 'A')
+						return 'A' - theChar;
+					else if (theChar > 'z')
+						return theChar - 'z';
+					else
+						return 0;
+				} else if ((target.getComparator() == Comparator.EQ && right == 0L)
+				        || (target.getComparator() == Comparator.NE && right == 1L)) {
+					if (theChar < 'A' || theChar > 'z')
+						return 0;
+					else
+						return Math.min(Math.abs('z' - theChar), Math.abs(theChar - 'A'));
+				}
+			}
+		}
 
 		Comparator cmpr = target.getComparator();
 		log.debug("Calculating distance for " + left + " " + cmpr + " " + right);

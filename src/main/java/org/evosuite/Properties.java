@@ -751,6 +751,9 @@ public class Properties {
 	@DoubleValue(min = 0.0, max = 1.0)
 	public static double CONCOLIC_MUTATION = 0.0;
 
+	@Parameter(key = "constraint_solution_attempts", description = "Number of attempts to solve constraints related to one code branch")
+	public static int CONSTRAINT_SOLUTION_ATTEMPTS = 3;
+
 	/** Constant <code>UI_TEST=false</code> */
 	@Parameter(key = "ui", description = "Do User Interface tests")
 	public static boolean UI_TEST = false;
@@ -807,6 +810,9 @@ public class Properties {
 	/** Constant <code>TIMEOUT=5000</code> */
 	@Parameter(key = "timeout", group = "Test Execution", description = "Milliseconds allowed per test")
 	public static int TIMEOUT = 5000;
+
+	@Parameter(key = "concolic_timeout", group = "Test Execution", description = "Milliseconds allowed per test during concolic execution")
+	public static int CONCOLIC_TIMEOUT = 15000;
 
 	/** Constant <code>SHUTDOWN_TIMEOUT=1000</code> */
 	@Parameter(key = "shutdown_timeout", group = "Test Execution", description = "Milliseconds grace time to shut down test cleanly")

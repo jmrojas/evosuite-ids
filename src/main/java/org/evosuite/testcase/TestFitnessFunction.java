@@ -22,7 +22,6 @@ import java.util.List;
 import org.evosuite.ga.Chromosome;
 import org.evosuite.ga.ChromosomeRecycler;
 import org.evosuite.ga.FitnessFunction;
-import org.evosuite.ga.stoppingconditions.MaxStatementsStoppingCondition;
 import org.evosuite.testsuite.TestSuiteChromosome;
 
 /**
@@ -39,37 +38,6 @@ public abstract class TestFitnessFunction extends FitnessFunction implements
 	protected static TestCaseExecutor executor = TestCaseExecutor.getInstance();
 
 	static boolean warnedAboutIsSimilarTo = false;
-
-	/**
-	 * Execute a test case
-	 * 
-	 * @param test
-	 *            The test case to execute
-	 * @return Result of the execution
-	 */
-	public ExecutionResult runTest(TestCase test) {
-
-		ExecutionResult result = new ExecutionResult(test, null);
-
-		try {
-			result = executor.execute(test);
-
-			int num = test.size();
-			if (!result.noThrownExceptions()) {
-				num = result.getFirstPositionOfThrownException();
-			}
-			MaxStatementsStoppingCondition.statementsExecuted(num);
-			// for(TestObserver observer : observers) {
-			// observer.testResult(result);
-			// }
-		} catch (Exception e) {			
-			logger.error("TG: Exception caught: ", e);
-			throw new Error(e);
-		}
-
-		// System.out.println("TG: Killed "+result.getNumKilled()+" out of "+mutants.size());
-		return result;
-	}
 
 	/**
 	 * <p>
@@ -174,6 +142,11 @@ public abstract class TestFitnessFunction extends FitnessFunction implements
 	 */
 	@Override
 	public abstract int compareTo(TestFitnessFunction other);
+
+	/** {@inheritDoc} */
+	public ExecutionResult runTest(TestCase test) {
+		return TestCaseExecutor.runTest(test);
+	}
 
 	/**
 	 * Determine if there is an existing test case covering this goal
