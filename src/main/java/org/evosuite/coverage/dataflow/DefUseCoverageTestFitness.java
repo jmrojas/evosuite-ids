@@ -22,6 +22,7 @@ import java.util.Set;
 
 import org.evosuite.Properties;
 import org.evosuite.Properties.Criterion;
+import org.evosuite.TestGenerationContext;
 import org.evosuite.coverage.statement.StatementCoverageTestFitness;
 import org.evosuite.ga.Chromosome;
 import org.evosuite.graphs.GraphPool;
@@ -464,8 +465,8 @@ public class DefUseCoverageTestFitness extends TestFitnessFunction {
 	 * @return a {@link java.util.Set} object.
 	 */
 	public Set<BytecodeInstruction> getInstructionsAfterGoalDefinition() {
-		RawControlFlowGraph cfg = GraphPool.getRawCFG(goalDefinition.getClassName(),
-		                                              goalDefinition.getMethodName());
+		RawControlFlowGraph cfg = GraphPool.getInstance(TestGenerationContext.getClassLoader()).getRawCFG(goalDefinition.getClassName(),
+		                                                                                                  goalDefinition.getMethodName());
 		BytecodeInstruction defVertex = cfg.getInstruction(goalDefinition.getInstructionId());
 		Set<BytecodeInstruction> r = cfg.getLaterInstructionsInMethod(defVertex);
 		//		for (BytecodeInstruction v : r) {
@@ -484,8 +485,8 @@ public class DefUseCoverageTestFitness extends TestFitnessFunction {
 	 * @return a {@link java.util.Set} object.
 	 */
 	public Set<BytecodeInstruction> getInstructionsBeforeGoalUse() {
-		RawControlFlowGraph cfg = GraphPool.getRawCFG(goalUse.getClassName(),
-		                                              goalUse.getMethodName());
+		RawControlFlowGraph cfg = GraphPool.getInstance(TestGenerationContext.getClassLoader()).getRawCFG(goalUse.getClassName(),
+		                                                                                                  goalUse.getMethodName());
 		BytecodeInstruction useVertex = cfg.getInstruction(goalUse.getInstructionId());
 		Set<BytecodeInstruction> r = cfg.getPreviousInstructionsInMethod(useVertex);
 		//		for (BytecodeInstruction v : r) {
@@ -509,7 +510,8 @@ public class DefUseCoverageTestFitness extends TestFitnessFunction {
 	 * @param objectId
 	 *            a {@link java.lang.Integer} object.
 	 */
-	public void setCovered(Chromosome individual, ExecutionTrace trace, Integer objectId) {
+	public void setCovered(TestChromosome individual, ExecutionTrace trace,
+	        Integer objectId) {
 		if (PRINT_DEBUG) {
 			logger.debug("goal COVERED by object " + objectId);
 			logger.debug("==============================================================");
@@ -686,8 +688,8 @@ public class DefUseCoverageTestFitness extends TestFitnessFunction {
 			        + NumberFormat.getIntegerInstance().format(difficulty));
 		r.append("\n\t");
 		if (isParameterGoal())
-			r.append("Parameter-Definition " + goalUse.getLocalVariableSlot() + " for method "
-			        + goalUse.getMethodName());
+			r.append("Parameter-Definition " + goalUse.getLocalVariableSlot()
+			        + " for method " + goalUse.getMethodName());
 		else
 			r.append(goalDefinition.toString());
 		r.append("\n\t");
@@ -746,7 +748,7 @@ public class DefUseCoverageTestFitness extends TestFitnessFunction {
 		if (other instanceof DefUseCoverageTestFitness) {
 			DefUseCoverageTestFitness otherFitness = (DefUseCoverageTestFitness) other;
 			// goalDefinition can be null for parameter goals
-			if(goalDefinition == null || otherFitness.getGoalDefinition() == null)
+			if (goalDefinition == null || otherFitness.getGoalDefinition() == null)
 				return goalUse.compareTo(otherFitness.getGoalUse());
 			if (goalDefinition.compareTo(otherFitness.getGoalDefinition()) == 0) {
 				return goalUse.compareTo(otherFitness.getGoalUse());
