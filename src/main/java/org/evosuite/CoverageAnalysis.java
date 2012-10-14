@@ -9,7 +9,6 @@ import java.util.List;
 
 import org.evosuite.coverage.TestFitnessFactory;
 import org.evosuite.coverage.mutation.MutationSuiteFitness;
-import org.evosuite.setup.TestCluster;
 import org.evosuite.setup.TestClusterGenerator;
 import org.evosuite.testcase.DefaultTestCase;
 import org.evosuite.testcase.ExecutionTracer;
@@ -33,6 +32,7 @@ public class CoverageAnalysis {
 		for (TestChromosome test : testSuite.getTestChromosomes()) {
 			test.setChanged(true);
 			test.clearCachedResults();
+			test.clearCachedMutationResults();
 		}
 
 		if (oldCriterion == criterion)
@@ -58,7 +58,7 @@ public class CoverageAnalysis {
 		// TODO: Now all existing test cases have reflection objects pointing to the wrong classloader
 		for (TestChromosome test : testSuite.getTestChromosomes()) {
 			DefaultTestCase dtest = (DefaultTestCase) test.getTestCase();
-			dtest.changeClassLoader(TestCluster.classLoader);
+			dtest.changeClassLoader(TestGenerationContext.getClassLoader());
 		}
 
 	}

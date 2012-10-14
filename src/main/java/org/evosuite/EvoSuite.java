@@ -158,7 +158,8 @@ public class EvoSuite {
 					.println(resource.replace(".class", "").replace('/', '.'));
 		}
 	}
-
+	
+	// TODO this method may need the same fixing as generateTestsTarget, by replacing '/' with File.separatorChar in call to generateTests.
 	private static void generateTestsPrefix(Properties.Strategy strategy,
 			String prefix, List<String> args, String cp) {
 
@@ -217,7 +218,7 @@ public class EvoSuite {
 					.println(resource.replace(".class", "").replace('/', '.'));
 		}
 	}
-
+	
 	private static void generateTestsTarget(Properties.Strategy strategy,
 			String target, List<String> args, String cp) {
 
@@ -235,7 +236,7 @@ public class EvoSuite {
 			try {
 				if (isInterface(resource)) {
 					System.out.println("* Skipping interface: "
-							+ resource.replace(".class", "").replace('/', '.'));
+					        + resource.replace(".class", "").replace(File.separatorChar, '.'));
 					continue;
 				}
 			} catch (IOException e) {
@@ -243,9 +244,9 @@ public class EvoSuite {
 				continue;
 			}
 			System.out.println("* Current class: "
-					+ resource.replace(".class", "").replace('/', '.'));
-			generateTests(Strategy.EVOSUITE, resource.replace(".class", "")
-					.replace('/', '.'), args, cp);
+			        + resource.replace(".class", "").replace(File.separatorChar, '.'));
+			generateTests(Strategy.EVOSUITE,
+			              resource.replace(".class", "").replace(File.separatorChar, '.'), args, cp);
 		}
 	}
 
@@ -385,6 +386,9 @@ public class EvoSuite {
 			break;
 		case RANDOM:
 			cmdLine.add("-Dstrategy=Random");
+			break;
+		case REGRESSION:
+			cmdLine.add("-Dstrategy=Regression");
 			break;
 		default:
 			throw new RuntimeException("Unsupported strategy: " + strategy);
@@ -758,41 +762,20 @@ public class EvoSuite {
 		Option measureCoverage = new Option("measureCoverage",
 				"measure coverage on existing test cases");
 		Option listClasses = new Option("listClasses",
-				"list the testable classes found in the specified classpath/prefix");
-		Option setup = OptionBuilder.withArgName("target").hasArg()
-				.withDescription("Create evosuite-files with property file")
-				.create("setup");
-		Option generateRandom = new Option("generateRandom",
-				"use random test generation");
-		Option targetClass = OptionBuilder.withArgName("class").hasArg()
-				.withDescription("target class for test generation")
-				.create("class");
-		Option targetPrefix = OptionBuilder.withArgName("prefix").hasArg()
-				.withDescription("target prefix for test generation")
-				.create("prefix");
-		Option targetCP = OptionBuilder.withArgName("target").hasArg()
-				.withDescription("target classpath for test generation")
-				.create("target");
-		Option classPath = OptionBuilder.withArgName("cp").hasArg()
-				.withDescription("classpath of the project under test")
-				.withValueSeparator(':').create("cp");
-		Option junitPrefix = OptionBuilder.withArgName("junit").hasArg()
-				.withDescription("junit prefix").create("junit");
-		Option criterion = OptionBuilder.withArgName("criterion").hasArg()
-				.withDescription("target criterion for test generation")
-				.create("criterion");
-		Option seed = OptionBuilder.withArgName("seed").hasArg()
-				.withDescription("seed for random number generator")
-				.create("seed");
-		Option mem = OptionBuilder.withArgName("mem").hasArg()
-				.withDescription("heap size for client process (in megabytes)")
-				.create("mem");
-		Option jar = OptionBuilder
-				.withArgName("jar")
-				.hasArg()
-				.withDescription(
-						"location of EvoSuite jar file to use in client process")
-				.create("jar");
+		        "list the testable classes found in the specified classpath/prefix");
+		Option setup = OptionBuilder.withArgName("target").hasArg().withDescription("Create evosuite-files with property file").create("setup");
+		Option generateRandom = new Option("generateRandom", "use random test generation");
+		Option generateRegressionSuite = new Option("regressionSuite",
+		        "generate a regression test suite");
+		Option targetClass = OptionBuilder.withArgName("class").hasArg().withDescription("target class for test generation").create("class");
+		Option targetPrefix = OptionBuilder.withArgName("prefix").hasArg().withDescription("target prefix for test generation").create("prefix");
+		Option targetCP = OptionBuilder.withArgName("target").hasArg().withDescription("target classpath for test generation").create("target");
+		Option classPath = OptionBuilder.withArgName("cp").hasArg().withDescription("classpath of the project under test").withValueSeparator(':').create("cp");
+		Option junitPrefix = OptionBuilder.withArgName("junit").hasArg().withDescription("junit prefix").create("junit");
+		Option criterion = OptionBuilder.withArgName("criterion").hasArg().withDescription("target criterion for test generation").create("criterion");
+		Option seed = OptionBuilder.withArgName("seed").hasArg().withDescription("seed for random number generator").create("seed");
+		Option mem = OptionBuilder.withArgName("mem").hasArg().withDescription("heap size for client process (in megabytes)").create("mem");
+		Option jar = OptionBuilder.withArgName("jar").hasArg().withDescription("location of EvoSuite jar file to use in client process").create("jar");
 
 		Option sandbox = new Option("sandbox", "Run tests in sandbox");
 		Option mocks = new Option("mocks", "Use mock classes");
@@ -814,6 +797,7 @@ public class EvoSuite {
 		options.addOption(generateSuite);
 		options.addOption(generateTests);
 		options.addOption(generateRandom);
+		options.addOption(generateRegressionSuite);
 		options.addOption(measureCoverage);
 		options.addOption(listClasses);
 		options.addOption(setup);
@@ -881,8 +865,12 @@ public class EvoSuite {
 				javaOpts.add("-XX:+HeapDumpOnOutOfMemoryError");
 			if (line.hasOption("jar"))
 				evosuiteJar = line.getOptionValue("jar");
-			if (line.hasOption("criterion"))
-				javaOpts.add("-Dcriterion=" + line.getOptionValue("criterion"));
+			if (!line.hasOption("regressionSuite")) {
+				if (line.hasOption("criterion"))
+					javaOpts.add("-Dcriterion=" + line.getOptionValue("criterion"));
+			} else {
+				javaOpts.add("-Dcriterion=regression");
+			}
 			if (line.hasOption("sandbox"))
 				javaOpts.add("-Dsandbox=true");
 			if (line.hasOption("mocks"))
@@ -976,6 +964,8 @@ public class EvoSuite {
 					strategy = Strategy.EVOSUITE;
 				} else if (line.hasOption("generateRandom")) {
 					strategy = Strategy.RANDOM;
+				} else if (line.hasOption("regressionSuite")) {
+					strategy = Strategy.REGRESSION;
 				}
 				if (strategy == null) {
 					System.err

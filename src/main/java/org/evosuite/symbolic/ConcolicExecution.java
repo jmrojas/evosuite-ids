@@ -18,11 +18,11 @@
 package org.evosuite.symbolic;
 
 import java.util.ArrayList;
-import java.util.LinkedList;
 import java.util.List;
 
+import org.evosuite.Properties;
+import org.evosuite.ga.stoppingconditions.MaxStatementsStoppingCondition;
 import org.evosuite.symbolic.expr.Constraint;
-import org.evosuite.symbolic.search.DistanceEstimator;
 import org.evosuite.symbolic.vm.ArithmeticVM;
 import org.evosuite.symbolic.vm.CallVM;
 import org.evosuite.symbolic.vm.FunctionVM;
@@ -31,6 +31,7 @@ import org.evosuite.symbolic.vm.JumpVM;
 import org.evosuite.symbolic.vm.LocalsVM;
 import org.evosuite.symbolic.vm.OtherVM;
 import org.evosuite.symbolic.vm.PathConstraint;
+import org.evosuite.symbolic.vm.RFunctionVM;
 import org.evosuite.symbolic.vm.SymbolicEnvironment;
 import org.evosuite.testcase.DefaultTestCase;
 import org.evosuite.testcase.ExecutionResult;
@@ -56,6 +57,9 @@ public abstract class ConcolicExecution {
 	private static Logger logger = LoggerFactory
 			.getLogger(ConcolicExecution.class);
 
+	/** Instrumenting class loader */
+	private static final DscInstrumentingClassLoader classLoader = new DscInstrumentingClassLoader();
+
 	/**
 	 * Retrieve the path condition for a given test case
 	 * 
@@ -80,10 +84,6 @@ public abstract class ConcolicExecution {
 		 * Prepare DSC configuration
 		 */
 		MainConfig.setInstance();
-		/**
-		 * Instrumenting class loader
-		 */
-		DscInstrumentingClassLoader classLoader = new DscInstrumentingClassLoader();
 
 		/**
 		 * Path constraint and symbolic environment
@@ -102,6 +102,7 @@ public abstract class ConcolicExecution {
 		listeners.add(new ArithmeticVM(env, pc));
 		listeners.add(new OtherVM(env));
 		listeners.add(new FunctionVM(env));
+		listeners.add(new RFunctionVM(env));
 		VM.vm.setListeners(listeners);
 		VM.vm.startupConcolicExecution();
 
@@ -111,7 +112,19 @@ public abstract class ConcolicExecution {
 		TestCaseExecutor.getInstance().addObserver(symbolicExecObserver);
 
 		logger.info("Starting concolic execution");
-		ExecutionResult result = TestCaseExecutor.runTest(defaultTestCase);
+		ExecutionResult result = new ExecutionResult(defaultTestCase, null);
+
+		try {
+			logger.debug("Executing test");
+			result = TestCaseExecutor.getInstance().execute(defaultTestCase,
+					Properties.CONCOLIC_TIMEOUT);
+			MaxStatementsStoppingCondition.statementsExecuted(result
+					.getExecutedStatements());
+
+		} catch (Exception e) {
+			logger.error("Exception during concolic execution {}", e);
+			return new ArrayList<BranchCondition>();
+		}
 		VM.vm.cleanupConcolicExecution(); // ignore all callbacks from now on
 
 		List<BranchCondition> branches = pc.getBranchConditions();
@@ -135,9 +148,16 @@ public abstract class ConcolicExecution {
 
 		for (BranchCondition branchCondition : branches) {
 
+			for (Constraint<?> supporting_constraint : branchCondition
+					.getSupportingConstraints()) {
+				supporting_constraint.getLeftOperand().execute();
+				supporting_constraint.getRightOperand().execute();
+				nrOfConstraints++;
+			}
+
 			Constraint<?> constraint = branchCondition.getLocalConstraint();
-			Object leftVal = constraint.getLeftOperand().execute();
-			Object rightVal = constraint.getRightOperand().execute();
+			constraint.getLeftOperand().execute();
+			constraint.getRightOperand().execute();
 			nrOfConstraints++;
 
 		}

@@ -30,6 +30,7 @@ import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
 
 import org.evosuite.Properties;
+import org.evosuite.TestGenerationContext;
 import org.evosuite.contracts.ContractChecker;
 import org.evosuite.ga.stoppingconditions.MaxStatementsStoppingCondition;
 import org.evosuite.ga.stoppingconditions.MaxTestsStoppingCondition;
@@ -40,8 +41,15 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 /**
+ * <p>
  * The test case executor manages thread creation/deletion to execute a test
  * case
+ * </p>
+ * 
+ * <p>
+ * WARNING: never give "privileged" rights in MSecurityManager to any of the
+ * threads generated here
+ * </p>
  * 
  * @author Gordon Fraser
  */
@@ -107,18 +115,13 @@ public class TestCaseExecutor implements ThreadFactory {
 			logger.debug("Executing test");
 			result = executor.execute(test);
 
-			int num = test.size();
-			MaxStatementsStoppingCondition.statementsExecuted(num);
+			MaxStatementsStoppingCondition.statementsExecuted(result.getExecutedStatements());
 
-			// for(TestObserver observer : observers) {
-			// observer.testResult(result);
-			// }
 		} catch (Exception e) {
 			logger.error("TG: Exception caught: ", e);
 			throw new Error(e);
 		}
 
-		// System.out.println("TG: Killed "+result.getNumKilled()+" out of "+mutants.size());
 		return result;
 	}
 
@@ -161,9 +164,9 @@ public class TestCaseExecutor implements ThreadFactory {
 				logger.warn("TestCaseExecutor instance is non-null, but its actual executor is null");
 				instance.executor = Executors.newSingleThreadExecutor(instance);
 			} else {
-				if (instance.executor.isShutdown()) {
-					instance.executor = Executors.newSingleThreadExecutor(instance);
-				}
+				//if (instance.executor.isShutdown()) {
+				instance.executor = Executors.newSingleThreadExecutor(instance);
+				//}
 			}
 		}
 	}
@@ -231,7 +234,19 @@ public class TestCaseExecutor implements ThreadFactory {
 	 */
 	public ExecutionResult execute(TestCase tc) {
 		Scope scope = new Scope();
-		return execute(tc, scope);
+		return execute(tc, scope, Properties.TIMEOUT);
+	}
+
+	/**
+	 * Execute a test case on a new scope
+	 * 
+	 * @param tc
+	 *            a {@link org.evosuite.testcase.TestCase} object.
+	 * @return a {@link org.evosuite.testcase.ExecutionResult} object.
+	 */
+	public ExecutionResult execute(TestCase tc, int timeout) {
+		Scope scope = new Scope();
+		return execute(tc, scope, timeout);
 	}
 
 	/**
@@ -244,7 +259,7 @@ public class TestCaseExecutor implements ThreadFactory {
 	 * @return a {@link org.evosuite.testcase.ExecutionResult} object.
 	 */
 	@SuppressWarnings("deprecation")
-	public ExecutionResult execute(TestCase tc, Scope scope) {
+	public ExecutionResult execute(TestCase tc, Scope scope, int timeout) {
 		ExecutionTracer.getExecutionTracer().clear();
 		// TODO: Re-insert!
 		if (Properties.STATIC_HACK)
@@ -258,16 +273,31 @@ public class TestCaseExecutor implements ThreadFactory {
 		TimeoutHandler<ExecutionResult> handler = new TimeoutHandler<ExecutionResult>();
 
 		//#TODO steenbuck could be nicer (TestRunnable should be an interface
-		InterfaceTestRunnable callable = new TestRunnable(tc, scope, observers);
+		TestRunnable callable = new TestRunnable(tc, scope, observers);
+		callable.storeCurrentThreads();
 
-		//FutureTask<ExecutionResult> task = new FutureTask<ExecutionResult>(callable);
-		//executor.execute(task);
+		/*
+		 * FIXME: the sequence of "catch" with calls to "result.set" should be re-factored, as
+		 * these things should be (already) handled in TestRunnable.call.
+		 * If not, it should be explained, as it is not necessarily obvious why some checks are
+		 * done here, and others in TestRunnable
+		 */
 
 		try {
 			//ExecutionResult result = task.get(timeout, TimeUnit.MILLISECONDS);
-			ExecutionResult result = handler.execute(callable, executor,
-			                                         Properties.TIMEOUT,
+			ExecutionResult result = handler.execute(callable, executor, timeout,
 			                                         Properties.CPU_TIMEOUT);
+			
+			PermissionStatistics.getInstance().countThreads(threadGroup.activeCount());
+			/*
+			 * TODO: this will need proper care when we ll start to handle threads in the search.
+			 */
+			callable.joinClientThreads();
+
+			/*
+			 * TODO: we might want to initialize the ExecutionResult here, once we waited for all SUT
+			 * threads to finish
+			 */
 
 			long endTime = System.currentTimeMillis();
 			timeExecuted += endTime - startTime;
@@ -430,7 +460,7 @@ public class TestCaseExecutor implements ThreadFactory {
 		}
 		threadGroup = new ThreadGroup(TEST_EXECUTION_THREAD_GROUP);
 		currentThread = new Thread(threadGroup, r);
-		currentThread.setContextClassLoader(TestCluster.classLoader);
+		currentThread.setContextClassLoader(TestGenerationContext.getClassLoader());
 		ExecutionTracer.setThread(currentThread);
 		return currentThread;
 	}

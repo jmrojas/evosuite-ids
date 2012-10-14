@@ -34,9 +34,6 @@ import java.util.HashSet;
 import java.util.Map;
 import java.util.Set;
 
-import org.evosuite.coverage.branch.BranchPool;
-import org.evosuite.graphs.cfg.BytecodeInstructionPool;
-import org.evosuite.setup.TestCluster;
 import org.evosuite.utils.LoggingUtils;
 import org.evosuite.utils.Utils;
 import org.slf4j.Logger;
@@ -138,6 +135,15 @@ public class Properties {
 	@Parameter(key = "primitive_pool", group = "Test Creation", description = "Probability to use a primitive from the pool rather than a random value")
 	@DoubleValue(min = 0.0, max = 1.0)
 	public static double PRIMITIVE_POOL = 0.5;
+
+	/** Constant <code>DYNAMIC_POOL=0.5</code> */
+	@Parameter(key = "dynamic_pool", group = "Test Creation", description = "Probability to use a primitive from the dynamic pool rather than a random value")
+	@DoubleValue(min = 0.0, max = 1.0)
+	public static double DYNAMIC_POOL = 1d / 3d;
+
+	/** Constant <code>DYNAMIC_POOL_SIZE=50</code> */
+	@Parameter(key = "dynamic_pool_size", group = "Test Creation", description = "Number of dynamic constants to keep")
+	public static int DYNAMIC_POOL_SIZE = 50;
 
 	/** Constant <code>OBJECT_POOL=0.0</code> */
 	@Parameter(key = "object_pool", group = "Test Creation", description = "Probability to use a predefined sequence from the pool rather than a random generator")
@@ -638,6 +644,7 @@ public class Properties {
 
 	// ---------------------------------------------------------------
 	// Sandbox
+	//FIXME: once we are happy with the sandbox, we should turn it on by default
 	/** Constant <code>SANDBOX=false</code> */
 	@Parameter(key = "sandbox", group = "Sandbox", description = "Execute tests in a sandbox environment")
 	public static boolean SANDBOX = false;
@@ -746,6 +753,9 @@ public class Properties {
 	@DoubleValue(min = 0.0, max = 1.0)
 	public static double CONCOLIC_MUTATION = 0.0;
 
+	@Parameter(key = "constraint_solution_attempts", description = "Number of attempts to solve constraints related to one code branch")
+	public static int CONSTRAINT_SOLUTION_ATTEMPTS = 3;
+
 	/** Constant <code>UI_TEST=false</code> */
 	@Parameter(key = "ui", description = "Do User Interface tests")
 	public static boolean UI_TEST = false;
@@ -802,6 +812,9 @@ public class Properties {
 	/** Constant <code>TIMEOUT=5000</code> */
 	@Parameter(key = "timeout", group = "Test Execution", description = "Milliseconds allowed per test")
 	public static int TIMEOUT = 5000;
+
+	@Parameter(key = "concolic_timeout", group = "Test Execution", description = "Milliseconds allowed per test during concolic execution")
+	public static int CONCOLIC_TIMEOUT = 15000;
 
 	/** Constant <code>SHUTDOWN_TIMEOUT=1000</code> */
 	@Parameter(key = "shutdown_timeout", group = "Test Execution", description = "Milliseconds grace time to shut down test cleanly")
@@ -900,7 +913,7 @@ public class Properties {
 	// Runtime parameters
 
 	public enum Criterion {
-		EXCEPTION, LCSAJ, DEFUSE, ALLDEFS, PATH, BRANCH, STRONGMUTATION, WEAKMUTATION, MUTATION, COMP_LCSAJ_BRANCH, STATEMENT, ANALYZE, DATA, BEHAVIORAL, IBRANCH, LOOP_INV_CANDIDATE_FALSE_BRANCH
+		EXCEPTION, LCSAJ, DEFUSE, ALLDEFS, PATH, BRANCH, STRONGMUTATION, WEAKMUTATION, MUTATION, COMP_LCSAJ_BRANCH, STATEMENT, ANALYZE, DATA, BEHAVIORAL, IBRANCH, LOOP_INV_CANDIDATE_FALSE_BRANCH, REGRESSION
 	}
 
 	/** Cache target class */
@@ -949,7 +962,7 @@ public class Properties {
 	public static Criterion CRITERION = Criterion.BRANCH;
 
 	public enum Strategy {
-		ONEBRANCH, EVOSUITE, RANDOM
+		ONEBRANCH, EVOSUITE, RANDOM, REGRESSION
 	}
 
 	/** Constant <code>STRATEGY</code> */
@@ -1630,15 +1643,17 @@ public class Properties {
 						.equals(TARGET_CLASS))
 			return TARGET_CLASS_INSTANCE;
 
+		/*
 		BranchPool.reset();
 		TestCluster.reset();
 		org.evosuite.testcase.TestFactory.getInstance().reset();
-		BytecodeInstructionPool.clear();
+		BytecodeInstructionPool.clearAll(); // TODO: This should be removed
+		*/
 
 		try {
 			TARGET_CLASS_INSTANCE = Class.forName(TARGET_CLASS, true,
-					TestCluster.classLoader);
-			// TARGET_CLASS_INSTANCE = TestCluster.classLoader.loadClass(TARGET_CLASS, true);
+			                                      TestGenerationContext.getClassLoader());
+
 			return TARGET_CLASS_INSTANCE;
 		} catch (ClassNotFoundException e) {
 			LoggingUtils.getEvoLogger().info(
@@ -1655,7 +1670,7 @@ public class Properties {
 				cause = cause.getCause();
 			}
 			try {
-				Thread.currentThread().sleep(100);
+				Thread.sleep(100);
 			} catch (InterruptedException e1) {
 				// TODO Auto-generated catch block
 				e1.printStackTrace();
@@ -1669,40 +1684,8 @@ public class Properties {
 	 * 
 	 * @return a {@link java.lang.Class} object.
 	 */
-	public static Class<?> resetTargetClass() {
-		BranchPool.reset();
-		TestCluster.reset();
-		org.evosuite.testcase.TestFactory.getInstance().reset();
-		BytecodeInstructionPool.clear();
-
-		try {
-			TARGET_CLASS_INSTANCE = TestCluster.classLoader
-					.loadClass(TARGET_CLASS);
-			return TARGET_CLASS_INSTANCE;
-		} catch (ClassNotFoundException e) {
-			LoggingUtils.getEvoLogger().info(
-					"* Could not find class under test: "
-							+ (e.getMessage() != null ? e.getMessage() : e));
-		}
-		return null;
-	}
-
-	/**
-	 * Get class object of class under test
-	 * 
-	 * @return a {@link java.lang.Class} object.
-	 */
-	@Deprecated
-	public static Class<?> loadTargetClass() {
-		try {
-			TARGET_CLASS_INSTANCE = TestCluster.classLoader
-					.loadClass(TARGET_CLASS);
-			return TARGET_CLASS_INSTANCE;
-		} catch (ClassNotFoundException e) {
-			System.err.println("* Could not find class under test: "
-					+ TARGET_CLASS);
-		}
-		return null;
+	public static void resetTargetClass() {
+		TARGET_CLASS_INSTANCE = null;
 	}
 
 	/**

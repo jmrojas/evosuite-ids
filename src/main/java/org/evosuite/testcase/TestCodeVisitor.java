@@ -165,7 +165,14 @@ public class TestCodeVisitor implements TestVisitor {
 			name = clazz.getCanonicalName();
 		}
 
-		// We can't use "Test" because of JUnit
+		// Ensure outer classes are imported as well
+		Class<?> outerClass = clazz.getEnclosingClass();
+		while (outerClass != null) {
+			getClassName(outerClass);
+			outerClass = outerClass.getEnclosingClass();
+		}
+
+		// We can't use "Test" because of JUnit 
 		if (name.equals("Test")) {
 			name = clazz.getCanonicalName();
 		}
@@ -194,7 +201,14 @@ public class TestCodeVisitor implements TestVisitor {
 			name = clazz.getCanonicalName();
 		}
 
-		// We can't use "Test" because of JUnit
+		// Ensure outer classes are imported as well
+		Class<?> outerClass = clazz.getEnclosingClass();
+		while (outerClass != null) {
+			getClassName(outerClass);
+			outerClass = outerClass.getEnclosingClass();
+		}
+
+		// We can't use "Test" because of JUnit 
 		if (name.equals("Test")) {
 			name = clazz.getCanonicalName();
 		}

@@ -31,7 +31,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
-import org.evosuite.setup.TestCluster;
+import org.evosuite.TestGenerationContext;
 import org.objectweb.asm.Label;
 import org.objectweb.asm.Opcodes;
 import org.objectweb.asm.Type;
@@ -48,10 +48,6 @@ public class FieldStatement extends AbstractStatement {
 
 	transient Field field;
 	VariableReference source;
-	// VariableReference ret_val;
-
-	private final String className;
-	private final String fieldName;
 
 	/**
 	 * <p>
@@ -71,8 +67,6 @@ public class FieldStatement extends AbstractStatement {
 	        java.lang.reflect.Type type) {
 		super(tc, new VariableReferenceImpl(tc, type));
 		this.field = field;
-		this.className = field.getDeclaringClass().getName();
-		this.fieldName = field.getName();
 		this.source = source;
 		if (retval.getComponentType() != null) {
 			retval = new ArrayReference(tc, retval.getGenericClass(), 0);
@@ -99,8 +93,6 @@ public class FieldStatement extends AbstractStatement {
 		super(tc, ret_var);
 		assert (tc.size() > ret_var.getStPosition()); //as an old statement should be replaced by this statement
 		this.field = field;
-		this.className = field.getDeclaringClass().getName();
-		this.fieldName = field.getName();
 		this.source = source;
 	}
 
@@ -444,7 +436,7 @@ public class FieldStatement extends AbstractStatement {
 		ois.defaultReadObject();
 
 		// Read/initialize additional fields
-		Class<?> methodClass = TestCluster.classLoader.loadClass((String) ois.readObject());
+		Class<?> methodClass = TestGenerationContext.getClassLoader().loadClass((String) ois.readObject());
 		String fieldName = (String) ois.readObject();
 
 		try {
