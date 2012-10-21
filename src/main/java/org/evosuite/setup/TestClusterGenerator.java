@@ -20,6 +20,7 @@
  */
 package org.evosuite.setup;
 
+import java.io.EvoSuiteIO;
 import java.lang.reflect.Constructor;
 import java.lang.reflect.Field;
 import java.lang.reflect.Method;
@@ -42,6 +43,7 @@ import org.evosuite.coverage.branch.BranchPool;
 import org.evosuite.graphs.cfg.BytecodeInstructionPool;
 import org.evosuite.graphs.cfg.CFGMethodAdapter;
 import org.evosuite.javaagent.BooleanTestabilityTransformation;
+import org.evosuite.runtime.FileSystem;
 import org.evosuite.testcase.GenericClass;
 import org.junit.Test;
 import org.objectweb.asm.Opcodes;
@@ -238,8 +240,22 @@ public class TestClusterGenerator {
 	@SuppressWarnings("unchecked")
 	private static void initializeTargetMethods() throws RuntimeException,
 	        ClassNotFoundException {
+		if (Properties.VIRTUAL_FS) {
+			/*
+			 * We need to initialize and temporarily enable the VFS here because Properties.getTargetClass() triggers loading of the target class what
+			 * could lead to execution of static code blocks that may contain statements altering the file system!
+			 */
+			FileSystem.reset();
+			EvoSuiteIO.enableVFS();
+		}
+
 		logger.info("Analyzing target class");
 		Class<?> targetClass = Properties.getTargetClass();
+
+		if (Properties.VIRTUAL_FS) {
+			EvoSuiteIO.disableVFS(); // disable it again until test case execution
+		}
+		
 		TestCluster cluster = TestCluster.getInstance();
 
 		Set<Class<?>> targetClasses = new HashSet<Class<?>>();
