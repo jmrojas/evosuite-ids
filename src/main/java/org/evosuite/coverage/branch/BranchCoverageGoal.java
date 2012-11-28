@@ -22,6 +22,7 @@ import java.io.ObjectInputStream;
 import java.io.ObjectOutputStream;
 import java.io.Serializable;
 
+import org.evosuite.TestGenerationContext;
 import org.evosuite.coverage.ControlFlowDistance;
 import org.evosuite.coverage.TestCoverageGoal;
 import org.evosuite.graphs.cfg.BytecodeInstructionPool;
@@ -88,8 +89,9 @@ public class BranchCoverageGoal extends TestCoverageGoal implements Serializable
 				throw new IllegalArgumentException(
 				        "expect explicitly given information about a branch to coincide with the information given by that branch");
 		} else {
-//			lineNumber = BranchPool.getBranchlessMethodLineNumber(className, methodName);
-			lineNumber = BytecodeInstructionPool.getFirstLineNumberOfMethod(className, methodName);
+			//			lineNumber = BranchPool.getBranchlessMethodLineNumber(className, methodName);
+			lineNumber = BytecodeInstructionPool.getInstance(TestGenerationContext.getClassLoader()).getFirstLineNumberOfMethod(className,
+			                                                                                                                    methodName);
 		}
 	}
 
@@ -124,8 +126,9 @@ public class BranchCoverageGoal extends TestCoverageGoal implements Serializable
 
 		this.className = className;
 		this.methodName = methodName;
-//		lineNumber = BranchPool.getBranchlessMethodLineNumber(className, methodName);
-		lineNumber = BytecodeInstructionPool.getFirstLineNumberOfMethod(className, methodName);
+		//		lineNumber = BranchPool.getBranchlessMethodLineNumber(className, methodName);
+		lineNumber = BytecodeInstructionPool.getInstance(TestGenerationContext.getClassLoader()).getFirstLineNumberOfMethod(className,
+		                                                                                                                    methodName);
 	}
 
 	/**

@@ -21,6 +21,7 @@ import java.util.zip.ZipException;
 import java.util.zip.ZipFile;
 
 import org.evosuite.Properties;
+import org.evosuite.TestGenerationContext;
 import org.evosuite.TestSuiteGenerator;
 import org.evosuite.setup.TestCluster;
 import org.evosuite.testcase.ExecutionResult;
@@ -82,7 +83,8 @@ public class CoverageAnalysis {
 				try {
 					Class<?> clazz = Class.forName(resource.replaceAll(".class", "").replaceAll("/",
 					                                                                            "."),
-					                               true, TestCluster.classLoader);
+					                               true,
+					                               TestGenerationContext.getClassLoader());
 					if (isTest(clazz)) {
 						classes.add(clazz);
 					}
@@ -107,8 +109,9 @@ public class CoverageAnalysis {
 		} else {
 
 			try {
-				Class<?> junitClass = Class.forName(Properties.JUNIT_PREFIX, true,
-				                                    TestCluster.classLoader);
+				Class<?> junitClass = Class.forName(Properties.JUNIT_PREFIX,
+				                                    true,
+				                                    TestGenerationContext.getClassLoader());
 				classes.add(junitClass);
 			} catch (ClassNotFoundException e) {
 				// Second, try if the target name is a package name
@@ -147,7 +150,7 @@ public class CoverageAnalysis {
 
 				// Use default classLoader
 				Class<?> clazz = Class.forName(className.replace("/", "."), true,
-				                               TestCluster.classLoader);
+				                               TestGenerationContext.getClassLoader());
 				LoggingUtils.restorePreviousOutAndErrStream();
 
 				//clazz = Class.forName(clazz.getName());
@@ -238,7 +241,8 @@ public class CoverageAnalysis {
 			try {
 				Class<?> clazz = Class.forName(fileName.replace(".class", "").replace("/",
 				                                                                      "."),
-				                               true, TestCluster.classLoader);
+				                               true,
+				                               TestGenerationContext.getClassLoader());
 				classes.add(clazz);
 			} catch (IllegalAccessError ex) {
 				System.setOut(old_out);
@@ -286,7 +290,7 @@ public class CoverageAnalysis {
 		LoggingUtils.getEvoLogger().info("* Executed " + result.getRunCount() + " tests");
 		ExecutionTrace trace = ExecutionTracer.getExecutionTracer().getTrace();
 
-		List<TestFitnessFunction> goals = TestSuiteGenerator.getFitnessFactory().getCoverageGoals();
+		List<? extends TestFitnessFunction> goals = TestSuiteGenerator.getFitnessFactory().getCoverageGoals();
 		TestChromosome dummy = new TestChromosome();
 		ExecutionResult executionResult = new ExecutionResult(dummy.getTestCase());
 		executionResult.setTrace(trace);
@@ -362,9 +366,8 @@ public class CoverageAnalysis {
 		LoggingUtils.getEvoLogger().info("* Connecting to master process on port "
 		                                         + Properties.PROCESS_COMMUNICATION_PORT);
 		if (!util.connectToMainProcess()) {
-			LoggingUtils.getEvoLogger().error("* Could not connect to master process on port "
-			                                          + Properties.PROCESS_COMMUNICATION_PORT);
-			System.exit(1);
+			throw new RuntimeException("Could not connect to master process on port "
+			        + Properties.PROCESS_COMMUNICATION_PORT);
 		}
 
 		analyzeCoverage();
@@ -397,7 +400,6 @@ public class CoverageAnalysis {
 			                                          + Properties.TARGET_CLASS
 			                                          + " with seed "
 			                                          + Randomness.getSeed(), t);
-			t.printStackTrace();
 
 			//sleep 1 sec to be more sure that the above log is recorded
 			try {

@@ -1,6 +1,6 @@
 package org.evosuite.symbolic.vm.string;
 
-import org.evosuite.symbolic.expr.StringExpression;
+import org.evosuite.symbolic.expr.str.StringValue;
 import org.evosuite.symbolic.vm.NonNullReference;
 import org.evosuite.symbolic.vm.Operand;
 import org.evosuite.symbolic.vm.SymbolicEnvironment;
@@ -10,7 +10,7 @@ public abstract class ValueOf {
 	private static final String VALUE_OF = "valueOf";
 
 	public static final class ValueOf_O extends StringFunction {
-		private StringExpression strExpr;
+		private StringValue strExpr;
 
 		public ValueOf_O(SymbolicEnvironment env) {
 			super(env, VALUE_OF, Types.OBJECT_TO_STR_DESCRIPTOR);
@@ -18,15 +18,24 @@ public abstract class ValueOf {
 
 		@Override
 		public void INVOKESTATIC() {
-			Operand op = env.topFrame().operandStack.peekOperand();
-			strExpr = getStringExpression(op);
+			// do nothing
+		}
+
+		@Override
+		public void CALLER_STACK_PARAM(int nr, int calleeLocalsIndex,
+				Object value) {
+			if (value instanceof String) {
+				String string = (String) value;
+				Operand op = env.topFrame().operandStack.peekOperand();
+				strExpr = getStringExpression(op, string);
+			}
 		}
 
 		@Override
 		public void CALL_RESULT(Object res) {
 			if (res != null && strExpr != null) {
 
-				StringExpression symb_value = strExpr;
+				StringValue symb_value = strExpr;
 				NonNullReference symb_receiver = (NonNullReference) env
 						.topFrame().operandStack.peekRef();
 				String conc_receiver = (String) res;
@@ -36,5 +45,6 @@ public abstract class ValueOf {
 
 			}
 		}
+
 	}
 }

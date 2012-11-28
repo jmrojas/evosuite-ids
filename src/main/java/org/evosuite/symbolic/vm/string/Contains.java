@@ -3,15 +3,14 @@ package org.evosuite.symbolic.vm.string;
 import java.util.Iterator;
 
 import org.evosuite.symbolic.expr.Operator;
-import org.evosuite.symbolic.expr.StringComparison;
-import org.evosuite.symbolic.expr.StringExpression;
-import org.evosuite.symbolic.expr.StringToIntCast;
+import org.evosuite.symbolic.expr.bv.StringComparison;
+import org.evosuite.symbolic.expr.str.StringValue;
 import org.evosuite.symbolic.vm.Operand;
 import org.evosuite.symbolic.vm.SymbolicEnvironment;
 
 public final class Contains extends StringFunction {
 
-	private StringExpression strExpr;
+	private StringValue strExpr;
 	private static final String CONTAINS = "contains";
 
 	public Contains(SymbolicEnvironment env) {
@@ -21,8 +20,18 @@ public final class Contains extends StringFunction {
 	@Override
 	protected void INVOKEVIRTUAL_String(String receiver) {
 		Iterator<Operand> it = env.topFrame().operandStack.iterator();
-		this.strExpr = getStringExpression(it.next());
-		this.stringReceiverExpr = getStringExpression(it.next());
+		it.next(); // discard (for now)
+		this.stringReceiverExpr = getStringExpression(it.next(), receiver);
+	}
+
+	@Override
+	public void CALLER_STACK_PARAM(int nr, int calleeLocalsIndex, Object value) {
+		if (value instanceof String) {
+			String string = (String) value;
+			Iterator<Operand> it = env.topFrame().operandStack.iterator();
+			this.strExpr = getStringExpression(it.next(), string);
+
+		}
 	}
 
 	@Override
@@ -41,4 +50,5 @@ public final class Contains extends StringFunction {
 			}
 		}
 	}
+
 }

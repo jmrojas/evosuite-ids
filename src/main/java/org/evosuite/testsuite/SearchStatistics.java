@@ -296,6 +296,16 @@ public class SearchStatistics extends ReportGenerator implements Serializable {
 		entry.mutationScore = mutationScore;
 	}
 
+	public void addCoverage(String criterion, double coverage) {
+		StatisticEntry entry = statistics.get(statistics.size() - 1);
+		entry.coverageMap.put(criterion, coverage);
+	}
+
+	public void setCoveredGoals(int num) {
+		StatisticEntry entry = statistics.get(statistics.size() - 1);
+		entry.covered_goals = num;
+	}
+
 	/** {@inheritDoc} */
 	@Override
 	public void minimized(Chromosome chromosome) {
@@ -336,7 +346,12 @@ public class SearchStatistics extends ReportGenerator implements Serializable {
 			entry.coverage.addAll(getCoveredLines(trace, entry.className));
 			isExceptionExplicit.put(test.getTestCase(), result.explicitExceptions);
 
-			covered_methods.addAll(trace.getCoveredMethods());
+			for (String method : trace.getCoveredMethods()) {
+				if (method.startsWith(Properties.TARGET_CLASS)
+				        || method.startsWith(Properties.TARGET_CLASS + '$'))
+					covered_methods.add(method);
+			}
+			// covered_methods.addAll(trace.getCoveredMethods());
 
 			for (Entry<Integer, Double> e : trace.getTrueDistances().entrySet()) {
 				if (!predicate_count.containsKey(e.getKey()))
@@ -426,6 +441,10 @@ public class SearchStatistics extends ReportGenerator implements Serializable {
 			double df = true_distance.get(key);
 			double dt = false_distance.get(key);
 			Branch b = BranchPool.getBranch(key);
+			if (!b.getClassName().startsWith(Properties.TARGET_CLASS)
+			        && !b.getClassName().startsWith(Properties.TARGET_CLASS + '$'))
+				continue;
+
 			//if (!b.isInstrumented()) {
 			if (df == 0.0)
 				num_covered++;
@@ -560,7 +579,7 @@ public class SearchStatistics extends ReportGenerator implements Serializable {
 		entry.result_statements_executed = MaxStatementsStoppingCondition.getNumExecutedStatements();
 		entry.testExecutionTime = TestCaseExecutor.timeExecuted;
 		entry.goalComputationTime = AbstractFitnessFactory.goalComputationTime;
-		entry.covered_goals = TestSuiteFitnessFunction.getCoveredGoals();
+		entry.covered_goals = result.getNumOfCoveredGoals();
 		entry.timedOut = TestSuiteGenerator.global_time.isFinished();
 		entry.stoppingCondition = TestSuiteGenerator.stopping_condition.getCurrentValue();
 		entry.globalTimeStoppingCondition = TestSuiteGenerator.global_time.getCurrentValue();
@@ -626,7 +645,7 @@ public class SearchStatistics extends ReportGenerator implements Serializable {
 		Chromosome best = algorithm.getBestIndividual();
 		if (best instanceof TestSuiteChromosome) {
 			entry.length_history.add(((TestSuiteChromosome) best).totalLengthOfTestCases());
-			entry.coverage_history.add(((TestSuiteChromosome) best).coverage);
+			entry.coverage_history.add(((TestSuiteChromosome) best).getCoverage());
 			entry.tests_executed.add(MaxTestsStoppingCondition.getNumExecutedTests());
 			entry.statements_executed.add(MaxStatementsStoppingCondition.getNumExecutedStatements());
 			entry.fitness_evaluations.add(MaxFitnessEvaluationsStoppingCondition.getNumFitnessEvaluations());

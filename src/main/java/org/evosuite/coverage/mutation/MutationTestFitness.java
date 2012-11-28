@@ -23,6 +23,7 @@ package org.evosuite.coverage.mutation;
 import java.util.HashSet;
 import java.util.Set;
 
+import org.evosuite.TestGenerationContext;
 import org.evosuite.coverage.ControlFlowDistance;
 import org.evosuite.coverage.branch.BranchCoverageGoal;
 import org.evosuite.ga.stoppingconditions.MaxStatementsStoppingCondition;
@@ -61,8 +62,8 @@ public abstract class MutationTestFitness extends TestFitnessFunction {
 	public MutationTestFitness(Mutation mutation) {
 		this.mutation = mutation;
 		controlDependencies.addAll(mutation.getControlDependencies());
-		ActualControlFlowGraph cfg = GraphPool.getActualCFG(mutation.getClassName(),
-		                                                    mutation.getMethodName());
+		ActualControlFlowGraph cfg = GraphPool.getInstance(TestGenerationContext.getClassLoader()).getActualCFG(mutation.getClassName(),
+		                                                                                                        mutation.getMethodName());
 		diameter = cfg.getDiameter();
 	}
 
@@ -120,9 +121,7 @@ public abstract class MutationTestFitness extends TestFitnessFunction {
 			MaxStatementsStoppingCondition.statementsExecuted(num);
 
 		} catch (Exception e) {
-			System.out.println("TG: Exception caught: " + e);
-			e.printStackTrace();
-			System.exit(1);
+			throw new Error(e);
 		}
 
 		return result;

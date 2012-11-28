@@ -1,12 +1,12 @@
 package org.evosuite.symbolic.vm.string;
 
 import java.util.Iterator;
+import java.util.regex.PatternSyntaxException;
 
 import org.evosuite.symbolic.expr.Operator;
-import org.evosuite.symbolic.expr.StringComparison;
-import org.evosuite.symbolic.expr.StringConstant;
-import org.evosuite.symbolic.expr.StringExpression;
-import org.evosuite.symbolic.expr.StringToIntCast;
+import org.evosuite.symbolic.expr.bv.StringComparison;
+import org.evosuite.symbolic.expr.str.StringConstant;
+import org.evosuite.symbolic.expr.str.StringValue;
 import org.evosuite.symbolic.vm.ExpressionFactory;
 import org.evosuite.symbolic.vm.Operand;
 import org.evosuite.symbolic.vm.SymbolicEnvironment;
@@ -14,7 +14,7 @@ import org.evosuite.symbolic.vm.SymbolicEnvironment;
 public final class Matches extends StringFunction {
 
 	private static final String MATCHES = "matches";
-	private StringExpression regExStrExpr;
+	private StringValue regExStrExpr;
 
 	public Matches(SymbolicEnvironment env) {
 		super(env, MATCHES, Types.STR_TO_BOOL_DESCRIPTOR);
@@ -23,8 +23,15 @@ public final class Matches extends StringFunction {
 	@Override
 	protected void INVOKEVIRTUAL_String(String receiver) {
 		Iterator<Operand> it = env.topFrame().operandStack.iterator();
-		this.regExStrExpr = getStringExpression(it.next());
-		this.stringReceiverExpr = getStringExpression(it.next());
+		it.next(); // discard now
+		this.stringReceiverExpr = getStringExpression(it.next(), receiver);
+	}
+
+	@Override
+	public void CALLER_STACK_PARAM(int nr, int calleeLocalsIndex, Object value) {
+		String string_value = (String) value;
+		Iterator<Operand> it = env.topFrame().operandStack.iterator();
+		this.regExStrExpr = getStringExpression(it.next(), string_value);
 	}
 
 	@Override

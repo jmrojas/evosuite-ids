@@ -36,7 +36,7 @@ import org.evosuite.coverage.dataflow.DefUse;
 import org.evosuite.coverage.dataflow.DefUsePool;
 import org.evosuite.coverage.dataflow.Definition;
 import org.evosuite.coverage.dataflow.Use;
-import org.evosuite.coverage.ibranch.CallContext;
+import org.evosuite.setup.CallContext;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -47,6 +47,7 @@ import org.slf4j.LoggerFactory;
  */
 public class ExecutionTraceImpl implements ExecutionTrace, Cloneable {
 
+	@Deprecated
 	public static class BranchEval {
 		private final int branchId;
 		private CallContext context = null;
@@ -190,6 +191,14 @@ public class ExecutionTraceImpl implements ExecutionTrace, Cloneable {
 
 	public Map<Integer, Integer> coveredTrue = Collections.synchronizedMap(new HashMap<Integer, Integer>());
 
+	public Map<Integer, Integer> coveredDefs = Collections.synchronizedMap(new HashMap<Integer, Integer>());
+
+	public Map<Integer, Map<CallContext, Double>> coveredTrueContext = Collections.synchronizedMap(new HashMap<Integer, Map<CallContext, Double>>());
+
+	public Map<Integer, Map<CallContext, Double>> coveredFalseContext = Collections.synchronizedMap(new HashMap<Integer, Map<CallContext, Double>>());
+
+	public Map<Integer, Map<CallContext, Integer>> coveredPredicateContext = Collections.synchronizedMap(new HashMap<Integer, Map<CallContext, Integer>>());
+
 	// number of seen Definitions and uses for indexing purposes
 	private int duCounter = 0;
 	// The last explicitly thrown exception is kept here
@@ -306,13 +315,42 @@ public class ExecutionTraceImpl implements ExecutionTrace, Cloneable {
 		else
 			falseDistancesSum.put(branch, falseDistancesSum.get(branch) + false_distance);
 
+		if (Properties.CRITERION == Criterion.IBRANCH) {
+			updateBranchContextMaps(branch, true_distance, false_distance);
+		}
+
+		// This requires a lot of memory and should not really be used
 		if (Properties.BRANCH_EVAL) {
-			if (Properties.CRITERION == Criterion.IBRANCH) {
-				branchesTrace.add(new BranchEval(branch, true_distance, false_distance,
-				        new CallContext(Thread.currentThread().getStackTrace())));
-			} else {
-				branchesTrace.add(new BranchEval(branch, true_distance, false_distance));
-			}
+			branchesTrace.add(new BranchEval(branch, true_distance, false_distance));
+		}
+	}
+
+	/**
+	 * @param branch
+	 * @param true_distance
+	 * @param false_distance
+	 */
+	private void updateBranchContextMaps(int branch, double true_distance,
+	        double false_distance) {
+		if (!coveredPredicateContext.containsKey(branch)) {
+			coveredPredicateContext.put(branch, new HashMap<CallContext, Integer>());
+			coveredTrueContext.put(branch, new HashMap<CallContext, Double>());
+			coveredFalseContext.put(branch, new HashMap<CallContext, Double>());
+		}
+		CallContext context = new CallContext(Thread.currentThread().getStackTrace());
+		if (!coveredPredicateContext.get(branch).containsKey(context)) {
+			coveredPredicateContext.get(branch).put(context, 1);
+			coveredTrueContext.get(branch).put(context, true_distance);
+			coveredFalseContext.get(branch).put(context, false_distance);
+		} else {
+			coveredPredicateContext.get(branch).put(context,
+			                                        coveredPredicateContext.get(branch).get(context) + 1);
+			coveredTrueContext.get(branch).put(context,
+			                                   Math.min(coveredTrueContext.get(branch).get(context),
+			                                            true_distance));
+			coveredFalseContext.get(branch).put(context,
+			                                    Math.min(coveredFalseContext.get(branch).get(context),
+			                                             false_distance));
 		}
 	}
 
@@ -344,9 +382,13 @@ public class ExecutionTraceImpl implements ExecutionTrace, Cloneable {
 		coveredPredicates = new HashMap<Integer, Integer>();
 		coveredTrue = new HashMap<Integer, Integer>();
 		coveredFalse = new HashMap<Integer, Integer>();
+		coveredDefs = new HashMap<Integer, Integer>();
 		passedDefinitions = new HashMap<String, HashMap<Integer, HashMap<Integer, Integer>>>();
 		passedUses = new HashMap<String, HashMap<Integer, HashMap<Integer, Integer>>>();
 		branchesTrace = new ArrayList<BranchEval>();
+		coveredTrueContext = new HashMap<Integer, Map<CallContext, Double>>();
+		coveredFalseContext = new HashMap<Integer, Map<CallContext, Double>>();
+		coveredPredicateContext = new HashMap<Integer, Map<CallContext, Integer>>();
 	}
 
 	/**
@@ -380,11 +422,17 @@ public class ExecutionTraceImpl implements ExecutionTrace, Cloneable {
 		copy.coveredPredicates.putAll(coveredPredicates);
 		copy.coveredTrue.putAll(coveredTrue);
 		copy.coveredFalse.putAll(coveredFalse);
+		copy.coveredDefs.putAll(coveredDefs);
 		copy.touchedMutants.addAll(touchedMutants);
 		copy.mutantDistances.putAll(mutantDistances);
 		copy.passedDefinitions.putAll(passedDefinitions);
 		copy.passedUses.putAll(passedUses);
 		copy.branchesTrace.addAll(branchesTrace);
+
+		copy.coveredTrueContext.putAll(coveredTrueContext);
+		copy.coveredFalseContext.putAll(coveredFalseContext);
+		copy.coveredPredicateContext.putAll(coveredPredicateContext);
+
 		copy.methodId = methodId;
 		copy.duCounter = duCounter;
 		copy.objectCounter = objectCounter;
@@ -416,7 +464,11 @@ public class ExecutionTraceImpl implements ExecutionTrace, Cloneable {
 			throw new IllegalStateException(
 			        "expect DefUsePool to known defIDs that are passed by instrumented code");
 		}
-
+		if (!coveredDefs.containsKey(defID)) {
+			coveredDefs.put(defID, 0);
+		} else {
+			coveredDefs.put(defID, coveredDefs.get(defID) + 1);
+		}
 		String varName = def.getVariableName();
 
 		int objectID = registerObject(caller);
@@ -630,6 +682,22 @@ public class ExecutionTraceImpl implements ExecutionTrace, Cloneable {
 		}
 
 		return covered;
+	}
+
+	/* (non-Javadoc)
+	 * @see org.evosuite.testcase.ExecutionTrace#getCoveredDefinitions()
+	 */
+	@Override
+	public Set<Integer> getCoveredDefinitions() {
+		return coveredDefs.keySet();
+	}
+
+	/* (non-Javadoc)
+	 * @see org.evosuite.testcase.ExecutionTrace#getDefinitionExecutionCount()
+	 */
+	@Override
+	public Map<Integer, Integer> getDefinitionExecutionCount() {
+		return coveredDefs;
 	}
 
 	/* (non-Javadoc)
@@ -1288,4 +1356,59 @@ public class ExecutionTraceImpl implements ExecutionTrace, Cloneable {
 	public Map<String, HashMap<Integer, HashMap<Integer, Integer>>> getPassedUses() {
 		return passedUses;
 	}
+
+	/* (non-Javadoc)
+	 * @see org.evosuite.testcase.ExecutionTrace#getPassedDefIDs()
+	 */
+	// 	Map<String, HashMap<Integer, HashMap<Integer, Integer>>>
+
+	@Override
+	public Set<Integer> getPassedDefIDs() {
+		Set<Integer> defs = new HashSet<Integer>();
+		for (HashMap<Integer, HashMap<Integer, Integer>> classDefs : passedDefinitions.values()) {
+			for (HashMap<Integer, Integer> currentDefs : classDefs.values()) {
+				defs.addAll(currentDefs.values());
+			}
+		}
+		return defs;
+	}
+
+	/* (non-Javadoc)
+	 * @see org.evosuite.testcase.ExecutionTrace#getPassedUseIDs()
+	 */
+	@Override
+	public Set<Integer> getPassedUseIDs() {
+		Set<Integer> uses = new HashSet<Integer>();
+		for (HashMap<Integer, HashMap<Integer, Integer>> classUses : passedUses.values()) {
+			for (HashMap<Integer, Integer> currentUses : classUses.values()) {
+				uses.addAll(currentUses.values());
+			}
+		}
+		return uses;
+	}
+
+	/* (non-Javadoc)
+	 * @see org.evosuite.testcase.ExecutionTrace#getTrueDistancesContext()
+	 */
+	@Override
+	public Map<Integer, Map<CallContext, Double>> getTrueDistancesContext() {
+		return coveredTrueContext;
+	}
+
+	/* (non-Javadoc)
+	 * @see org.evosuite.testcase.ExecutionTrace#getFalseDistancesContext()
+	 */
+	@Override
+	public Map<Integer, Map<CallContext, Double>> getFalseDistancesContext() {
+		return coveredFalseContext;
+	}
+
+	/* (non-Javadoc)
+	 * @see org.evosuite.testcase.ExecutionTrace#getPredicateContextExecutionCount()
+	 */
+	@Override
+	public Map<Integer, Map<CallContext, Integer>> getPredicateContextExecutionCount() {
+		return coveredPredicateContext;
+	}
+
 }

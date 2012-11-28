@@ -5,9 +5,9 @@ import java.util.Collections;
 import java.util.Iterator;
 
 import org.evosuite.symbolic.expr.Expression;
-import org.evosuite.symbolic.expr.IntegerExpression;
 import org.evosuite.symbolic.expr.Operator;
-import org.evosuite.symbolic.expr.StringMultipleExpression;
+import org.evosuite.symbolic.expr.bv.IntegerValue;
+import org.evosuite.symbolic.expr.str.StringMultipleExpression;
 import org.evosuite.symbolic.vm.NonNullReference;
 import org.evosuite.symbolic.vm.Operand;
 import org.evosuite.symbolic.vm.SymbolicEnvironment;
@@ -17,8 +17,8 @@ public final class Substring extends StringFunction {
 
 	private static final String SUBSTRING = "substring";
 
-	private IntegerExpression beginIndexExpr;
-	private IntegerExpression endIndexExpr;
+	private IntegerValue beginIndexExpr;
+	private IntegerValue endIndexExpr;
 
 	public Substring(SymbolicEnvironment env) {
 		super(env, SUBSTRING, Types.INT_INT_TO_STR_DESCRIPTOR);
@@ -29,7 +29,7 @@ public final class Substring extends StringFunction {
 		Iterator<Operand> it = env.topFrame().operandStack.iterator();
 		this.endIndexExpr = bv32(it.next());
 		this.beginIndexExpr = bv32(it.next());
-		this.stringReceiverExpr = getStringExpression(it.next());
+		this.stringReceiverExpr = getStringExpression(it.next(), receiver);
 	}
 
 	@Override

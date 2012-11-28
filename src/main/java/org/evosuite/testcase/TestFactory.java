@@ -272,8 +272,8 @@ public class TestFactory {
 				                                             // probability here?
 				try {
 					// TODO: Would casting be an option here?
-					callee = test.getRandomNonNullObject(method.getDeclaringClass(),
-					                                     position);
+					callee = test.getRandomNonNullNonPrimitiveObject(method.getDeclaringClass(),
+					                                                 position);
 					logger.debug("Found callee of type "
 					        + method.getDeclaringClass().getName() + ": "
 					        + callee.getName());
@@ -492,9 +492,16 @@ public class TestFactory {
 	        int recursionDepth, boolean allowNull) throws ConstructionFailedException {
 		GenericClass clazz = new GenericClass(type);
 
-		if (clazz.isPrimitive() || clazz.isString() || clazz.isEnum()
+		if (clazz.isPrimitive() || clazz.isEnum()
 		        || clazz.getRawClass().equals(EvoSuiteFile.class)) {
 			return createPrimitive(test, type, position, recursionDepth);
+		} else if (clazz.isString()) {
+			if (allowNull && Randomness.nextDouble() <= Properties.NULL_PROBABILITY) {
+				logger.debug("Using a null reference to satisfy the type: " + type);
+				return createNull(test, type, position, recursionDepth);
+			} else {
+				return createPrimitive(test, type, position, recursionDepth);
+			}
 		} else if (clazz.isArray()) {
 			return createArray(test, type, position, recursionDepth);
 		} else {
@@ -600,7 +607,8 @@ public class TestFactory {
 			VariableReference retval = statement.getReturnValue();
 			VariableReference callee = null;
 			if (!Modifier.isStatic(method.getModifiers()))
-				callee = test.getRandomNonNullObject(method.getDeclaringClass(), position);
+				callee = test.getRandomNonNullNonPrimitiveObject(method.getDeclaringClass(),
+				                                                 position);
 			List<VariableReference> parameters = new ArrayList<VariableReference>();
 			for (Type type : method.getParameterTypes()) {
 				parameters.add(test.getRandomObject(type, position));
@@ -630,7 +638,8 @@ public class TestFactory {
 			VariableReference retval = statement.getReturnValue();
 			VariableReference source = null;
 			if (!Modifier.isStatic(field.getModifiers()))
-				source = test.getRandomNonNullObject(field.getDeclaringClass(), position);
+				source = test.getRandomNonNullNonPrimitiveObject(field.getDeclaringClass(),
+				                                                 position);
 
 			try {
 				FieldStatement f = new FieldStatement(test, field, source, retval);
@@ -638,12 +647,8 @@ public class TestFactory {
 
 				test.setStatement(f, position);
 			} catch (Throwable e) {
-
-				logger.warn("Error: " + e);
-				e.printStackTrace();
-				logger.warn("Field: " + field);
-				logger.warn("Test: " + test);
-				System.exit(0);
+				logger.error("Error: " + e + " , Field: " + field + " , Test: " + test);
+				throw new Error(e);
 			}
 		}
 	}
@@ -997,8 +1002,15 @@ public class TestFactory {
 			return;
 		}
 
+		boolean replacingPrimitive = test.getStatement(position) instanceof PrimitiveStatement;
+
 		// Get possible replacements
 		List<VariableReference> alternatives = test.getObjects(var.getType(), position);
+
+		int maxIndex = 0;
+		if (var instanceof ArrayReference) {
+			maxIndex = ((ArrayReference) var).getMaximumIndex();
+		}
 
 		// Remove invalid classes if this is an Object.class reference
 		if (test.getStatement(position) instanceof MethodStatement) {
@@ -1021,7 +1033,16 @@ public class TestFactory {
 			VariableReference r = replacement.next();
 			if (var.equals(r.getAdditionalVariableReference()))
 				replacement.remove();
+			else if (r instanceof ArrayReference) {
+				if (maxIndex >= ((ArrayReference) r).getArrayLength())
+					replacement.remove();
+			} else if (!replacingPrimitive) {
+				if (test.getStatement(r.getStPosition()) instanceof PrimitiveStatement) {
+					replacement.remove();
+				}
+			}
 		}
+
 		if (!alternatives.isEmpty()) {
 			// Change all references to return value at position to something
 			// else
@@ -1200,7 +1221,9 @@ public class TestFactory {
 				Method m = (Method) o;
 				//logger.info("Adding method call " + m.getName());
 				name = m.getName();
-				addMethod(test, m, position, 0);
+				VariableReference callee = test.getRandomObject(Properties.getTargetClass(), position);
+				addMethodFor(test, callee, m, position);
+				//addMethod(test, m, position, 0);
 			} else if (o instanceof Field) {
 				Field f = (Field) o;
 				//logger.info("Adding field assignment " + f.getName());
@@ -1379,7 +1402,8 @@ public class TestFactory {
 
 			if (dist >= rnd
 			        && !(test.getStatement(i).getReturnValue() instanceof NullReference)
-			        && !(test.getStatement(i).getReturnValue().isVoid()))
+			        && !(test.getStatement(i).getReturnValue().isVoid())
+			        && !(test.getStatement(i) instanceof PrimitiveStatement))
 				return test.getStatement(i).getReturnValue();
 			else
 				rnd = rnd - dist;
@@ -1389,7 +1413,8 @@ public class TestFactory {
 			position = Randomness.nextInt(position);
 
 		VariableReference var = test.getStatement(position).getReturnValue();
-		if (!(var instanceof NullReference) && !var.isVoid())
+		if (!(var instanceof NullReference) && !var.isVoid()
+		        && !(test.getStatement(position) instanceof PrimitiveStatement))
 			return var;
 		else
 			return null;

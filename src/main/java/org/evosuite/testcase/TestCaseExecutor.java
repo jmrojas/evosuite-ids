@@ -30,6 +30,7 @@ import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
 
 import org.evosuite.Properties;
+import org.evosuite.TestGenerationContext;
 import org.evosuite.contracts.ContractChecker;
 import org.evosuite.ga.stoppingconditions.MaxStatementsStoppingCondition;
 import org.evosuite.ga.stoppingconditions.MaxTestsStoppingCondition;
@@ -40,8 +41,15 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 /**
+ * <p>
  * The test case executor manages thread creation/deletion to execute a test
  * case
+ * </p>
+ * 
+ * <p>
+ * WARNING: never give "privileged" rights in MSecurityManager to any of the
+ * threads generated here
+ * </p>
  * 
  * @author Gordon Fraser
  */
@@ -52,6 +60,11 @@ public class TestCaseExecutor implements ThreadFactory {
 	 */
 	public static final String TEST_EXECUTION_THREAD_GROUP = "Test Execution";
 
+	/**
+	 * Name used to define the threads spawn by this factory
+	 */
+	public static final String TEST_EXECUTION_THREAD = "TEST_EXECUTION_THREAD";
+	
 	private static final Logger logger = LoggerFactory.getLogger(TestCaseExecutor.class);
 
 	private static final PrintStream systemOut = System.out;
@@ -77,6 +90,11 @@ public class TestCaseExecutor implements ThreadFactory {
 	/** Constant <code>testsExecuted=0</code> */
 	public static int testsExecuted = 0;
 
+	/**
+	 * Used when we spawn a new thread to give a unique name
+	 */
+	public volatile int threadCounter;
+	
 	/**
 	 * <p>
 	 * Getter for the field <code>instance</code>.
@@ -107,20 +125,13 @@ public class TestCaseExecutor implements ThreadFactory {
 			logger.debug("Executing test");
 			result = executor.execute(test);
 
-			int num = test.size();
-			MaxStatementsStoppingCondition.statementsExecuted(num);
+			MaxStatementsStoppingCondition.statementsExecuted(result.getExecutedStatements());
 
-			// for(TestObserver observer : observers) {
-			// observer.testResult(result);
-			// }
 		} catch (Exception e) {
-			System.out.println("TG: Exception caught: " + e);
-			e.printStackTrace();
 			logger.error("TG: Exception caught: ", e);
-			System.exit(1);
+			throw new Error(e);
 		}
 
-		// System.out.println("TG: Killed "+result.getNumKilled()+" out of "+mutants.size());
 		return result;
 	}
 
@@ -148,8 +159,12 @@ public class TestCaseExecutor implements ThreadFactory {
 	 * </p>
 	 */
 	public static void pullDown() {
-		if (instance != null)
-			instance.executor.shutdownNow();
+		if (instance != null) {
+			if(instance.executor!=null){
+				instance.executor.shutdownNow();
+				instance.executor = null;
+			}
+		}
 	}
 
 	/**
@@ -163,9 +178,7 @@ public class TestCaseExecutor implements ThreadFactory {
 				logger.warn("TestCaseExecutor instance is non-null, but its actual executor is null");
 				instance.executor = Executors.newSingleThreadExecutor(instance);
 			} else {
-				if (instance.executor.isShutdown()) {
-					instance.executor = Executors.newSingleThreadExecutor(instance);
-				}
+				instance.executor = Executors.newSingleThreadExecutor(instance);
 			}
 		}
 	}
@@ -233,7 +246,19 @@ public class TestCaseExecutor implements ThreadFactory {
 	 */
 	public ExecutionResult execute(TestCase tc) {
 		Scope scope = new Scope();
-		return execute(tc, scope);
+		return execute(tc, scope, Properties.TIMEOUT);
+	}
+
+	/**
+	 * Execute a test case on a new scope
+	 * 
+	 * @param tc
+	 *            a {@link org.evosuite.testcase.TestCase} object.
+	 * @return a {@link org.evosuite.testcase.ExecutionResult} object.
+	 */
+	public ExecutionResult execute(TestCase tc, int timeout) {
+		Scope scope = new Scope();
+		return execute(tc, scope, timeout);
 	}
 
 	/**
@@ -246,7 +271,7 @@ public class TestCaseExecutor implements ThreadFactory {
 	 * @return a {@link org.evosuite.testcase.ExecutionResult} object.
 	 */
 	@SuppressWarnings("deprecation")
-	public ExecutionResult execute(TestCase tc, Scope scope) {
+	public ExecutionResult execute(TestCase tc, Scope scope, int timeout) {
 		ExecutionTracer.getExecutionTracer().clear();
 		// TODO: Re-insert!
 		if (Properties.STATIC_HACK)
@@ -260,16 +285,37 @@ public class TestCaseExecutor implements ThreadFactory {
 		TimeoutHandler<ExecutionResult> handler = new TimeoutHandler<ExecutionResult>();
 
 		//#TODO steenbuck could be nicer (TestRunnable should be an interface
-		InterfaceTestRunnable callable = new TestRunnable(tc, scope, observers);
+		TestRunnable callable = new TestRunnable(tc, scope, observers);
+		callable.storeCurrentThreads();
 
-		//FutureTask<ExecutionResult> task = new FutureTask<ExecutionResult>(callable);
-		//executor.execute(task);
+		/*
+		 * FIXME: the sequence of "catch" with calls to "result.set" should be re-factored, as
+		 * these things should be (already) handled in TestRunnable.call.
+		 * If not, it should be explained, as it is not necessarily obvious why some checks are
+		 * done here, and others in TestRunnable
+		 */
 
 		try {
 			//ExecutionResult result = task.get(timeout, TimeUnit.MILLISECONDS);
-			ExecutionResult result = handler.execute(callable, executor,
-			                                         Properties.TIMEOUT,
-			                                         Properties.CPU_TIMEOUT);
+			
+			ExecutionResult result;
+			Sandbox.goingToExecuteSUTCode();
+			try{ 
+				result = handler.execute(callable, executor, timeout, Properties.CPU_TIMEOUT);
+			} finally {
+				Sandbox.doneWithExecutingSUTCode();
+			}
+			
+			PermissionStatistics.getInstance().countThreads(threadGroup.activeCount());
+			/*
+			 * TODO: this will need proper care when we ll start to handle threads in the search.
+			 */
+			callable.killAndJoinClientThreads();
+
+			/*
+			 * TODO: we might want to initialize the ExecutionResult here, once we waited for all SUT
+			 * threads to finish
+			 */
 
 			long endTime = System.currentTimeMillis();
 			timeExecuted += endTime - startTime;
@@ -318,22 +364,16 @@ public class TestCaseExecutor implements ThreadFactory {
 			//System.setErr(systemErr);
 
 			if (Properties.LOG_TIMEOUT) {
-				System.err.println("Timeout occurred for " + Properties.TARGET_CLASS);
+				logger.warn("Timeout occurred for " + Properties.TARGET_CLASS);
 			}
 			logger.info("TimeoutException, need to stop runner", e1);
 			ExecutionTracer.setKillSwitch(true);
 			try {
 				handler.getLastTask().get(Properties.SHUTDOWN_TIMEOUT,
 				                          TimeUnit.MILLISECONDS);
-			} catch (InterruptedException e2) {
-				// TODO Auto-generated catch block
-				//e2.printStackTrace();
+			} catch (InterruptedException e2) {				
 			} catch (ExecutionException e2) {
-				// TODO Auto-generated catch block
-				//e2.printStackTrace();
 			} catch (TimeoutException e2) {
-				// TODO Auto-generated catch block
-				//e2.printStackTrace();
 			}
 			//task.cancel(true);
 
@@ -372,7 +412,7 @@ public class TestCaseExecutor implements ThreadFactory {
 						logger.info("Throwable: " + t);
 					}
 					ExecutionTracer.disable();
-					executor = Executors.newSingleThreadExecutor(this);
+					executor = Executors.newSingleThreadExecutor(this);					
 				}
 			} else {
 				logger.info("Run is finished - " + currentThread.isAlive() + ": "
@@ -432,7 +472,9 @@ public class TestCaseExecutor implements ThreadFactory {
 		}
 		threadGroup = new ThreadGroup(TEST_EXECUTION_THREAD_GROUP);
 		currentThread = new Thread(threadGroup, r);
-		currentThread.setContextClassLoader(TestCluster.classLoader);
+		currentThread.setName(TEST_EXECUTION_THREAD+"_"+threadCounter);
+		threadCounter++;
+		currentThread.setContextClassLoader(TestGenerationContext.getClassLoader());
 		ExecutionTracer.setThread(currentThread);
 		return currentThread;
 	}

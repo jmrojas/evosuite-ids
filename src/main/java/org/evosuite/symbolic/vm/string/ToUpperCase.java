@@ -1,7 +1,7 @@
 package org.evosuite.symbolic.vm.string;
 
 import org.evosuite.symbolic.expr.Operator;
-import org.evosuite.symbolic.expr.StringUnaryExpression;
+import org.evosuite.symbolic.expr.str.StringUnaryExpression;
 import org.evosuite.symbolic.vm.NonNullReference;
 import org.evosuite.symbolic.vm.SymbolicEnvironment;
 import org.evosuite.symbolic.vm.SymbolicHeap;
@@ -17,7 +17,7 @@ public final class ToUpperCase extends StringFunction {
 	@Override
 	protected void INVOKEVIRTUAL_String(String receiver) {
 		this.stringReceiverExpr = getStringExpression(env.topFrame().operandStack
-				.peekOperand());
+				.peekOperand(), receiver);
 	}
 
 	@Override

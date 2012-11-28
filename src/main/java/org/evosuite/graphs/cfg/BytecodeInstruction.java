@@ -62,6 +62,7 @@ public class BytecodeInstruction extends ASMWrapper implements Serializable,
 	private static final long serialVersionUID = 3630449183355518857L;
 
 	// identification of a byteCode instruction inside EvoSuite
+	protected ClassLoader classLoader;
 	protected String className;
 	protected String methodName;
 	protected int instructionId;
@@ -91,8 +92,8 @@ public class BytecodeInstruction extends ASMWrapper implements Serializable,
 	 * @param asmNode
 	 *            a {@link org.objectweb.asm.tree.AbstractInsnNode} object.
 	 */
-	public BytecodeInstruction(String className, String methodName,
-			int instructionId, int jpfId, AbstractInsnNode asmNode) {
+	public BytecodeInstruction(ClassLoader classLoader, String className,
+	        String methodName, int instructionId, int jpfId, AbstractInsnNode asmNode) {
 
 		if (className == null || methodName == null || asmNode == null)
 			throw new IllegalArgumentException("null given");
@@ -103,6 +104,8 @@ public class BytecodeInstruction extends ASMWrapper implements Serializable,
 		this.instructionId = instructionId;
 		this.jpfId = jpfId;
 		this.asmNode = asmNode;
+
+		this.classLoader = classLoader;
 
 		setClassName(className);
 		setMethodName(methodName);
@@ -116,8 +119,8 @@ public class BytecodeInstruction extends ASMWrapper implements Serializable,
 	 */
 	public BytecodeInstruction(BytecodeInstruction wrap) {
 
-		this(wrap.className, wrap.methodName, wrap.instructionId, wrap.jpfId,
-				wrap.asmNode, wrap.lineNumber, wrap.basicBlock);
+		this(wrap.classLoader, wrap.className, wrap.methodName, wrap.instructionId,
+		        wrap.jpfId, wrap.asmNode, wrap.lineNumber, wrap.basicBlock);
 		this.forcedBranch = wrap.forcedBranch;
 		this.frame = wrap.frame;
 	}
@@ -142,11 +145,12 @@ public class BytecodeInstruction extends ASMWrapper implements Serializable,
 	 * @param basicBlock
 	 *            a {@link org.evosuite.graphs.cfg.BasicBlock} object.
 	 */
-	public BytecodeInstruction(String className, String methodName,
-			int instructionId, int jpfId, AbstractInsnNode asmNode,
-			int lineNumber, BasicBlock basicBlock) {
+	public BytecodeInstruction(ClassLoader classLoader, String className,
+	        String methodName, int instructionId, int jpfId, AbstractInsnNode asmNode,
+	        int lineNumber, BasicBlock basicBlock) {
 
-		this(className, methodName, instructionId, jpfId, asmNode, lineNumber);
+		this(classLoader, className, methodName, instructionId, jpfId, asmNode,
+		        lineNumber);
 
 		this.basicBlock = basicBlock;
 	}
@@ -169,11 +173,11 @@ public class BytecodeInstruction extends ASMWrapper implements Serializable,
 	 * @param lineNumber
 	 *            a int.
 	 */
-	public BytecodeInstruction(String className, String methodName,
-			int instructionId, int jpfId, AbstractInsnNode asmNode,
-			int lineNumber) {
+	public BytecodeInstruction(ClassLoader classLoader, String className,
+	        String methodName, int instructionId, int jpfId, AbstractInsnNode asmNode,
+	        int lineNumber) {
 
-		this(className, methodName, instructionId, jpfId, asmNode);
+		this(classLoader, className, methodName, instructionId, jpfId, asmNode);
 
 		if (lineNumber != -1)
 			setLineNumber(lineNumber);
@@ -239,6 +243,7 @@ public class BytecodeInstruction extends ASMWrapper implements Serializable,
 	 * 
 	 * @return a {@link java.lang.String} object.
 	 */
+	@Override
 	public String getClassName() {
 		return className;
 	}
@@ -392,8 +397,8 @@ public class BytecodeInstruction extends ASMWrapper implements Serializable,
 	 */
 	public ActualControlFlowGraph getActualCFG() {
 
-		ActualControlFlowGraph myCFG = GraphPool.getActualCFG(className,
-				methodName);
+		ActualControlFlowGraph myCFG = GraphPool.getInstance(classLoader).getActualCFG(className,
+		                                                                               methodName);
 		if (myCFG == null)
 			throw new IllegalStateException(
 					"expect GraphPool to know CFG for every method for which an instruction is known");
@@ -410,7 +415,8 @@ public class BytecodeInstruction extends ASMWrapper implements Serializable,
 	 */
 	public RawControlFlowGraph getRawCFG() {
 
-		RawControlFlowGraph myCFG = GraphPool.getRawCFG(className, methodName);
+		RawControlFlowGraph myCFG = GraphPool.getInstance(classLoader).getRawCFG(className,
+		                                                                         methodName);
 		if (myCFG == null)
 			throw new IllegalStateException(
 					"expect GraphPool to know CFG for every method for which an instruction is known");
@@ -427,7 +433,8 @@ public class BytecodeInstruction extends ASMWrapper implements Serializable,
 	 */
 	public ControlDependenceGraph getCDG() {
 
-		ControlDependenceGraph myCDG = GraphPool.getCDG(className, methodName);
+		ControlDependenceGraph myCDG = GraphPool.getInstance(classLoader).getCDG(className,
+		                                                                         methodName);
 		if (myCDG == null)
 			throw new IllegalStateException(
 					"expect GraphPool to know CDG for every method for which an instruction is known");
@@ -803,8 +810,9 @@ public class BytecodeInstruction extends ASMWrapper implements Serializable,
 			System.out.print(" " + i + "(" + v.insns.size() + "): ");
 			for (Object n : v.insns) {
 				AbstractInsnNode node = (AbstractInsnNode) n;
-				BytecodeInstruction ins = BytecodeInstructionPool
-						.getInstruction(className, methodName, node);
+				BytecodeInstruction ins = BytecodeInstructionPool.getInstance(classLoader).getInstruction(className,
+				                                                                                          methodName,
+				                                                                                          node);
 				System.out.print(ins.toString() + ", ");
 			}
 			System.out.println();
@@ -816,8 +824,9 @@ public class BytecodeInstruction extends ASMWrapper implements Serializable,
 			System.out.print(" " + i + "(" + v.insns.size() + "): ");
 			for (Object n : v.insns) {
 				AbstractInsnNode node = (AbstractInsnNode) n;
-				BytecodeInstruction ins = BytecodeInstructionPool
-						.getInstruction(className, methodName, node);
+				BytecodeInstruction ins = BytecodeInstructionPool.getInstance(classLoader).getInstruction(className,
+				                                                                                          methodName,
+				                                                                                          node);
 				System.out.print(ins.toString() + ", ");
 			}
 			System.out.println();
@@ -921,7 +930,8 @@ public class BytecodeInstruction extends ASMWrapper implements Serializable,
 		if (!isMethodCall())
 			return null;
 
-		return GraphPool.getRawCFG(getCalledMethodsClass(), getCalledMethod());
+		return GraphPool.getInstance(classLoader).getRawCFG(getCalledMethodsClass(),
+		                                                    getCalledMethod());
 	}
 
 	/**
@@ -990,6 +1000,7 @@ public class BytecodeInstruction extends ASMWrapper implements Serializable,
 	 * 
 	 * @return a {@link java.lang.String} object.
 	 */
+	@Override
 	public String getFieldMethodCallName() {
 		BytecodeInstruction srcInstruction = getSourceOfMethodInvocationInstruction();
 		if (srcInstruction == null)
@@ -1077,8 +1088,9 @@ public class BytecodeInstruction extends ASMWrapper implements Serializable,
 		}
 		for (Object sourceIns : source.insns) {
 			AbstractInsnNode sourceInstruction = (AbstractInsnNode) sourceIns;
-			BytecodeInstruction src = BytecodeInstructionPool.getInstruction(
-					className, methodName, sourceInstruction);
+			BytecodeInstruction src = BytecodeInstructionPool.getInstance(classLoader).getInstruction(className,
+			                                                                                          methodName,
+			                                                                                          sourceInstruction);
 			return src;
 		}
 		throw new IllegalStateException("should be unreachable");

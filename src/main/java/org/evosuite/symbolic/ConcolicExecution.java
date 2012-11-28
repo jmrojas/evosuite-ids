@@ -20,6 +20,8 @@ package org.evosuite.symbolic;
 import java.util.ArrayList;
 import java.util.List;
 
+import org.evosuite.Properties;
+import org.evosuite.ga.stoppingconditions.MaxStatementsStoppingCondition;
 import org.evosuite.symbolic.expr.Constraint;
 import org.evosuite.symbolic.vm.ArithmeticVM;
 import org.evosuite.symbolic.vm.CallVM;
@@ -29,6 +31,7 @@ import org.evosuite.symbolic.vm.JumpVM;
 import org.evosuite.symbolic.vm.LocalsVM;
 import org.evosuite.symbolic.vm.OtherVM;
 import org.evosuite.symbolic.vm.PathConstraint;
+import org.evosuite.symbolic.vm.RFunctionVM;
 import org.evosuite.symbolic.vm.SymbolicEnvironment;
 import org.evosuite.testcase.DefaultTestCase;
 import org.evosuite.testcase.ExecutionResult;
@@ -51,7 +54,11 @@ import edu.uta.cse.dsc.instrument.DscInstrumentingClassLoader;
  */
 public abstract class ConcolicExecution {
 
-	private static Logger logger = LoggerFactory.getLogger(ConcolicExecution.class);
+	private static Logger logger = LoggerFactory
+			.getLogger(ConcolicExecution.class);
+
+	/** Instrumenting class loader */
+	private static final DscInstrumentingClassLoader classLoader = new DscInstrumentingClassLoader();
 
 	/**
 	 * Retrieve the path condition for a given test case
@@ -62,12 +69,14 @@ public abstract class ConcolicExecution {
 	 */
 	public static List<BranchCondition> getSymbolicPath(TestChromosome test) {
 		TestChromosome dscCopy = (TestChromosome) test.clone();
-		DefaultTestCase defaultTestCase = (DefaultTestCase) dscCopy.getTestCase();
+		DefaultTestCase defaultTestCase = (DefaultTestCase) dscCopy
+				.getTestCase();
 
 		return executeConcolic(defaultTestCase);
 	}
 
-	protected static List<BranchCondition> executeConcolic(DefaultTestCase defaultTestCase) {
+	protected static List<BranchCondition> executeConcolic(
+			DefaultTestCase defaultTestCase) {
 
 		logger.debug("Preparing concolic execution");
 
@@ -75,10 +84,6 @@ public abstract class ConcolicExecution {
 		 * Prepare DSC configuration
 		 */
 		MainConfig.setInstance();
-		/**
-		 * Instrumenting class loader
-		 */
-		DscInstrumentingClassLoader classLoader = new DscInstrumentingClassLoader();
 
 		/**
 		 * Path constraint and symbolic environment
@@ -97,6 +102,7 @@ public abstract class ConcolicExecution {
 		listeners.add(new ArithmeticVM(env, pc));
 		listeners.add(new OtherVM(env));
 		listeners.add(new FunctionVM(env));
+		listeners.add(new RFunctionVM(env));
 		VM.vm.setListeners(listeners);
 		VM.vm.startupConcolicExecution();
 
@@ -106,33 +112,55 @@ public abstract class ConcolicExecution {
 		TestCaseExecutor.getInstance().addObserver(symbolicExecObserver);
 
 		logger.info("Starting concolic execution");
-		ExecutionResult result = TestCaseExecutor.runTest(defaultTestCase);
+		ExecutionResult result = new ExecutionResult(defaultTestCase, null);
+
+		try {
+			logger.debug("Executing test");
+			result = TestCaseExecutor.getInstance().execute(defaultTestCase,
+					Properties.CONCOLIC_TIMEOUT);
+			MaxStatementsStoppingCondition.statementsExecuted(result
+					.getExecutedStatements());
+
+		} catch (Exception e) {
+			logger.error("Exception during concolic execution {}", e);
+			return new ArrayList<BranchCondition>();
+		}
+		VM.vm.cleanupConcolicExecution(); // ignore all callbacks from now on
+
 		List<BranchCondition> branches = pc.getBranchConditions();
 		logger.info("Concolic execution ended with " + branches.size()
-		        + " branches collected");
+				+ " branches collected");
 		if (!result.noThrownExceptions()) {
 			int idx = result.getFirstPositionOfThrownException();
-			logger.info("Exception thrown: " + result.getExceptionThrownAtPosition(idx));
+			logger.info("Exception thrown: "
+					+ result.getExceptionThrownAtPosition(idx));
 		}
 		logNrOfConstraints(branches);
 
 		logger.debug("Cleaning concolic execution");
 		TestCaseExecutor.getInstance().removeObserver(symbolicExecObserver);
-		VM.vm.cleanupConcolicExecution();
 
 		return branches;
 	}
 
 	private static void logNrOfConstraints(List<BranchCondition> branches) {
 		int nrOfConstraints = 0;
+
 		for (BranchCondition branchCondition : branches) {
 
-			Constraint<?> constraint = branchCondition.getLocalConstraint();
-			Object leftVal = constraint.getLeftOperand().execute();
-			Object rightVal = constraint.getRightOperand().execute();
-			nrOfConstraints++;
-		}
+			for (Constraint<?> supporting_constraint : branchCondition
+					.getSupportingConstraints()) {
+				supporting_constraint.getLeftOperand().execute();
+				supporting_constraint.getRightOperand().execute();
+				nrOfConstraints++;
+			}
 
+			Constraint<?> constraint = branchCondition.getLocalConstraint();
+			constraint.getLeftOperand().execute();
+			constraint.getRightOperand().execute();
+			nrOfConstraints++;
+
+		}
 		logger.debug("nrOfConstraints=" + nrOfConstraints);
 	}
 }

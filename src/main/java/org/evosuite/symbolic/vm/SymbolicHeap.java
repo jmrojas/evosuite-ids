@@ -8,9 +8,10 @@ import java.util.Map.Entry;
 import java.util.Set;
 
 import org.evosuite.symbolic.expr.Expression;
-import org.evosuite.symbolic.expr.IntegerExpression;
-import org.evosuite.symbolic.expr.RealExpression;
-import org.evosuite.symbolic.expr.StringExpression;
+import org.evosuite.symbolic.expr.bv.IntegerValue;
+import org.evosuite.symbolic.expr.fp.RealValue;
+import org.evosuite.symbolic.expr.str.StringValue;
+import org.objectweb.asm.Type;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -23,6 +24,7 @@ public final class SymbolicHeap {
 
 	protected static Logger logger = LoggerFactory
 			.getLogger(SymbolicHeap.class);
+
 
 	private static final class FieldKey {
 		private String owner;
@@ -75,8 +77,12 @@ public final class SymbolicHeap {
 	 * 
 	 * @return
 	 */
-	public NonNullReference newReference(String className) {
-		return new NonNullReference(className, newInstanceCount++);
+	public NonNullReference newReference(Type objectType) {
+
+		if (objectType.getClassName()==null)
+			throw new IllegalArgumentException();
+
+		return new NonNullReference(objectType, newInstanceCount++);
 	}
 
 	/**
@@ -163,14 +169,13 @@ public final class SymbolicHeap {
 	 * @param conc_value
 	 * @return
 	 */
-	public IntegerExpression getField(String owner, String name,
+	public IntegerValue getField(String owner, String name,
 			Object conc_receiver, NonNullReference symb_receiver,
 			long conc_value) {
 
 		Map<NonNullReference, Expression<?>> symb_field = getOrCreateSymbolicField(
 				owner, name);
-		IntegerExpression symb_value = (IntegerExpression) symb_field
-				.get(symb_receiver);
+		IntegerValue symb_value = (IntegerValue) symb_field.get(symb_receiver);
 		if (symb_value == null
 				|| ((Long) symb_value.getConcreteValue()).longValue() != conc_value) {
 			symb_value = ExpressionFactory.buildNewIntegerConstant(conc_value);
@@ -241,14 +246,13 @@ public final class SymbolicHeap {
 	 * @param conc_value
 	 * @return
 	 */
-	public RealExpression getField(String className, String fieldName,
+	public RealValue getField(String className, String fieldName,
 			Object conc_receiver, NonNullReference symb_receiver,
 			double conc_value) {
 
 		Map<NonNullReference, Expression<?>> symb_field = getOrCreateSymbolicField(
 				className, fieldName);
-		RealExpression symb_value = (RealExpression) symb_field
-				.get(symb_receiver);
+		RealValue symb_value = (RealValue) symb_field.get(symb_receiver);
 		if (symb_value == null
 				|| ((Double) symb_value.getConcreteValue()).doubleValue() != conc_value) {
 			symb_value = ExpressionFactory.buildNewRealConstant(conc_value);
@@ -268,14 +272,13 @@ public final class SymbolicHeap {
 	 * @param conc_value
 	 * @return
 	 */
-	public StringExpression getField(String className, String fieldName,
+	public StringValue getField(String className, String fieldName,
 			Object conc_receiver, NonNullReference symb_receiver,
 			String conc_value) {
 
 		Map<NonNullReference, Expression<?>> symb_field = getOrCreateSymbolicField(
 				className, fieldName);
-		StringExpression symb_value = (StringExpression) symb_field
-				.get(symb_receiver);
+		StringValue symb_value = (StringValue) symb_field.get(symb_receiver);
 		if (symb_value == null
 				|| !((String) symb_value.getConcreteValue()).equals(conc_value)) {
 			symb_value = ExpressionFactory.buildNewStringConstant(conc_value);
@@ -318,12 +321,11 @@ public final class SymbolicHeap {
 		monitor_gc();
 	}
 
-	public IntegerExpression getStaticField(String owner, String name,
+	public IntegerValue getStaticField(String owner, String name,
 			long conc_value) {
 
 		FieldKey k = new FieldKey(owner, name);
-		IntegerExpression symb_value = (IntegerExpression) symb_static_fields
-				.get(k);
+		IntegerValue symb_value = (IntegerValue) symb_static_fields.get(k);
 		if (symb_value == null
 				|| ((Long) symb_value.getConcreteValue()).longValue() != conc_value) {
 			symb_value = ExpressionFactory.buildNewIntegerConstant(conc_value);
@@ -335,11 +337,10 @@ public final class SymbolicHeap {
 
 	}
 
-	public RealExpression getStaticField(String owner, String name,
-			double conc_value) {
+	public RealValue getStaticField(String owner, String name, double conc_value) {
 
 		FieldKey k = new FieldKey(owner, name);
-		RealExpression symb_value = (RealExpression) symb_static_fields.get(k);
+		RealValue symb_value = (RealValue) symb_static_fields.get(k);
 		if (symb_value == null
 				|| ((Double) symb_value.getConcreteValue()).doubleValue() != conc_value) {
 			symb_value = ExpressionFactory.buildNewRealConstant(conc_value);
@@ -351,12 +352,11 @@ public final class SymbolicHeap {
 
 	}
 
-	public StringExpression getStaticField(String owner, String name,
+	public StringValue getStaticField(String owner, String name,
 			String conc_value) {
 
 		FieldKey k = new FieldKey(owner, name);
-		StringExpression symb_value = (StringExpression) symb_static_fields
-				.get(k);
+		StringValue symb_value = (StringValue) symb_static_fields.get(k);
 		if (symb_value == null
 				|| !((String) symb_value.getConcreteValue()).equals(conc_value)) {
 			symb_value = ExpressionFactory.buildNewStringConstant(conc_value);
@@ -378,8 +378,8 @@ public final class SymbolicHeap {
 			if (symb_ref == null
 					|| symb_ref.getWeakConcreteObject() != conc_ref) {
 				// unknown object or out of synch object
-				symb_ref = new NonNullReference(conc_ref.getClass().getName(),
-						newInstanceCount++);
+				symb_ref = new NonNullReference(Type.getType(conc_ref
+						.getClass()), newInstanceCount++);
 				symb_ref.initializeReference(conc_ref);
 				nonNullRefs.put(identityHashCode, symb_ref);
 			}
@@ -404,6 +404,10 @@ public final class SymbolicHeap {
 	private final Map<NonNullReference, Map<Integer, Expression<?>>> symb_arrays = new THashMap<NonNullReference, Map<Integer, Expression<?>>>();
 
 	public static final String $STRING_BUILDER_CONTENTS = "$stringBuilder_contents";
+
+	public static String $STRING_BUFFER_CONTENTS = "$stringBuffer_contents";
+
+	public static String $BIG_INTEGER_CONTENTS = "$bigInteger_contents";
 
 	public static final String $MATCHER_INPUT = "$matcherInput";
 
@@ -438,11 +442,11 @@ public final class SymbolicHeap {
 		return symb_array_contents;
 	}
 
-	public StringExpression array_load(NonNullReference symb_array,
-			int conc_index, String conc_value) {
+	public StringValue array_load(NonNullReference symb_array, int conc_index,
+			String conc_value) {
 
 		Map<Integer, Expression<?>> symb_array_contents = getOrCreateSymbolicArray(symb_array);
-		StringExpression symb_value = (StringExpression) symb_array_contents
+		StringValue symb_value = (StringValue) symb_array_contents
 				.get(conc_index);
 		if (symb_value == null
 				|| !((String) symb_value.getConcreteValue()).equals(conc_value)) {
@@ -454,11 +458,11 @@ public final class SymbolicHeap {
 		return symb_value;
 	}
 
-	public IntegerExpression array_load(NonNullReference symb_array,
-			int conc_index, long conc_value) {
+	public IntegerValue array_load(NonNullReference symb_array, int conc_index,
+			long conc_value) {
 
 		Map<Integer, Expression<?>> symb_array_contents = getOrCreateSymbolicArray(symb_array);
-		IntegerExpression symb_value = (IntegerExpression) symb_array_contents
+		IntegerValue symb_value = (IntegerValue) symb_array_contents
 				.get(conc_index);
 		if (symb_value == null
 				|| ((Long) symb_value.getConcreteValue()).longValue() != conc_value) {
@@ -470,12 +474,11 @@ public final class SymbolicHeap {
 		return symb_value;
 	}
 
-	public RealExpression array_load(NonNullReference symb_array,
-			int conc_index, double conc_value) {
+	public RealValue array_load(NonNullReference symb_array, int conc_index,
+			double conc_value) {
 
 		Map<Integer, Expression<?>> symb_array_contents = getOrCreateSymbolicArray(symb_array);
-		RealExpression symb_value = (RealExpression) symb_array_contents
-				.get(conc_index);
+		RealValue symb_value = (RealValue) symb_array_contents.get(conc_index);
 		if (symb_value == null
 				|| ((Double) symb_value.getConcreteValue()).doubleValue() != conc_value) {
 			symb_value = ExpressionFactory.buildNewRealConstant(conc_value);

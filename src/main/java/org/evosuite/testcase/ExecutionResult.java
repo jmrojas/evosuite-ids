@@ -26,12 +26,8 @@ import java.util.Set;
 
 import org.evosuite.assertion.OutputTrace;
 import org.evosuite.coverage.mutation.Mutation;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 
 public class ExecutionResult implements Cloneable {
-
-	private static final Logger logger = LoggerFactory.getLogger(ExecutionResult.class);
 
 	/** Test case that produced this execution result */
 	public TestCase test;
@@ -50,6 +46,24 @@ public class ExecutionResult implements Cloneable {
 
 	/** Duration of execution */
 	protected long executionTime = 0L;
+
+	/** Number of statements executed */
+	protected int executedStatements = 0;
+
+	/**
+	 * @return the executedStatements
+	 */
+	public int getExecutedStatements() {
+		return executedStatements;
+	}
+
+	/**
+	 * @param executedStatements
+	 *            the executedStatements to set
+	 */
+	public void setExecutedStatements(int executedStatements) {
+		this.executedStatements = executedStatements;
+	}
 
 	/** Output traces produced by observers */
 	protected final Map<Class<?>, OutputTrace<?>> traces = new HashMap<Class<?>, OutputTrace<?>>();
@@ -71,11 +85,12 @@ public class ExecutionResult implements Cloneable {
 
 	/**
 	 * <p>
-	 * setThrownExceptions
+	 * Copy the input map data into internal structures
 	 * </p>
 	 * 
 	 * @param data
-	 *            a {@link java.util.Map} object.
+	 *            a {@link java.util.Map} object. It has a mapping from test
+	 *            sequence position toward thrown exception
 	 */
 	public void setThrownExceptions(Map<Integer, Throwable> data) {
 		exceptions.clear();
@@ -325,6 +340,23 @@ public class ExecutionResult implements Cloneable {
 		return false;
 	}
 
+
+	/**
+	 * check if the test case threw any security exception
+ 	 * 
+	 * @return 
+	 */
+	public boolean hasSecurityException(){
+		for(Throwable t : exceptions.values()){
+			if(t instanceof SecurityException){
+				return true;
+			}
+		}
+		return false;
+	}
+	
+	
+	
 	/**
 	 * @return the executionTime
 	 */

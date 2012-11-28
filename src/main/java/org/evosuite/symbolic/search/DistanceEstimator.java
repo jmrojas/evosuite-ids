@@ -19,20 +19,21 @@ package org.evosuite.symbolic.search;
 
 import java.util.Collection;
 
-import org.evosuite.javaagent.RegexDistance;
 import org.evosuite.symbolic.expr.Comparator;
 import org.evosuite.symbolic.expr.Constraint;
 import org.evosuite.symbolic.expr.Expression;
-import org.evosuite.symbolic.expr.ExpressionHelper;
-import org.evosuite.symbolic.expr.IntegerConstant;
-import org.evosuite.symbolic.expr.IntegerExpression;
-import org.evosuite.symbolic.expr.IntegerVariable;
-import org.evosuite.symbolic.expr.RealConstant;
-import org.evosuite.symbolic.expr.RealExpression;
-import org.evosuite.symbolic.expr.RealVariable;
-import org.evosuite.symbolic.expr.StringBinaryExpression;
-import org.evosuite.symbolic.expr.StringComparison;
-import org.evosuite.symbolic.expr.StringUnaryExpression;
+import org.evosuite.symbolic.expr.Operator;
+import org.evosuite.symbolic.expr.bv.IntegerConstant;
+import org.evosuite.symbolic.expr.bv.IntegerUnaryExpression;
+import org.evosuite.symbolic.expr.bv.IntegerValue;
+import org.evosuite.symbolic.expr.bv.IntegerVariable;
+import org.evosuite.symbolic.expr.bv.StringComparison;
+import org.evosuite.symbolic.expr.bv.StringMultipleComparison;
+import org.evosuite.symbolic.expr.fp.RealConstant;
+import org.evosuite.symbolic.expr.fp.RealValue;
+import org.evosuite.symbolic.expr.fp.RealVariable;
+import org.evosuite.symbolic.expr.str.StringBinaryExpression;
+import org.evosuite.symbolic.expr.str.StringUnaryExpression;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -47,7 +48,12 @@ public abstract class DistanceEstimator {
 
 	static Logger log = LoggerFactory.getLogger(DistanceEstimator.class);
 
-	//	static Logger log = JPF.getLogger("org.evosuite.symbolic.search.DistanceEstimator");
+	// static Logger log =
+	// JPF.getLogger("org.evosuite.symbolic.search.DistanceEstimator");
+
+	private static double normalize(double x) {
+		return x / (x + 1.0);
+	}
 
 	/**
 	 * <p>
@@ -60,21 +66,29 @@ public abstract class DistanceEstimator {
 	 */
 	public static double getDistance(Collection<Constraint<?>> constraints) {
 		double result = 0;
-		int size = constraints.size();
 
 		try {
 			for (Constraint<?> c : constraints) {
 				if (isStrConstraint(c)) {
-					long strD = getStrDist(c);
-					result += (double) strD / size;
-					log.debug("C: " + c + " strDist " + strD);
+					// long strD = getStrDist(c);
+					// result += (double) strD / size;
+					try {
+						double strD = getStringDist(c);
+						result += normalize(strD);
+						log.debug("S: " + c + " strDist " + strD);
+					} catch (Throwable t) {
+						log.debug("S: " + c + " strDist " + t);
+						result += 1.0;
+					}
 				} else if (isLongConstraint(c)) {
 					long intD = getIntegerDist(c);
-					result += (double) intD / size;
+					// result += (double) intD / size;
+					result += normalize(intD);
 					log.debug("C: " + c + " intDist " + intD);
 				} else if (isRealConstraint(c)) {
 					double realD = getRealDist(c);
-					result += realD / size;
+					// result += realD / size;
+					result += normalize(realD);
 					log.debug("C: " + c + " realDist " + realD);
 				} else {
 					log.warn("DistanceEstimator.getDistance(): "
@@ -82,10 +96,12 @@ public abstract class DistanceEstimator {
 					return Double.MAX_VALUE;
 				}
 			}
+			log.debug("Resulting distance: " + result);
 			return Math.abs(result);
 		} catch (Exception e) {
-			//			log.warn(e.toString());
-			e.printStackTrace();
+			// log.warn(e.toString());
+			// System.err.println(e.getClass().getName());
+			// e.printStackTrace();
 			return Double.MAX_VALUE;
 		}
 	}
@@ -95,11 +111,10 @@ public abstract class DistanceEstimator {
 		Expression<?> exprRight = c.getRightOperand();
 
 		boolean leftSide = exprLeft instanceof RealVariable
-		        || exprLeft instanceof RealConstant || exprLeft instanceof RealExpression;
+		        || exprLeft instanceof RealConstant || exprLeft instanceof RealValue;
 
 		boolean rightSide = exprRight instanceof RealVariable
-		        || exprRight instanceof RealConstant
-		        || exprRight instanceof RealExpression;
+		        || exprRight instanceof RealConstant || exprRight instanceof RealValue;
 
 		return leftSide && rightSide;
 	}
@@ -110,17 +125,17 @@ public abstract class DistanceEstimator {
 
 		boolean leftSide = exprLeft instanceof IntegerVariable
 		        || exprLeft instanceof IntegerConstant
-		        || exprLeft instanceof IntegerExpression
-		        //					||		exprLeft instanceof IntegerUnaryExpression
-		        //					||		exprLeft instanceof IntegerBinaryExpression
+		        || exprLeft instanceof IntegerValue
+		        // || exprLeft instanceof IntegerUnaryExpression
+		        // || exprLeft instanceof IntegerBinaryExpression
 		        || exprLeft instanceof StringUnaryExpression
 		        || exprLeft instanceof StringBinaryExpression;
 
 		boolean rightSide = exprRight instanceof IntegerVariable
 		        || exprRight instanceof IntegerConstant
-		        || exprRight instanceof IntegerExpression
-		        //					||		exprRight instanceof IntegerUnaryExpression
-		        //					||		exprRight instanceof IntegerBinaryExpression
+		        || exprRight instanceof IntegerValue
+		        // || exprRight instanceof IntegerUnaryExpression
+		        // || exprRight instanceof IntegerBinaryExpression
 		        || exprRight instanceof StringUnaryExpression
 		        || exprRight instanceof StringBinaryExpression;
 
@@ -138,7 +153,97 @@ public abstract class DistanceEstimator {
 				return true;
 			}
 		}
+
+		if (exprLeft instanceof StringMultipleComparison
+		        && exprRight instanceof IntegerConstant) {
+			if (((IntegerConstant) exprRight).getConcreteValue() == 0
+			        && (cmpr == Comparator.EQ || cmpr == Comparator.NE)) {
+				return true;
+			}
+		}
+
 		return false;
+	}
+
+	public static double getStringDist(Constraint<?> target) {
+		Expression<?> exprLeft = target.getLeftOperand();
+		Comparator cmpr = target.getComparator();
+		double distance = 0.0;
+
+		if (exprLeft instanceof StringComparison) {
+			StringComparison scTarget = (StringComparison) exprLeft;
+			distance = getStringDistance(scTarget);
+			log.debug("Calculating distance of constraint " + target);
+		} else if (exprLeft instanceof StringMultipleComparison) {
+			StringMultipleComparison scTarget = (StringMultipleComparison) exprLeft;
+			distance = getStringDistance(scTarget);
+			log.debug("Calculating distance of constraint " + target);
+		} else {
+			assert (false) : "Invalid string comparison";
+		}
+		if (cmpr == Comparator.NE) {
+			return distance;
+		} else {
+			// if we don't want to satisfy return 0
+			// if not satisfied Long.MAX_VALUE else
+			return distance > 0 ? 0.0 : Double.MAX_VALUE;
+		}
+	}
+
+	public static double getStringDistance(StringComparison comparison) {
+		try {
+			String first = comparison.getLeftOperand().execute();
+			String second = (String) comparison.getRightOperand().execute();
+
+			switch (comparison.getOperator()) {
+			case EQUALSIGNORECASE:
+				return DistanceEstimator.StrEqualsIgnoreCase(first, second);
+			case EQUALS:
+				log.debug("Edit distance between " + first + " and " + second + " is: "
+				        + DistanceEstimator.StrEquals(first, second));
+				return DistanceEstimator.StrEquals(first, second);
+			case ENDSWITH:
+				return DistanceEstimator.StrEndsWith(first, second);
+			case CONTAINS:
+				return DistanceEstimator.StrContains(first, second);
+			case PATTERNMATCHES:
+				return DistanceEstimator.RegexMatches(second, first);
+			default:
+				log.warn("StringComparison: unimplemented operator!"
+				        + comparison.getOperator());
+				return Double.MAX_VALUE;
+			}
+		} catch (Exception e) {
+			return Double.MAX_VALUE;
+		}
+	}
+
+	public static double getStringDistance(StringMultipleComparison comparison) {
+		try {
+			String first = comparison.getLeftOperand().execute();
+			String second = (String) comparison.getRightOperand().execute();
+
+			switch (comparison.getOperator()) {
+			case STARTSWITH:
+				long start = (Long) comparison.getOther().get(0).execute();
+				return DistanceEstimator.StrStartsWith(first, second, (int) start);
+			case REGIONMATCHES:
+				long frstStart = (Long) comparison.getOther().get(0).execute();
+				long secStart = (Long) comparison.getOther().get(1).execute();
+				long length = (Long) comparison.getOther().get(2).execute();
+				long ignoreCase = (Long) comparison.getOther().get(3).execute();
+
+				return DistanceEstimator.StrRegionMatches(first, (int) frstStart, second,
+				                                          (int) secStart, (int) length,
+				                                          ignoreCase != 0);
+			default:
+				log.warn("StringComparison: unimplemented operator!"
+				        + comparison.getOperator());
+				return Double.MAX_VALUE;
+			}
+		} catch (Exception e) {
+			return Double.MAX_VALUE;
+		}
 	}
 
 	private static double getRealDist(Constraint<?> target) {
@@ -185,12 +290,52 @@ public abstract class DistanceEstimator {
 	 */
 	public static long getIntegerDist(Constraint<?> target) {
 
-		long left = ExpressionHelper.getLongResult(target.getLeftOperand());
-		long right = ExpressionHelper.getLongResult(target.getRightOperand());
-		//long left = (Long) target.getLeftOperand().execute();
-		//long right = (Long) target.getRightOperand().execute();
+		long left = (Long) target.getLeftOperand().execute();
+		long right = (Long) target.getRightOperand().execute();
+
+		if (target.getLeftOperand() instanceof IntegerUnaryExpression) {
+			if (((IntegerUnaryExpression) target.getLeftOperand()).getOperator() == Operator.ISDIGIT) {
+				long left_operand = ((IntegerUnaryExpression) target.getLeftOperand()).getOperand().execute();
+				char theChar = (char) left_operand;
+				if ((target.getComparator() == Comparator.EQ && right == 1L)
+				        || (target.getComparator() == Comparator.NE && right == 0L)) {
+					if (theChar < '0')
+						return '0' - theChar;
+					else if (theChar > '9')
+						return theChar - '9';
+					else
+						return 0;
+				} else if ((target.getComparator() == Comparator.EQ && right == 0L)
+				        || (target.getComparator() == Comparator.NE && right == 1L)) {
+					if (theChar < '0' || theChar > '9')
+						return 0;
+					else
+						return Math.min(Math.abs('9' - theChar), Math.abs(theChar - '0'));
+				}
+
+			} else if (((IntegerUnaryExpression) target.getLeftOperand()).getOperator() == Operator.ISLETTER) {
+				long left_operand = ((IntegerUnaryExpression) target.getLeftOperand()).getOperand().execute();
+				char theChar = (char) left_operand;
+				if ((target.getComparator() == Comparator.EQ && right == 1L)
+				        || (target.getComparator() == Comparator.NE && right == 0L)) {
+					if (theChar < 'A')
+						return 'A' - theChar;
+					else if (theChar > 'z')
+						return theChar - 'z';
+					else
+						return 0;
+				} else if ((target.getComparator() == Comparator.EQ && right == 0L)
+				        || (target.getComparator() == Comparator.NE && right == 1L)) {
+					if (theChar < 'A' || theChar > 'z')
+						return 0;
+					else
+						return Math.min(Math.abs('z' - theChar), Math.abs(theChar - 'A'));
+				}
+			}
+		}
 
 		Comparator cmpr = target.getComparator();
+		log.debug("Calculating distance for " + left + " " + cmpr + " " + right);
 
 		switch (cmpr) {
 
@@ -233,12 +378,13 @@ public abstract class DistanceEstimator {
 		Expression<?> exprLeft = target.getLeftOperand();
 		Comparator cmpr = target.getComparator();
 		StringComparison scTarget = (StringComparison) exprLeft;
+		log.debug("Calculating distance of constraint " + target);
 
 		if (cmpr == Comparator.NE) {
 			return scTarget.execute();
 		} else {
-			//if we don't want to satisfy return 0 
-			//	if not satisfied Long.MAX_VALUE else
+			// if we don't want to satisfy return 0
+			// if not satisfied Long.MAX_VALUE else
 			return scTarget.execute() > 0 ? 0 : Long.MAX_VALUE;
 		}
 	}
@@ -274,7 +420,7 @@ public abstract class DistanceEstimator {
 	 *            a {@link java.lang.String} object.
 	 * @return a int.
 	 */
-	public static int editDistance(String s, String t) {
+	public static double editDistance(String s, String t) {
 		int n = s.length(); // length of s
 		int m = t.length(); // length of t
 
@@ -284,9 +430,9 @@ public abstract class DistanceEstimator {
 			return n;
 		}
 
-		int p[] = new int[n + 1]; //'previous' cost array, horizontally
-		int d[] = new int[n + 1]; // cost array, horizontally
-		int _d[]; //placeholder to assist in swapping p and d
+		double p[] = new double[n + 1]; // 'previous' cost array, horizontally
+		double d[] = new double[n + 1]; // cost array, horizontally
+		double _d[]; // placeholder to assist in swapping p and d
 
 		// indexes into strings s and t
 		int i; // iterates through s
@@ -294,7 +440,7 @@ public abstract class DistanceEstimator {
 
 		char t_j; // jth character of t
 
-		int cost; // cost
+		double cost; // cost
 
 		for (i = 0; i <= n; i++) {
 			p[i] = i;
@@ -305,8 +451,10 @@ public abstract class DistanceEstimator {
 			d[0] = j;
 
 			for (i = 1; i <= n; i++) {
-				cost = s.charAt(i - 1) == t_j ? 0 : 1;
-				// minimum of cell to the left+1, to the top+1, diagonally left and up +cost				
+				// cost = s.charAt(i - 1) == t_j ? 0 : 1;
+				cost = normalize(Math.abs(s.charAt(i - 1) - t_j));
+				// minimum of cell to the left+1, to the top+1, diagonally left
+				// and up +cost
 				d[i] = Math.min(Math.min(d[i - 1] + 1, p[i] + 1), p[i - 1] + cost);
 			}
 
@@ -316,7 +464,7 @@ public abstract class DistanceEstimator {
 			d = _d;
 		}
 
-		// our last action in the above loop was to switch d and p, so p now 
+		// our last action in the above loop was to switch d and p, so p now
 		// actually has the most recent cost counts
 		return p[n];
 	}
@@ -332,7 +480,7 @@ public abstract class DistanceEstimator {
 	 *            a {@link java.lang.Object} object.
 	 * @return a int.
 	 */
-	public static int StrEquals(String first, Object second) {
+	public static double StrEquals(String first, Object second) {
 		if (first.equals(second))
 			return 0; // Identical
 		else {
@@ -351,7 +499,7 @@ public abstract class DistanceEstimator {
 	 *            a {@link java.lang.String} object.
 	 * @return a int.
 	 */
-	public static int StrEqualsIgnoreCase(String first, String second) {
+	public static double StrEqualsIgnoreCase(String first, String second) {
 		return StrEquals(first.toLowerCase(), second.toLowerCase());
 	}
 
@@ -368,7 +516,7 @@ public abstract class DistanceEstimator {
 	 *            a int.
 	 * @return a int.
 	 */
-	public static int StrStartsWith(String value, String prefix, int start) {
+	public static double StrStartsWith(String value, String prefix, int start) {
 		int len = Math.min(prefix.length(), value.length());
 		int end = (start + len > value.length()) ? value.length() : start + len;
 		return StrEquals(value.substring(start, end), prefix);
@@ -385,7 +533,7 @@ public abstract class DistanceEstimator {
 	 *            a {@link java.lang.String} object.
 	 * @return a int.
 	 */
-	public static int StrEndsWith(String value, String suffix) {
+	public static double StrEndsWith(String value, String suffix) {
 		int len = Math.min(suffix.length(), value.length());
 		String val1 = value.substring(value.length() - len);
 		return StrEquals(val1, suffix);
@@ -400,7 +548,7 @@ public abstract class DistanceEstimator {
 	 *            a {@link java.lang.String} object.
 	 * @return a int.
 	 */
-	public static int StrIsEmpty(String value) {
+	public static double StrIsEmpty(String value) {
 		int len = value.length();
 		if (len == 0) {
 			return 0;
@@ -428,7 +576,7 @@ public abstract class DistanceEstimator {
 	 *            a boolean.
 	 * @return a int.
 	 */
-	public static int StrRegionMatches(String value, int thisStart, String string,
+	public static double StrRegionMatches(String value, int thisStart, String string,
 	        int start, int length, boolean ignoreCase) {
 		if (value == null || string == null)
 			throw new NullPointerException();
@@ -466,10 +614,10 @@ public abstract class DistanceEstimator {
 	 *            a {@link java.lang.CharSequence} object.
 	 * @return a int.
 	 */
-	public static int StrContains(String val, CharSequence subStr) {
+	public static double StrContains(String val, CharSequence subStr) {
 		int val_length = val.length();
 		int subStr_length = subStr.length();
-		int min_dist = Integer.MAX_VALUE;
+		double min_dist = Double.MAX_VALUE;
 		String sub = subStr.toString();
 
 		if (subStr_length > val_length) {
@@ -477,7 +625,7 @@ public abstract class DistanceEstimator {
 		} else {
 			int diff = val_length - subStr_length;
 			for (int i = 0; i < diff + 1; i++) {
-				int res = StrEquals(val.substring(i, subStr_length + i), sub);
+				double res = StrEquals(val.substring(i, subStr_length + i), sub);
 				if (res < min_dist) {
 					min_dist = res;
 				}
@@ -486,7 +634,7 @@ public abstract class DistanceEstimator {
 		return min_dist;
 	}
 
-	public static long RegexMatches(String val, String regex) {
+	public static double RegexMatches(String val, String regex) {
 		return RegexDistance.getDistance(val, regex);
 	}
 

@@ -42,7 +42,7 @@ public class FileNamePrimitiveStatement extends PrimitiveStatement<EvoSuiteFile>
 	 */
 	public FileNamePrimitiveStatement(TestCase tc, EvoSuiteFile value) {
 		super(tc, EvoSuiteFile.class, value);
-		//logger.info("Selecting filename: " + value);
+		logger.info("Selecting filename: " + value);
 	}
 
 	/* (non-Javadoc)
@@ -51,8 +51,7 @@ public class FileNamePrimitiveStatement extends PrimitiveStatement<EvoSuiteFile>
 	/** {@inheritDoc} */
 	@Override
 	public void delta() {
-		// TODO Auto-generated method stub
-
+		randomize();
 	}
 
 	/* (non-Javadoc)
@@ -61,8 +60,7 @@ public class FileNamePrimitiveStatement extends PrimitiveStatement<EvoSuiteFile>
 	/** {@inheritDoc} */
 	@Override
 	public void zero() {
-		// TODO Auto-generated method stub
-
+		// there does not exist a zero value for files
 	}
 
 	/* (non-Javadoc)
@@ -81,10 +79,13 @@ public class FileNamePrimitiveStatement extends PrimitiveStatement<EvoSuiteFile>
 	/** {@inheritDoc} */
 	@Override
 	public void randomize() {
-		// TODO: Check if any files were accessed
-		setValue(new EvoSuiteFile(Randomness.choice(tc.getAccessedFiles())));
-		//logger.info("Randomized filename: " + value);
-
+		String path = Randomness.choice(tc.getAccessedFiles());
+		if (path != null) {
+			setValue(new EvoSuiteFile(path));
+		} else {
+			setValue(null); // FIXME find out why this case can actually happen! (I don't think we want this?)
+		}
+		logger.info("Randomized filename: " + value);
 	}
 
 }

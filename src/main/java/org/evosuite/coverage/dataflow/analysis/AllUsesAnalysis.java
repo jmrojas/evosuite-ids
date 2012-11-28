@@ -144,7 +144,7 @@ public class AllUsesAnalysis {
 			r.addAll(determineIntraInterMethodPairs(analyzeableEntry));
 
 			// check if we can pre-analyze further methods now
-			Set<ClassCallNode> parents = ccfg.ccg.getParents(currentMethod);
+			Set<ClassCallNode> parents = ccfg.getCcg().getParents(currentMethod);
 			for (ClassCallNode parent : parents) {
 				if (toAnalyze.contains(parent))
 					continue; // will be analyzed anyway
@@ -152,7 +152,7 @@ public class AllUsesAnalysis {
 						.contains(ccfg.getMethodEntryNodeForClassCallNode(parent)))
 					continue; // was already analyzed
 
-				Set<ClassCallNode> parentsChildren = ccfg.ccg.getChildren(parent);
+				Set<ClassCallNode> parentsChildren = ccfg.getCcg().getChildren(parent);
 				boolean canAnalyzeNow = true;
 				for (ClassCallNode parentsChild : parentsChildren) {
 					if (!parentsChild.equals(parent)
@@ -178,9 +178,9 @@ public class AllUsesAnalysis {
 	 */
 	private Set<ClassCallNode> getInitialPreAnalyzeableMethods() {
 		Set<ClassCallNode> preAnalyzeable = new HashSet<ClassCallNode>();
-		for (ClassCallNode ccgNode : ccfg.ccg.vertexSet()) {
+		for (ClassCallNode ccgNode : ccfg.getCcg().vertexSet()) {
 			boolean add = true;
-			for (ClassCallNode child : ccfg.ccg.getChildren(ccgNode))
+			for (ClassCallNode child : ccfg.getCcg().getChildren(ccgNode))
 				if (!child.equals(ccgNode))
 					add = false;
 

@@ -100,10 +100,13 @@ public class InstrumentingClassLoader extends ClassLoader {
 		return new String[] { "java.", "javax.", "sun.", "org.evosuite",
 		        "de.unisb.cs.st.testcarver", "de.unisb.cs.st.evosuite",
 		        "de.unisb.cs.st.specmate", "org.xml", "org.w3c",
-		        "testing.generation.evosuite", "com.yourkit",
+		        "testing.generation.evosuite",
+		        "com.yourkit",
 		        // Need to have these in here to avoid trouble with UnsatisfiedLinkErrors on Mac OS X and Java/Swing apps
-		        "apple.", "com.apple.", "org.junit", "junit.framework",
-		        "org.apache.xerces.dom3", "de.unisl.cs.st.bugex", "edu.uta.cse.dsc" };
+		        "apple.", "com.apple.", "com.sun", "org.junit", "junit.framework",
+		        "org.apache.xerces.dom3", "de.unisl.cs.st.bugex", "edu.uta.cse.dsc",
+		        "corina.cross.Single" // I really don't know what is wrong with this class, but we need to exclude it 
+		};
 	}
 
 	/** {@inheritDoc} */
@@ -168,8 +171,30 @@ public class InstrumentingClassLoader extends ClassLoader {
 	private Class<?> instrumentClass(String fullyQualifiedTargetClass)
 	        throws ClassNotFoundException {
 		logger.info("Instrumenting class '" + fullyQualifiedTargetClass + "'.");
+		
 		try {
 			String className = fullyQualifiedTargetClass.replace('.', '/');
+
+			/*
+			 * TODO: We will need something like this
+			 * but need to make sure that we properly
+			 * open the target as an input stream
+			 * 
+			Pattern pattern = Pattern.compile(className + "\\.class");
+			Collection<String> resources = ResourceList.getResources(pattern);
+			InputStream is = null;
+			if (resources.isEmpty()) {
+				try {
+					is = findTargetResource(".*" + className + ".class");
+				} catch (FileNotFoundException e) {
+					throw new ClassNotFoundException("Class '" + className + ".class"
+					        + "' should be in target project, but could not be found!");
+				}
+			} else {
+				String input = resources.iterator().next();
+				is = new FileInputStream(input);
+			}
+			*/
 			InputStream is = ClassLoader.getSystemResourceAsStream(className + ".class");
 			if (is == null) {
 				try {
@@ -179,7 +204,7 @@ public class InstrumentingClassLoader extends ClassLoader {
 					        + "' should be in target project, but could not be found!");
 				}
 			}
-			byte[] byteBuffer = instrumentation.transformBytes(className,
+			byte[] byteBuffer = instrumentation.transformBytes(this, className,
 			                                                   new ClassReader(is));
 			Class<?> result = defineClass(fullyQualifiedTargetClass, byteBuffer, 0,
 			                              byteBuffer.length);
@@ -190,5 +215,4 @@ public class InstrumentingClassLoader extends ClassLoader {
 			throw new ClassNotFoundException(t.getMessage(), t);
 		}
 	}
-
 }
