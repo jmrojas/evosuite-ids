@@ -37,6 +37,7 @@ import org.evosuite.testcase.ExecutionResult;
 import org.evosuite.testcase.MethodStatement;
 import org.evosuite.testcase.StatementInterface;
 import org.evosuite.testcase.TestCase;
+import org.evosuite.testcase.TestCaseExecutor;
 import org.evosuite.testcase.VariableReference;
 import org.evosuite.utils.Randomness;
 import org.slf4j.Logger;
@@ -77,13 +78,13 @@ public class MutationAssertionGenerator extends AssertionGenerator {
 		for (Mutation m : MutationPool.getMutants()) {
 			mutants.put(m.getId(), m);
 		}
-		executor.newObservers();
-		executor.addObserver(primitiveObserver);
-		executor.addObserver(comparisonObserver);
-		executor.addObserver(sameObserver);
-		executor.addObserver(inspectorObserver);
-		executor.addObserver(fieldObserver);
-		executor.addObserver(nullObserver);
+		TestCaseExecutor.getInstance().newObservers();
+		TestCaseExecutor.getInstance().addObserver(primitiveObserver);
+		TestCaseExecutor.getInstance().addObserver(comparisonObserver);
+		TestCaseExecutor.getInstance().addObserver(sameObserver);
+		TestCaseExecutor.getInstance().addObserver(inspectorObserver);
+		TestCaseExecutor.getInstance().addObserver(fieldObserver);
+		TestCaseExecutor.getInstance().addObserver(nullObserver);
 	}
 
 	/**
@@ -116,7 +117,7 @@ public class MutationAssertionGenerator extends AssertionGenerator {
 		try {
 			logger.debug("Executing test");
 			MutationObserver.activateMutation(mutant);
-			result = executor.execute(test);
+			result = TestCaseExecutor.getInstance().execute(test);
 			MutationObserver.deactivateMutation(mutant);
 
 			int num = test.size();
@@ -130,9 +131,7 @@ public class MutationAssertionGenerator extends AssertionGenerator {
 			result.setTrace(nullObserver.getTrace(), NullTraceEntry.class);
 
 		} catch (Exception e) {
-			System.out.println("TG: Exception caught: " + e);
-			e.printStackTrace();
-			//System.exit(1);
+			throw new Error(e);
 		}
 
 		return result;
@@ -395,15 +394,16 @@ public class MutationAssertionGenerator extends AssertionGenerator {
 		int s2 = killed.size() - s1;
 		assert (killedBefore == killedAfter) : "Mutants killed before / after / should be: "
 		        + killedBefore + "/" + killedAfter + "/" + s2 + ": " + test.toCode();
-		logger.debug("Mutants killed before / after / should be: " + killedBefore + "/"
+		logger.info("Mutants killed before / after / should be: " + killedBefore + "/"
 		        + killedAfter + "/" + s2);
 
+		logger.info("Assertions in this test: "+test.getAssertions().size());
 		//TestCase clone = test.clone();
 
 		// IF there are no mutant killing assertions on the last statement, still assert something
 		if (test.getStatement(test.size() - 1).getAssertions().isEmpty()
 		        || justNullAssertion(test.getStatement(test.size() - 1))) {
-			logger.debug("Last statement has no assertions: " + test.toCode());
+			logger.info("Last statement has no assertions: " + test.toCode());
 
 			if (test.getStatement(test.size() - 1).getAssertions().isEmpty()) {
 				logger.debug("Last statement: "

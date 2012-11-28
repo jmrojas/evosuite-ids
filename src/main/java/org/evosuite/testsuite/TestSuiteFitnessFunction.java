@@ -43,15 +43,14 @@ import org.slf4j.LoggerFactory;
  * 
  * @author Gordon Fraser
  */
-public abstract class TestSuiteFitnessFunction extends FitnessFunction {
+public abstract class TestSuiteFitnessFunction extends
+        FitnessFunction<AbstractTestSuiteChromosome<? extends ExecutableChromosome>> {
 
 	private static final long serialVersionUID = 7243635497292960457L;
 
 	/** Constant <code>logger</code> */
 	protected static final Logger logger = LoggerFactory.getLogger(TestSuiteFitnessFunction.class);
 
-	/** Constant <code>executor</code> */
-	protected static final TestCaseExecutor executor = TestCaseExecutor.getInstance();
 
 	/**
 	 * Execute a test case
@@ -60,28 +59,20 @@ public abstract class TestSuiteFitnessFunction extends FitnessFunction {
 	 *            The test case to execute
 	 * @return Result of the execution
 	 */
+	@Deprecated
 	public ExecutionResult runTest(TestCase test) {
 		ExecutionResult result = new ExecutionResult(test, null);
 
 		try {
-			result = executor.execute(test);
-			/*
-			 * result.exceptions = executor.run(test);
-			 * executor.setLogging(true); result.trace =
-			 * ExecutionTracer.getExecutionTracer().getTrace();
-			 */
-			int num = test.size();
-			MaxStatementsStoppingCondition.statementsExecuted(num);
+			result = TestCaseExecutor.getInstance().execute(test);
+			MaxStatementsStoppingCondition.statementsExecuted(result.getExecutedStatements());
 		} catch (Exception e) {
-			System.out.println("TG: Exception caught: " + e);
-			e.printStackTrace();
+			logger.warn("TG: Exception caught: " + e.getMessage(), e);
 			try {
 				Thread.sleep(1000);
 				result.setTrace(ExecutionTracer.getExecutionTracer().getTrace());
 			} catch (Exception e1) {
-				e.printStackTrace();
-				// TODO: Do some error recovery?
-				System.exit(1);
+				throw new Error(e1);
 			}
 
 		}
@@ -124,36 +115,7 @@ public abstract class TestSuiteFitnessFunction extends FitnessFunction {
 		return results;
 	}
 
-	/**
-	 * <p>
-	 * getCoveredGoals
-	 * </p>
-	 * 
-	 * @return a int.
-	 */
-	public static int getCoveredGoals() {
 
-		// TODO could be done nicer for arbitrary criteria but tbh right now it
-		// works for me
-
-		switch (Properties.CRITERION) {
-		case DEFUSE:
-			return DefUseCoverageSuiteFitness.countMostCoveredGoals();
-		case STATEMENT:
-			return StatementCoverageSuiteFitness.mostCoveredGoals;
-		case BRANCH:
-		case EXCEPTION:
-			return BranchCoverageSuiteFitness.mostCoveredGoals;
-		case ALLDEFS:
-			return AllDefsCoverageSuiteFitness.mostCoveredGoals;
-		case MUTATION:
-		case WEAKMUTATION:
-		case STRONGMUTATION:
-			return MutationSuiteFitness.mostCoveredGoals;
-		default:
-			return -1; // to indicate value is missing
-		}
-	}
 
 	/* (non-Javadoc)
 	 * @see org.evosuite.ga.FitnessFunction#isMaximizationFunction()

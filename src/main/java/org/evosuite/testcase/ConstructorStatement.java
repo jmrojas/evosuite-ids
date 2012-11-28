@@ -34,7 +34,7 @@ import java.util.Set;
 
 import org.apache.commons.lang3.ClassUtils;
 import org.evosuite.Properties;
-import org.evosuite.setup.TestCluster;
+import org.evosuite.TestGenerationContext;
 import org.evosuite.setup.TestClusterGenerator;
 import org.objectweb.asm.Label;
 import org.objectweb.asm.Opcodes;
@@ -213,8 +213,10 @@ public class ConstructorStatement extends AbstractStatement {
 					// If this is a non-static member class, the first parameter must not be null
 					if (constructor.getDeclaringClass().isMemberClass()
 					        && !Modifier.isStatic(constructor.getDeclaringClass().getModifiers())) {
-						if (inputs[0] == null)
+						if (inputs[0] == null) {
+							// throw new NullPointerException();
 							throw new CodeUnderTestException(new NullPointerException());
+						}
 					}
 
 					Object ret = constructor.newInstance(inputs);
@@ -240,14 +242,12 @@ public class ConstructorStatement extends AbstractStatement {
 
 		} catch (InvocationTargetException e) {
 			VM.setIgnoreCallBack(true);
-			//System.setOut(old_out);
-			//System.setErr(old_err);
 			exceptionThrown = e.getCause();
-			logger.debug("Exception thrown in constructor: " + e.getCause());
-
-			//} finally {
-			//	System.setOut(old_out);
-			//	System.setErr(old_err);
+			if(logger.isDebugEnabled()){
+				try{ logger.debug("Exception thrown in constructor: " + e.getCause());}
+				//this can happen if SUT throws exception on toString
+				catch(Exception ex){logger.debug("Exception thrown in constructor and SUT gives issue when calling e.getCause()",ex);}
+			}
 		}
 		return exceptionThrown;
 	}
@@ -556,7 +556,7 @@ public class ConstructorStatement extends AbstractStatement {
 		ois.defaultReadObject();
 
 		// Read/initialize additional fields
-		Class<?> constructorClass = TestCluster.classLoader.loadClass((String) ois.readObject());
+		Class<?> constructorClass = TestGenerationContext.getClassLoader().loadClass((String) ois.readObject());
 		String constructorDesc = (String) ois.readObject();
 		for (Constructor<?> constructor : constructorClass.getDeclaredConstructors()) {
 			if (Type.getConstructorDescriptor(constructor).equals(constructorDesc)) {
@@ -590,6 +590,7 @@ public class ConstructorStatement extends AbstractStatement {
 				}
 				if (equals) {
 					this.constructor = newConstructor;
+					this.constructor.setAccessible(true);
 					break;
 				}
 			}

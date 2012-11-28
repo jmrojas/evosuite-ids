@@ -34,9 +34,6 @@ import java.util.HashSet;
 import java.util.Map;
 import java.util.Set;
 
-import org.evosuite.coverage.branch.BranchPool;
-import org.evosuite.graphs.cfg.BytecodeInstructionPool;
-import org.evosuite.setup.TestCluster;
 import org.evosuite.utils.LoggingUtils;
 import org.evosuite.utils.Utils;
 import org.slf4j.Logger;
@@ -141,6 +138,15 @@ public class Properties {
 	@DoubleValue(min = 0.0, max = 1.0)
 	public static double PRIMITIVE_POOL = 0.5;
 
+	/** Constant <code>DYNAMIC_POOL=0.5</code> */
+	@Parameter(key = "dynamic_pool", group = "Test Creation", description = "Probability to use a primitive from the dynamic pool rather than a random value")
+	@DoubleValue(min = 0.0, max = 1.0)
+	public static double DYNAMIC_POOL = 1d / 3d;
+
+	/** Constant <code>DYNAMIC_POOL_SIZE=50</code> */
+	@Parameter(key = "dynamic_pool_size", group = "Test Creation", description = "Number of dynamic constants to keep")
+	public static int DYNAMIC_POOL_SIZE = 50;
+
 	/** Constant <code>OBJECT_POOL=0.0</code> */
 	@Parameter(key = "object_pool", group = "Test Creation", description = "Probability to use a predefined sequence from the pool rather than a random generator")
 	@DoubleValue(min = 0.0, max = 1.0)
@@ -196,6 +202,9 @@ public class Properties {
 	@Parameter(key = "num_tests", group = "Test Creation", description = "Number of tests in initial test suites")
 	public static int NUM_TESTS = 2;
 
+	@Parameter(key = "num_random_tests", group = "Test Creation", description = "Number of random tests")
+	public static int NUM_RANDOM_TESTS = 20;
+
 	/** Constant <code>MIN_INITIAL_TESTS=1</code> */
 	@Parameter(key = "min_initial_tests", group = "Test Creation", description = "Minimum number of tests in initial test suites")
 	public static int MIN_INITIAL_TESTS = 1;
@@ -247,8 +256,8 @@ public class Properties {
 	@Parameter(key = "check_parents_length", group = "Search Algorithm", description = "Check length against length of parents")
 	public static boolean CHECK_PARENTS_LENGTH = false; // note, based on STVR experiments
 
-	//@Parameter(key = "check_rank_length", group = "Search Algorithm", description = "Use length in rank selection")
-	//public static boolean CHECK_RANK_LENGTH = false;
+	// @Parameter(key = "check_rank_length", group = "Search Algorithm", description = "Use length in rank selection")
+	// public static boolean CHECK_RANK_LENGTH = false;
 
 	/** Constant <code>PARENT_CHECK=true</code> */
 	@Parameter(key = "parent_check", group = "Search Algorithm", description = "Check against parents in Mu+Lambda algorithm")
@@ -292,7 +301,7 @@ public class Properties {
 	public static long LOCAL_SEARCH_BUDGET = 100;
 
 	public enum LocalSearchBudgetType {
-		STATEMENTS, TIME
+		STATEMENTS, TIME, INDIVIDUALS
 	}
 
 	/** Constant <code>LOCAL_SEARCH_BUDGET_TYPE</code> */
@@ -302,6 +311,15 @@ public class Properties {
 	/** Constant <code>LOCAL_SEARCH_PROBES=10</code> */
 	@Parameter(key = "local_search_probes", group = "Search Algorithm", description = "How many mutations to apply to a string to check whether it improves coverage")
 	public static int LOCAL_SEARCH_PROBES = 10;
+
+	@Parameter(key = "local_search_primitives", group = "Search Algorithm", description = "Perform local search on primitive values")
+	public static boolean LOCAL_SEARCH_PRIMITIVES = true;
+
+	@Parameter(key = "local_search_arrays", group = "Search Algorithm", description = "Perform local search on array statements")
+	public static boolean LOCAL_SEARCH_ARRAYS = true;
+
+	@Parameter(key = "local_search_references", group = "Search Algorithm", description = "Perform local search on reference types")
+	public static boolean LOCAL_SEARCH_REFERENCES = true;
 
 	/** Constant <code>CROSSOVER_RATE=0.75</code> */
 	@Parameter(key = "crossover_rate", group = "Search Algorithm", description = "Probability of crossover")
@@ -469,6 +487,9 @@ public class Properties {
 	@IntValue(min = 0)
 	public static int EXTRA_TIMEOUT = 120;
 
+	@Parameter(key = "analysis_criteria", group = "Output", description = "List of criteria which should be measured on the completed test suite")
+	public static String ANALYSIS_CRITERIA = "";
+
 	// ---------------------------------------------------------------
 	// Single branch mode
 	/** Constant <code>RANDOM_TESTS=0</code> */
@@ -500,6 +521,9 @@ public class Properties {
 	/** Constant <code>TEST_FORMAT</code> */
 	@Parameter(key = "test_format", group = "Output", description = "Format of the resulting test cases")
 	public static OutputFormat TEST_FORMAT = OutputFormat.JUNIT4;
+
+	@Parameter(key = "test_comments", group = "Output", description = "Include a header with coverage information for each test")
+	public static boolean TEST_COMMENTS = true;
 
 	/** Constant <code>PRINT_TO_SYSTEM=false</code> */
 	@Parameter(key = "print_to_system", group = "Output", description = "Allow test output on console")
@@ -534,6 +558,10 @@ public class Properties {
 	/** Constant <code>MINIMIZE=true</code> */
 	@Parameter(key = "minimize", group = "Output", description = "Minimize test suite after generation")
 	public static boolean MINIMIZE = true;
+
+	/** Constant <code>COVERAGE=true</code> */
+	@Parameter(key = "coverage", group = "Output", description = "Minimize test suite after generation")
+	public static boolean COVERAGE = true;
 
 	/** Constant <code>MINIMIZE_OLD=false</code> */
 	@Parameter(key = "minimize_old", group = "Output", description = "Minimize test suite using old algorithm")
@@ -591,7 +619,7 @@ public class Properties {
 	public static int MAX_MUTANTS_PER_TEST = 100;
 
 	@Parameter(key = "max_mutants_per_method", group = "Output", description = "How many mutants can be inserted into a single method")
-	public static int MAX_MUTANTS_PER_METHOD = 1000;
+	public static int MAX_MUTANTS_PER_METHOD = 700;
 
 	@Parameter(key = "max_replace_mutants", group = "Output", description = "How many replacement mutants can be inserted for any one variable")
 	public static int MAX_REPLACE_MUTANTS = 100;
@@ -632,8 +660,9 @@ public class Properties {
 	@Parameter(key = "max_coverage_depth", group = "Output", description = "Maximum depth in the calltree to count a branch as covered")
 	public static int MAX_COVERAGE_DEPTH = -1;
 
-	//---------------------------------------------------------------
+	// ---------------------------------------------------------------
 	// Sandbox
+	//FIXME: once we are happy with the sandbox, we should turn it on by default
 	/** Constant <code>SANDBOX=false</code> */
 	@Parameter(key = "sandbox", group = "Sandbox", description = "Execute tests in a sandbox environment")
 	public static boolean SANDBOX = false;
@@ -645,6 +674,10 @@ public class Properties {
 	/** Constant <code>VIRTUAL_FS=false</code> */
 	@Parameter(key = "virtual_fs", group = "Sandbox", description = "Usage of ram fs")
 	public static boolean VIRTUAL_FS = false;
+
+	/** Constant <code>READ_ONLY_FROM_SANDBOX_FOLDER = false;</code> */
+	@Parameter(key = "restricted_read", group = "Sandbox", description = "Determines if the VFS shall only be allowed to read files from the sandbox read folder")
+	public static boolean READ_ONLY_FROM_SANDBOX_FOLDER = false;
 
 	/** Constant <code>MOCK_STRATEGIES="{  }"</code> */
 	@Parameter(key = "mock_strategies", group = "Sandbox", description = "Which mocking strategy should be applied")
@@ -663,6 +696,12 @@ public class Properties {
 	/** Constant <code>CALCULATE_CLUSTER=false</code> */
 	@Parameter(key = "calculate_cluster", description = "Automatically calculate test cluster during setup")
 	public static boolean CALCULATE_CLUSTER = false;
+
+	@Parameter(key = "cluster_recursion", description = "The maximum level of recursion when calculating the dependencies in the test cluster")
+	public static int CLUSTER_RECURSION = 10;
+
+	@Parameter(key = "inheritance_file", description = "Cached version of inheritance tree")
+	public static String INHERITANCE_FILE = "";
 
 	/** Constant <code>BRANCH_EVAL=false</code> */
 	@Parameter(key = "branch_eval", description = "Jeremy's branch evaluation")
@@ -738,6 +777,9 @@ public class Properties {
 	@DoubleValue(min = 0.0, max = 1.0)
 	public static double CONCOLIC_MUTATION = 0.0;
 
+	@Parameter(key = "constraint_solution_attempts", description = "Number of attempts to solve constraints related to one code branch")
+	public static int CONSTRAINT_SOLUTION_ATTEMPTS = 3;
+
 	/** Constant <code>UI_TEST=false</code> */
 	@Parameter(key = "ui", description = "Do User Interface tests")
 	public static boolean UI_TEST = false;
@@ -777,8 +819,8 @@ public class Properties {
 	public static boolean ERROR_BRANCHES = false;
 
 	/*
-	 * FIXME: these 2 following properties will not work if we use the EvoSuite shell script which call
-	 * MasterProcess directly rather than EvoSuite.java
+	 * FIXME: these 2 following properties will not work if we use the EvoSuite shell script which call MasterProcess directly rather than
+	 * EvoSuite.java
 	 */
 
 	/** Constant <code>ENABLE_ASSERTS_FOR_EVOSUITE=false</code> */
@@ -794,6 +836,9 @@ public class Properties {
 	/** Constant <code>TIMEOUT=5000</code> */
 	@Parameter(key = "timeout", group = "Test Execution", description = "Milliseconds allowed per test")
 	public static int TIMEOUT = 5000;
+
+	@Parameter(key = "concolic_timeout", group = "Test Execution", description = "Milliseconds allowed per test during concolic execution")
+	public static int CONCOLIC_TIMEOUT = 15000;
 
 	/** Constant <code>SHUTDOWN_TIMEOUT=1000</code> */
 	@Parameter(key = "shutdown_timeout", group = "Test Execution", description = "Milliseconds grace time to shut down test cleanly")
@@ -870,6 +915,10 @@ public class Properties {
 	@Parameter(key = "enable_alternative_fitness_calculation", description = "")
 	public static boolean ENABLE_ALTERNATIVE_FITNESS_CALCULATION = false;
 
+	/** Constant <code>ENABLE_ALTERNATIVE_FITNESS_CALCULATION=false</code> */
+	@Parameter(key = "enable_alternative_suite_fitness", description = "")
+	public static boolean ENABLE_ALTERNATIVE_SUITE_FITNESS = false;
+
 	/** Constant <code>DEFUSE_DEBUG_MODE=false</code> */
 	@Parameter(key = "defuse_debug_mode", description = "")
 	public static boolean DEFUSE_DEBUG_MODE = false;
@@ -888,7 +937,7 @@ public class Properties {
 	// Runtime parameters
 
 	public enum Criterion {
-		EXCEPTION, LCSAJ, DEFUSE, ALLDEFS, PATH, BRANCH, STRONGMUTATION, WEAKMUTATION, MUTATION, COMP_LCSAJ_BRANCH, STATEMENT, ANALYZE, DATA, BEHAVIORAL, IBRANCH, LOOP_INV_CANDIDATE_FALSE_BRANCH
+		EXCEPTION, LCSAJ, DEFUSE, ALLDEFS, PATH, BRANCH, STRONGMUTATION, WEAKMUTATION, MUTATION, COMP_LCSAJ_BRANCH, STATEMENT, ANALYZE, DATA, BEHAVIORAL, IBRANCH, LOOP_INV_CANDIDATE_FALSE_BRANCH, REGRESSION
 	}
 
 	/** Cache target class */
@@ -937,7 +986,7 @@ public class Properties {
 	public static Criterion CRITERION = Criterion.BRANCH;
 
 	public enum Strategy {
-		ONEBRANCH, EVOSUITE, RANDOM
+		ONEBRANCH, EVOSUITE, RANDOM, RANDOM_FIXED, REGRESSION
 	}
 
 	/** Constant <code>STRATEGY</code> */
@@ -1083,7 +1132,7 @@ public class Properties {
 						LoggingUtils.getEvoLogger().info("* Properties loaded from "
 						                                         + this.getClass().getClassLoader().getResource(propertiesPath).getPath());
 				}
-				//logger.info("* Properties loaded from default configuration file.");
+				// logger.info("* Properties loaded from default configuration file.");
 			}
 		} catch (FileNotFoundException e) {
 			logger.info("- Error: Could not find configuration file " + propertiesPath);
@@ -1519,7 +1568,7 @@ public class Properties {
 	}
 
 	/** Singleton instance */
-	private static Properties instance = null; //new Properties(true, true);
+	private static Properties instance = null; // new Properties(true, true);
 
 	/** Internal properties hashmap */
 	private java.util.Properties properties;
@@ -1575,8 +1624,8 @@ public class Properties {
 					PROJECT_PREFIX = CLASS_PREFIX.substring(0, CLASS_PREFIX.indexOf("."));
 				else
 					PROJECT_PREFIX = CLASS_PREFIX;
-				//LoggingUtils.getEvoLogger().info("* Using project prefix: "
-				//                                         + PROJECT_PREFIX);
+				// LoggingUtils.getEvoLogger().info("* Using project prefix: "
+				// + PROJECT_PREFIX);
 			}
 		}
 	}
@@ -1591,14 +1640,12 @@ public class Properties {
 		        && TARGET_CLASS_INSTANCE.getCanonicalName().equals(TARGET_CLASS))
 			return TARGET_CLASS_INSTANCE;
 
-		BranchPool.reset();
-		TestCluster.reset();
-		org.evosuite.testcase.TestFactory.getInstance().reset();
-		BytecodeInstructionPool.clear();
+		TARGET_CLASS_INSTANCE = null;
 
 		try {
-			TARGET_CLASS_INSTANCE = TestCluster.classLoader.loadClass(TARGET_CLASS);
-			return TARGET_CLASS_INSTANCE;
+			TARGET_CLASS_INSTANCE = Class.forName(TARGET_CLASS, true,
+			                                      TestGenerationContext.getClassLoader());
+
 		} catch (ClassNotFoundException e) {
 			LoggingUtils.getEvoLogger().info("* Could not find class under test: " + e);
 			for (StackTraceElement s : e.getStackTrace()) {
@@ -1612,14 +1659,17 @@ public class Properties {
 				}
 				cause = cause.getCause();
 			}
+			/*
+			 * FIXME: Why this sleep???
+			 */
 			try {
-				Thread.currentThread().sleep(100);
+				Thread.sleep(100);
 			} catch (InterruptedException e1) {
-				// TODO Auto-generated catch block
-				e1.printStackTrace();
+				logger.debug(e1.getMessage());
 			}
+		} finally {
 		}
-		return null;
+		return TARGET_CLASS_INSTANCE;
 	}
 
 	/**
@@ -1627,37 +1677,8 @@ public class Properties {
 	 * 
 	 * @return a {@link java.lang.Class} object.
 	 */
-	public static Class<?> resetTargetClass() {
-		BranchPool.reset();
-		TestCluster.reset();
-		org.evosuite.testcase.TestFactory.getInstance().reset();
-		BytecodeInstructionPool.clear();
-
-		try {
-			TARGET_CLASS_INSTANCE = TestCluster.classLoader.loadClass(TARGET_CLASS);
-			return TARGET_CLASS_INSTANCE;
-		} catch (ClassNotFoundException e) {
-			LoggingUtils.getEvoLogger().info("* Could not find class under test: "
-			                                         + (e.getMessage() != null ? e.getMessage()
-			                                                 : e));
-		}
-		return null;
-	}
-
-	/**
-	 * Get class object of class under test
-	 * 
-	 * @return a {@link java.lang.Class} object.
-	 */
-	@Deprecated
-	public static Class<?> loadTargetClass() {
-		try {
-			TARGET_CLASS_INSTANCE = TestCluster.classLoader.loadClass(TARGET_CLASS);
-			return TARGET_CLASS_INSTANCE;
-		} catch (ClassNotFoundException e) {
-			System.err.println("* Could not find class under test: " + TARGET_CLASS);
-		}
-		return null;
+	public static void resetTargetClass() {
+		TARGET_CLASS_INSTANCE = null;
 	}
 
 	/**

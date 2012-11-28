@@ -90,8 +90,10 @@ public class ClassControlFlowGraph extends EvoSuiteGraph<CCFGNode, CCFGEdge> {
 		ENTRY, EXIT, LOOP, CALL, RETURN
 	};
 
-	private String className;
-	public ClassCallGraph ccg;
+	private final String className;
+	private final ClassCallGraph ccg;
+	private final ClassLoader classLoader;
+	
 
 	private Map<String, CCFGMethodEntryNode> methodEntries = new HashMap<String, CCFGMethodEntryNode>();
 	private Map<String, CCFGMethodExitNode> methodExits = new HashMap<String, CCFGMethodExitNode>();
@@ -123,6 +125,7 @@ public class ClassControlFlowGraph extends EvoSuiteGraph<CCFGNode, CCFGEdge> {
 		super(CCFGEdge.class);
 		this.className = ccg.getClassName();
 		this.ccg = ccg;
+		this.classLoader = ccg.getClassLoader();
 		nicenDotOutput();
 		compute();
 	}
@@ -193,10 +196,10 @@ public class ClassControlFlowGraph extends EvoSuiteGraph<CCFGNode, CCFGEdge> {
 			// this should only happen for classes in java.*
 			String toAnalyze = fieldCall.getClassName() + "."
 					+ fieldCall.getMethodName();
-			if (GraphPool.canMakeCCFGForClass(fieldCall.getClassName())) {
+			if (GraphPool.getInstance(classLoader).canMakeCCFGForClass(fieldCall.getClassName())) {
 				
 				if (!methodsInPurityAnalysis.contains(toAnalyze)) {
-					ClassControlFlowGraph ccfg = GraphPool.getCCFG(fieldCall
+					ClassControlFlowGraph ccfg = GraphPool.getInstance(classLoader).getCCFG(fieldCall
 							.getClassName());
 					if (!ccfg.isPure(fieldCall.getMethodName())) {
 						// if fieldCall is impure this method is also impure
@@ -321,7 +324,7 @@ public class ClassControlFlowGraph extends EvoSuiteGraph<CCFGNode, CCFGEdge> {
 	}
 
 	private RawControlFlowGraph getRCFG(ClassCallNode ccgNode) {
-		return GraphPool.getRawCFG(className, ccgNode.getMethod());
+		return GraphPool.getInstance(classLoader).getRawCFG(className, ccgNode.getMethod());
 	}
 
 	/**
@@ -591,4 +594,12 @@ public class ClassControlFlowGraph extends EvoSuiteGraph<CCFGNode, CCFGEdge> {
 	protected String dotSubFolder() {
 		return toFileString(className) + "/";
 	}
+	
+	/**
+	 * @return the ccg
+	 */
+	public ClassCallGraph getCcg() {
+		return ccg;
+	}
+
 }

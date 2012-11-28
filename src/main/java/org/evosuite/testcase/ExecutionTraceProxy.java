@@ -9,11 +9,14 @@ import java.util.Map;
 import java.util.Set;
 
 import org.evosuite.coverage.dataflow.DefUse;
+import org.evosuite.setup.CallContext;
 import org.evosuite.testcase.ExecutionTraceImpl.BranchEval;
 
 /**
- * <p>ExecutionTraceProxy class.</p>
- *
+ * <p>
+ * ExecutionTraceProxy class.
+ * </p>
+ * 
  * @author gordon
  */
 public class ExecutionTraceProxy implements ExecutionTrace, Cloneable {
@@ -21,16 +24,21 @@ public class ExecutionTraceProxy implements ExecutionTrace, Cloneable {
 	private ExecutionTraceImpl trace;
 
 	/**
-	 * <p>Constructor for ExecutionTraceProxy.</p>
+	 * <p>
+	 * Constructor for ExecutionTraceProxy.
+	 * </p>
 	 */
 	public ExecutionTraceProxy() {
 		this.trace = new ExecutionTraceImpl();
 	}
 
 	/**
-	 * <p>Constructor for ExecutionTraceProxy.</p>
-	 *
-	 * @param trace a {@link org.evosuite.testcase.ExecutionTraceImpl} object.
+	 * <p>
+	 * Constructor for ExecutionTraceProxy.
+	 * </p>
+	 * 
+	 * @param trace
+	 *            a {@link org.evosuite.testcase.ExecutionTraceImpl} object.
 	 */
 	public ExecutionTraceProxy(ExecutionTraceImpl trace) {
 		this.trace = trace;
@@ -58,7 +66,9 @@ public class ExecutionTraceProxy implements ExecutionTrace, Cloneable {
 	}
 
 	/**
-	 * <p>copyOnWrite</p>
+	 * <p>
+	 * copyOnWrite
+	 * </p>
 	 */
 	public void copyOnWrite() {
 		if (trace.getProxyCount() > 1) {
@@ -159,6 +169,22 @@ public class ExecutionTraceProxy implements ExecutionTrace, Cloneable {
 	@Override
 	public Set<Integer> getCoveredTrueBranches() {
 		return trace.getCoveredTrueBranches();
+	}
+
+	/* (non-Javadoc)
+	 * @see org.evosuite.testcase.ExecutionTrace#getCoveredDefinitions()
+	 */
+	@Override
+	public Set<Integer> getCoveredDefinitions() {
+		return trace.getCoveredDefinitions();
+	}
+
+	/* (non-Javadoc)
+	 * @see org.evosuite.testcase.ExecutionTrace#getDefinitionExecutionCount()
+	 */
+	@Override
+	public Map<Integer, Integer> getDefinitionExecutionCount() {
+		return trace.getDefinitionExecutionCount();
 	}
 
 	/* (non-Javadoc)
@@ -463,5 +489,45 @@ public class ExecutionTraceProxy implements ExecutionTrace, Cloneable {
 	@Override
 	public Map<String, HashMap<Integer, HashMap<Integer, Integer>>> getPassedUses() {
 		return trace.getPassedUses();
+	}
+
+	/* (non-Javadoc)
+	 * @see org.evosuite.testcase.ExecutionTrace#getPassedDefIDs()
+	 */
+	@Override
+	public Set<Integer> getPassedDefIDs() {
+		return trace.getPassedDefIDs();
+	}
+
+	/* (non-Javadoc)
+	 * @see org.evosuite.testcase.ExecutionTrace#getPassedUseIDs()
+	 */
+	@Override
+	public Set<Integer> getPassedUseIDs() {
+		return trace.getPassedUseIDs();
+	}
+
+	/* (non-Javadoc)
+	 * @see org.evosuite.testcase.ExecutionTrace#getTrueDistancesContext()
+	 */
+	@Override
+	public Map<Integer, Map<CallContext, Double>> getTrueDistancesContext() {
+		return trace.getTrueDistancesContext();
+	}
+
+	/* (non-Javadoc)
+	 * @see org.evosuite.testcase.ExecutionTrace#getFalseDistancesContext()
+	 */
+	@Override
+	public Map<Integer, Map<CallContext, Double>> getFalseDistancesContext() {
+		return trace.getFalseDistancesContext();
+	}
+
+	/* (non-Javadoc)
+	 * @see org.evosuite.testcase.ExecutionTrace#getPredicateContextExecutionCount()
+	 */
+	@Override
+	public Map<Integer, Map<CallContext, Integer>> getPredicateContextExecutionCount() {
+		return trace.getPredicateContextExecutionCount();
 	}
 }

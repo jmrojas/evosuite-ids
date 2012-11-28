@@ -36,6 +36,8 @@ import java.util.zip.ZipException;
 import java.util.zip.ZipFile;
 
 import org.evosuite.Properties;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 /**
  * list resources available from the classpath @ *
@@ -44,6 +46,8 @@ import org.evosuite.Properties;
  */
 public class ResourceList {
 
+	private static Logger logger = LoggerFactory.getLogger(ResourceList.class);
+	
 	public static boolean hasClass(String className) {
 		// for windows quote File.separator "\"
 		className = className.replaceAll(Pattern.quote(File.separator),
@@ -70,8 +74,7 @@ public class ResourceList {
 	 */
 	public static Collection<String> getResources(final Pattern pattern) {
 		final ArrayList<String> retval = new ArrayList<String>();
-		//final String classPath = System.getProperty("java.class.path", ".");
-		final String[] classPathElements = Properties.CP.split(":");
+		final String[] classPathElements = Properties.CP.split(File.pathSeparator);
 		for (final String element : classPathElements) {
 			retval.addAll(getResources(element, pattern));
 		}
@@ -130,17 +133,14 @@ public class ResourceList {
 				retval.addAll(getResourcesFromDirectory(file, pattern,
 				                                        file.getCanonicalPath()));
 			} catch (IOException e) {
-				// TODO Auto-generated catch block
-				e.printStackTrace();
+				logger.error("Error in getting resources",e);
 			}
 		} else if (!file.exists()) {
 			//do nothing
-//			System.out.println(file.getAbsolutePath()
-//			        + " is on the class path, but doesn't exist");
-
 		} else if (file.getName().endsWith(".jar")) {
 			retval.addAll(getResourcesFromJarFile(file, pattern));
 		}
+		
 		return retval;
 	}
 
@@ -181,7 +181,8 @@ public class ResourceList {
 				retval.addAll(getResourcesFromDirectory(file, pattern, dirName));
 			} else {
 				try {
-					final String fileName = file.getCanonicalPath().replace(dirName + File.separator,
+					final String fileName = file.getCanonicalPath().replace(dirName
+					                                                                + File.separator,
 					                                                        "");
 					final boolean accept = pattern.matcher(fileName).matches();
 					if (accept) {

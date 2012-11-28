@@ -27,14 +27,16 @@ import java.util.Map;
 import java.util.Map.Entry;
 import java.util.Set;
 
-import org.evosuite.ga.Chromosome;
+import org.evosuite.testcase.ExecutableChromosome;
 import org.evosuite.testcase.ExecutionResult;
+import org.evosuite.testsuite.AbstractTestSuiteChromosome;
 import org.evosuite.testsuite.TestSuiteChromosome;
 
-
 /**
- * <p>WeakMutationSuiteFitness class.</p>
- *
+ * <p>
+ * WeakMutationSuiteFitness class.
+ * </p>
+ * 
  * @author fraser
  */
 public class WeakMutationSuiteFitness extends MutationSuiteFitness {
@@ -46,8 +48,9 @@ public class WeakMutationSuiteFitness extends MutationSuiteFitness {
 	 */
 	/** {@inheritDoc} */
 	@Override
-	public double getFitness(Chromosome individual) {
-		List<ExecutionResult> results = runTestSuite((TestSuiteChromosome) individual);
+	public double getFitness(
+	        AbstractTestSuiteChromosome<? extends ExecutableChromosome> individual) {
+		List<ExecutionResult> results = runTestSuite(individual);
 
 		// First objective: achieve branch coverage
 		logger.debug("Calculating branch fitness: ");
@@ -81,19 +84,19 @@ public class WeakMutationSuiteFitness extends MutationSuiteFitness {
 			if (distance < 0) {
 				logger.warn("Distance is " + distance + " / " + Integer.MAX_VALUE + " / "
 				        + Integer.MIN_VALUE);
+				distance = 0.0; // FIXXME
 			}
 
 			fitness += normalize(distance);
 			if (distance == 0.0)
 				covered++;
 		}
-		if (mostCoveredGoals < covered)
-			mostCoveredGoals = covered;
-
+		
 		updateIndividual(individual, fitness);
 		((TestSuiteChromosome) individual).setCoverage(1.0 * covered
 		        / mutationGoals.size());
-
+		((TestSuiteChromosome) individual).setNumOfCoveredGoals(covered);
+		
 		return fitness;
 	}
 }

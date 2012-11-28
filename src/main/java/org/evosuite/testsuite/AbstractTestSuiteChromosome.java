@@ -22,7 +22,9 @@ package org.evosuite.testsuite;
 
 import java.util.ArrayList;
 import java.util.Collection;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Set;
 
 import org.evosuite.Properties;
 import org.evosuite.ga.Chromosome;
@@ -36,14 +38,8 @@ public abstract class AbstractTestSuiteChromosome<T extends ExecutableChromosome
 	private static final long serialVersionUID = 1L;
 
 	protected List<T> tests = new ArrayList<T>();
-	protected List<Boolean> unmodifiableTests = new ArrayList<Boolean>();
+	protected Set<T> unmodifiableTests = new HashSet<T>();
 	protected ChromosomeFactory<T> testChromosomeFactory;
-
-	/*
-	 * coverage is used only for output/statistics purposes
-	 */
-	protected double coverage = 0.0;
-
 
 	/**
 	 * only used for testing/debugging
@@ -95,7 +91,7 @@ public abstract class AbstractTestSuiteChromosome<T extends ExecutableChromosome
 	 */
 	public void addTest(T test) {
 		tests.add(test);
-		unmodifiableTests.add(false);
+		unmodifiableTests.remove(test);
 		this.setChanged(true);
 	}
 
@@ -107,7 +103,7 @@ public abstract class AbstractTestSuiteChromosome<T extends ExecutableChromosome
 	public void addTests(Collection<T> tests) {
 		for (T test : tests) {
 			tests.add(test);
-			unmodifiableTests.add(false);
+			unmodifiableTests.remove(test);
 		}
 		if (!tests.isEmpty())
 			this.setChanged(true);
@@ -120,7 +116,7 @@ public abstract class AbstractTestSuiteChromosome<T extends ExecutableChromosome
 	 */
 	public void addUnmodifiableTest(T test) {
 		tests.add(test);
-		unmodifiableTests.add(true);
+		unmodifiableTests.add(test);
 		this.setChanged(true);
 	}
 
@@ -147,8 +143,12 @@ public abstract class AbstractTestSuiteChromosome<T extends ExecutableChromosome
 		}
 
 		for (int num = position2; num < other.size(); num++) {
-			tests.add((T) chromosome.tests.get(num).clone());
-			unmodifiableTests.add(chromosome.unmodifiableTests.get(num).booleanValue());
+			T otherTest =  chromosome.tests.get(num);
+			T clonedTest = (T) otherTest.clone();
+			tests.add(clonedTest);
+			if(chromosome.unmodifiableTests.contains(otherTest)){
+				unmodifiableTests.add(clonedTest);
+			}
 		}
 
 		this.setChanged(true);
@@ -193,7 +193,7 @@ public abstract class AbstractTestSuiteChromosome<T extends ExecutableChromosome
 		// Mutate existing test cases
 		for (int i = 0; i < tests.size(); i++) {
 			T test = tests.get(i);
-			if (unmodifiableTests.get(i) == true)
+			if (unmodifiableTests.contains(test))
 				continue;
 
 			if (Randomness.nextDouble() < 1.0 / tests.size()) {
@@ -207,8 +207,9 @@ public abstract class AbstractTestSuiteChromosome<T extends ExecutableChromosome
 
 		for (int count = 1; Randomness.nextDouble() <= Math.pow(ALPHA, count)
 		        && size() < Properties.MAX_SIZE; count++) {
-			tests.add(testChromosomeFactory.getChromosome());
-			unmodifiableTests.add(false);
+			T test = testChromosomeFactory.getChromosome();
+			tests.add(test);
+			unmodifiableTests.remove(test);
 			logger.debug("Adding new test case");
 			changed = true;
 		}
@@ -242,7 +243,7 @@ public abstract class AbstractTestSuiteChromosome<T extends ExecutableChromosome
 
 	/** {@inheritDoc} */
 	@Override
-	public abstract AbstractTestSuiteChromosome<T> clone();
+	public abstract Chromosome clone();
 
 	/**
 	 * <p>getTestChromosome</p>
@@ -272,23 +273,5 @@ public abstract class AbstractTestSuiteChromosome<T extends ExecutableChromosome
 	public void setTestChromosome(int index, T test) {
 		tests.set(index, test);
 		this.setChanged(true);
-	}
-
-	/**
-	 * <p>Getter for the field <code>coverage</code>.</p>
-	 *
-	 * @return a double.
-	 */
-	public double getCoverage() {
-		return coverage;
-	}
-
-	/**
-	 * <p>Setter for the field <code>coverage</code>.</p>
-	 *
-	 * @param coverage a double.
-	 */
-	public void setCoverage(double coverage) {
-		this.coverage = coverage;
 	}
 }

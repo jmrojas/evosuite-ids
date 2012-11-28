@@ -33,7 +33,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
-import org.evosuite.setup.TestCluster;
+import org.evosuite.TestGenerationContext;
 import org.evosuite.setup.TestClusterGenerator;
 import org.objectweb.asm.Label;
 import org.objectweb.asm.Opcodes;
@@ -74,7 +74,10 @@ public class MethodStatement extends AbstractStatement {
 		assert (method.getParameterTypes().length == parameters.size()) : method.getParameterTypes().length
 		        + " != " + parameters.size();
 		this.method = method;
-		this.callee = callee;
+		if (isStatic())
+			this.callee = null;
+		else
+			this.callee = callee;
 		this.parameters = parameters;
 	}
 
@@ -114,7 +117,10 @@ public class MethodStatement extends AbstractStatement {
 		assert (parameters != null);
 		assert (method.getParameterTypes().length == parameters.size());
 		this.method = method;
-		this.callee = callee;
+		if (isStatic())
+			this.callee = null;
+		else
+			this.callee = callee;
 		this.parameters = parameters;
 	}
 
@@ -162,7 +168,8 @@ public class MethodStatement extends AbstractStatement {
 	 *            a {@link org.evosuite.testcase.VariableReference} object.
 	 */
 	public void setCallee(VariableReference callee) {
-		this.callee = callee;
+		if (!isStatic())
+			this.callee = callee;
 	}
 
 	/**
@@ -272,7 +279,7 @@ public class MethodStatement extends AbstractStatement {
 		}
 
 		MethodStatement m;
-		if (Modifier.isStatic(method.getModifiers())) {
+		if (isStatic()) {
 			// FIXXME: If callee is an array index, this will return an invalid
 			// copy of the cloned variable!
 			m = new MethodStatement(newTestCase, method, null, retval.getType(),
@@ -595,7 +602,7 @@ public class MethodStatement extends AbstractStatement {
 		for (VariableReference v : parameters) {
 			v.getStPosition();
 		}
-		if (callee != null) {
+		if (!isStatic()) {
 			callee.getStPosition();
 		}
 		return true;
@@ -663,8 +670,11 @@ public class MethodStatement extends AbstractStatement {
 		ois.defaultReadObject();
 
 		// Read/initialize additional fields
-		Class<?> methodClass = TestCluster.classLoader.loadClass((String) ois.readObject());
-		methodClass = TestCluster.classLoader.loadClass(methodClass.getName());
+		Class<?> methodClass = TestGenerationContext.getClassLoader().loadClass((String) ois.readObject());
+
+		// TODO: What was the point of this??
+		// methodClass = TestCluster.classLoader.loadClass(methodClass.getName());
+
 		String methodName = (String) ois.readObject();
 		String methodDesc = (String) ois.readObject();
 
@@ -703,6 +713,7 @@ public class MethodStatement extends AbstractStatement {
 					}
 					if (equals) {
 						this.method = newMethod;
+						this.method.setAccessible(true);
 						break;
 					}
 				}

@@ -123,7 +123,7 @@ public class TestChromosome extends ExecutableChromosome {
 	 */
 	/** {@inheritDoc} */
 	@Override
-	protected void copyCachedResults(ExecutableChromosome other) {
+	public void copyCachedResults(ExecutableChromosome other) {
 		if (test == null)
 			throw new RuntimeException("Test is null!");
 
@@ -219,7 +219,7 @@ public class TestChromosome extends ExecutableChromosome {
 			if (LocalSearchBudget.isFinished())
 				break;
 
-			if (lastPosition >= test.size()) {
+			if (i >= test.size()) {
 				logger.warn("Test size decreased unexpectedly during local search, aborting local search");
 				logger.warn(test.toCode());
 				break;
@@ -238,6 +238,9 @@ public class TestChromosome extends ExecutableChromosome {
 				i += search.getPositionDelta();
 			}
 		}
+
+		LocalSearchBudget.individualImproved(this);
+
 		assert (getFitness() <= oldFitness);
 		//logger.info("Test after local search: " + test.toCode());
 
@@ -386,7 +389,7 @@ public class TestChromosome extends ExecutableChromosome {
 	 */
 	private boolean mutationConcolic() {
 		logger.info("Applying DSE mutation");
-	// concolicExecution = new ConcolicExecution();
+		// concolicExecution = new ConcolicExecution();
 
 		// Apply DSE to gather constraints
 		List<BranchCondition> branches = ConcolicExecution.getSymbolicPath(this);

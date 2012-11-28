@@ -21,20 +21,25 @@ import java.util.ArrayList;
 
 import org.evosuite.Properties;
 import org.evosuite.utils.Utils;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
+import com.thoughtworks.xstream.core.util.ThreadSafePropertyEditor;
 
 /**
  * Class which controls enabling and disabling sandbox.
+ * 
+ * 
+ * Note: for the moment it sets a custom security manager and a mocking framework.
+ * But this latter is not really used now (but we might want to use it in the future once fixed).
+ * So, for the time being, this class is just a wrapper over the security manager
  * 
  * @author Andrey Tarasevich
  */
 public class Sandbox {
 
-	/** Mocked security manager. */
-	private static SecurityManager evilManager = new MSecurityManager();
-
-	/** Old security manager. */
-	private static SecurityManager kindManager = System.getSecurityManager();
-
+	private static Logger logger = LoggerFactory.getLogger(Sandbox.class);
+	
 	/** Mock controller. */
 	private static Mocks mocks = new Mocks();
 
@@ -44,56 +49,90 @@ public class Sandbox {
 	/** Constant <code>lastAccessedFile</code> */
 	public static EvosuiteFile lastAccessedFile = null;;
 
-	private static PermissionStatistics statistics = PermissionStatistics.getInstance();
-
+	private static MSecurityManager manager;
+	
+	
 	/**
-	 * Set up mocked security manager if sandbox property is true.
+	 * Create and initialize security manager for SUT
 	 */
-	public static void setUpMockedSecurityManager() {
-		if (Properties.SANDBOX)
-			System.setSecurityManager(evilManager);
+	public static void initializeSecurityManagerForSUT(){
+		if(manager==null){
+			manager = new MSecurityManager();
+			manager.makePriviligedAllCurrentThreads();			
+			manager.apply();
+		} else {
+			logger.warn("Sandbox can be initalized only once");
+		}
+	}
+	
+	public static void resetDefaultSecurityManager() {
+		if(manager!=null){
+			manager.restoreDefaultManager();
+		}
+		manager = null;
+	}
+	
+	
+	public static boolean isSecurityManagerInitialized(){
+		return manager!=null; 
+	}
+	
+	public static void goingToExecuteSUTCode(){
+		if(!isSecurityManagerInitialized()){return;}
+		manager.goingToExecuteTestCase();
+	}
+	
+	public static void doneWithExecutingSUTCode(){
+		if(!isSecurityManagerInitialized()){return;}
+		manager.goingToEndTestCase();
+	}
+	
+	
+	public static void goingToExecuteUnsafeCodeOnSameThread() throws SecurityException, IllegalStateException {
+		if(!isSecurityManagerInitialized()){return;}
+		manager.goingToExecuteUnsafeCodeOnSameThread();
 	}
 
-	/**
-	 * Bring back old security manager.
-	 */
-	public static void tearDownMockedSecurityManager() {
-		System.setSecurityManager(kindManager);
+	public static void doneWithExecutingUnsafeCodeOnSameThread() throws SecurityException, IllegalStateException {
+		if(!isSecurityManagerInitialized()){return;}
+		manager.doneWithExecutingUnsafeCodeOnSameThread();
 	}
+	
 
 	/**
 	 * Set up mocks, if mock property is true
 	 */
+	@Deprecated
 	public static void setUpMocks() {
-		if (Properties.MOCKS)
+		if (Properties.MOCKS) {
 			mocks.setUpMocks();
-		if (Properties.VIRTUAL_FS) {
 			accessedFiles.clear();
-		}
+		}	
 	}
 
 	/**
 	 * Disable all active mocks
 	 */
-	public static void tearDownMocks() {
-		mocks.tearDownMocks();
-		if (Properties.VIRTUAL_FS) {
-			for (String s : statistics.getRecentFileReadPermissions()) {
+	@Deprecated
+	public static void tearDownMocks() {		
+		if (Properties.MOCKS) {
+			mocks.tearDownMocks();
+			for (String s : PermissionStatistics.getInstance().getRecentFileReadPermissions()) {
 				EvosuiteFile a = new EvosuiteFile(s, "default content");
 				accessedFiles.add(a);
 				lastAccessedFile = a;
 			}
 		}
 
-		statistics.resetRecentStatistic();
+		PermissionStatistics.getInstance().resetRecentStatistic();
 	}
 
 	/**
-	 * Disable mocks and mocked security manager. This method is used sometimes
+	 * Disable mocks. This method is used sometimes
 	 * just for the sake of simplicity.
 	 */
+	@Deprecated
 	public static void tearDownEverything() {
-		tearDownMockedSecurityManager();
 		tearDownMocks();
 	}
 
@@ -115,6 +154,7 @@ public class Sandbox {
 	 * 
 	 * @return a boolean.
 	 */
+	@Deprecated
 	public static boolean canUseFileContentGeneration() {
 		if (Properties.MOCKS && Properties.SANDBOX)
 			return !accessedFiles.isEmpty();

@@ -21,6 +21,7 @@
 package org.evosuite;
 
 import org.evosuite.ga.GeneticAlgorithm;
+import org.evosuite.sandbox.Sandbox;
 import org.evosuite.utils.ExternalProcessUtilities;
 import org.evosuite.utils.LoggingUtils;
 import org.evosuite.utils.Randomness;
@@ -56,9 +57,8 @@ public class ClientProcess {
 		LoggingUtils.getEvoLogger().info("* Connecting to master process on port "
 		                                         + Properties.PROCESS_COMMUNICATION_PORT);
 		if (!util.connectToMainProcess()) {
-			LoggingUtils.getEvoLogger().error("* Could not connect to master process on port "
-			                                          + Properties.PROCESS_COMMUNICATION_PORT);
-			System.exit(1);
+			throw new RuntimeException("Could not connect to master process on port "
+                    + Properties.PROCESS_COMMUNICATION_PORT);
 		}
 
 		TestSuiteGenerator generator = null;
@@ -68,6 +68,11 @@ public class ClientProcess {
 		 * restarts, but that will be done in RMI)
 		 */
 
+		//Before starting search, let's activate the sandbox
+		if (Properties.SANDBOX){
+			Sandbox.initializeSecurityManagerForSUT();
+		}
+		
 		// Starting a new search
 		generator = new TestSuiteGenerator();
 		generator.generateTestSuite();
@@ -83,6 +88,13 @@ public class ClientProcess {
 		}
 
 		util.informSearchIsFinished(ga);
+		
+		if (Properties.SANDBOX){
+			/*
+			 * Note: this is mainly done for debugging purposes, to simplify how test cases are run/written 
+			 */
+			Sandbox.resetDefaultSecurityManager();
+		}
 	}
 
 	/**
@@ -99,11 +111,15 @@ public class ClientProcess {
 			ClientProcess process = new ClientProcess();
 			process.run();
 			if (!Properties.CLIENT_ON_THREAD) {
+				/*
+				 * If we we are in debug mode in which we run client on separated thread,
+				 * then do not kill the JVM
+				 */
 				System.exit(0);
 			}
 		} catch (Throwable t) {
 			logger.error("Error when generating tests for: " + Properties.TARGET_CLASS
-			        + " with seed " + Randomness.getSeed(), t);
+			        + " with seed " + Randomness.getSeed()+". Configuration id : "+Properties.CONFIGURATION_ID, t);
 			t.printStackTrace();
 
 			//sleep 1 sec to be more sure that the above log is recorded

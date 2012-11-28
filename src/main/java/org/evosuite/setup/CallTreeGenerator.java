@@ -27,6 +27,7 @@ import java.util.Set;
 
 import org.evosuite.Properties;
 import org.evosuite.javaagent.InstrumentingClassLoader;
+import org.evosuite.utils.LoggingUtils;
 import org.objectweb.asm.Opcodes;
 import org.objectweb.asm.tree.AbstractInsnNode;
 import org.objectweb.asm.tree.ClassNode;
@@ -185,15 +186,23 @@ public class CallTreeGenerator {
 
 		Set<CallTreeEntry> subclassCalls = new LinkedHashSet<CallTreeEntry>();
 		for (CallTreeEntry call : callTree) {
-			//logger.info("Current call: " + call);
 			String targetClass = call.getTargetClass();
 			String targetMethod = call.getTargetMethod();
+			
+			// Ignore constructors
 			if (targetMethod.startsWith("<init>"))
 				continue;
-
-			//logger.info("Getting subclasses of " + targetClass);
+			
+			// Ignore calls to Array (e.g. clone())
+			if(targetClass.startsWith("["))
+				continue;
+			
+			if(!inheritanceTree.hasClass(targetClass)) {
+				LoggingUtils.getEvoLogger().warn("Inheritance tree does not contain {}, please check classpath", targetClass);
+				continue;
+			}
+			
 			for (String subclass : inheritanceTree.getSubclasses(targetClass)) {
-				//logger.info("Subclass: " + subclass);
 				if (inheritanceTree.isMethodDefined(subclass, targetMethod)) {
 					subclassCalls.add(new CallTreeEntry(call.getSourceClass(),
 					        call.getSourceMethod(), subclass, targetMethod));

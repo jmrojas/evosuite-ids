@@ -118,6 +118,10 @@ public enum Operator {
 	REGIONMATCHES("regionMatches", 6), 
 	PATTERNMATCHES("patternMatches", 2), 
 
+	// character operators
+	ISLETTER("isLetter",1),
+	ISDIGIT("isDigit",1),
+	GETNUMERICVALUE("getNumericValue",1),
 
 	// String operators
 	TRIM("trim", 1), 
@@ -128,7 +132,13 @@ public enum Operator {
 	COMPARETO("compareTo", 2), 
 	COMPARETOIGNORECASE("compareToIgnoreCase", 2),
 	CONCAT("concat", 2), 
-	APPEND("append", 2), 
+	
+	APPEND_BOOLEAN("append_boolean", 2), 
+	APPEND_STRING("append_String", 2), 
+	APPEND_REAL("append_Real",2),
+	APPEND_INTEGER("append_Integer", 2), 
+	APPEND_CHAR("append_Char", 2), 
+
 	INDEXOFC("indexOfC", 2),
 	INDEXOFS("indexOfS", 2),
 	LASTINDEXOFC("lastIndexOfC", 2),

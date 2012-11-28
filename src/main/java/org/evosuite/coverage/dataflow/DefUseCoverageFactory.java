@@ -25,6 +25,7 @@ import java.util.Map;
 import java.util.Set;
 
 import org.evosuite.Properties;
+import org.evosuite.TestGenerationContext;
 import org.evosuite.coverage.dataflow.DefUseCoverageTestFitness.DefUsePairType;
 import org.evosuite.coverage.dataflow.analysis.AllUsesAnalysis;
 import org.evosuite.graphs.GraphPool;
@@ -44,16 +45,13 @@ import org.slf4j.LoggerFactory;
  *
  * @author Andre Mis
  */
-public class DefUseCoverageFactory extends AbstractFitnessFactory {
-
-	private static Logger logger = LoggerFactory
-			.getLogger(DefUseCoverageFactory.class);
+public class DefUseCoverageFactory extends AbstractFitnessFactory<DefUseCoverageTestFitness> {
 
 	// TestSuiteMinimizer seems to call getCoverageGoals() a second time
 	// and since analysis takes a little ...
 	private static boolean called = false;
 	private static List<DefUseCoverageTestFitness> duGoals;
-	private static List<TestFitnessFunction> goals;
+	private static List<DefUseCoverageTestFitness> goals;
 
 	// map of all NON-parameter-goals
 	private static Map<Definition, Map<Use, DefUseCoverageTestFitness>> goalMap = new HashMap<Definition, Map<Use, DefUseCoverageTestFitness>>();
@@ -79,7 +77,7 @@ public class DefUseCoverageFactory extends AbstractFitnessFactory {
 	 */
 	/** {@inheritDoc} */
 	@Override
-	public List<TestFitnessFunction> getCoverageGoals() {
+	public List<DefUseCoverageTestFitness> getCoverageGoals() {
 		if (!called)
 			computeGoals();
 
@@ -102,35 +100,35 @@ public class DefUseCoverageFactory extends AbstractFitnessFactory {
 		
 		// TODO remove the following lines once purity analysis is implemented
 		// they are just for testing purposes
-		for(String methodInCCFG : GraphPool.getRawCFGs(Properties.TARGET_CLASS).keySet()) {
+/*		for(String methodInCCFG : GraphPool.getRawCFGs(Properties.TARGET_CLASS).keySet()) {
 			if(GraphPool.getCCFG(Properties.TARGET_CLASS).isPure(methodInCCFG))
 				LoggingUtils.getEvoLogger().debug("PURE method:\t"+methodInCCFG);
 			else
 				LoggingUtils.getEvoLogger().debug("IMPURE method:\t"+methodInCCFG);
-		}
+		} */
 		
 		long start = System.currentTimeMillis();
-		logger.trace("starting DefUse-Coverage goal generation");
+		LoggingUtils.getEvoLogger().info("starting DefUse-Coverage goal generation");
 		duGoals = new ArrayList<DefUseCoverageTestFitness>();
 
-		System.out.println("* Creating DefUse-Pairs from CCFG...");
+		LoggingUtils.getEvoLogger().info("* Creating DefUse-Pairs from CCFG...");
 		duGoals.addAll(getCCFGPairs());
-		System.out.println("..created " + getIntraMethodGoalsCount()
+		LoggingUtils.getEvoLogger().info("..created " + getIntraMethodGoalsCount()
 				+ " intra-method-, " + getInterMethodGoalsCount()
 				+ " inter-method- and " + getIntraClassGoalsCount()
 				+ " intra-class-pairs");
 
-		System.out.print("* Creating parameter goals...");
+		LoggingUtils.getEvoLogger().info("* Creating parameter goals...");
 		duGoals.addAll(getParameterGoals());
-		System.out.println(" created " + getParamGoalsCount()
+		LoggingUtils.getEvoLogger().info(" created " + getParamGoalsCount()
 				+ " parameter goals");
 
 		called = true;
-		goals = new ArrayList<TestFitnessFunction>();
+		goals = new ArrayList<DefUseCoverageTestFitness>();
 		goals.addAll(duGoals);
 		long end = System.currentTimeMillis();
 		goalComputationTime = end - start;
-		System.out.println("* Goal computation took: " + goalComputationTime
+		LoggingUtils.getEvoLogger().info("* Goal computation took: " + goalComputationTime
 				+ "ms");
 	}
 
@@ -152,7 +150,7 @@ public class DefUseCoverageFactory extends AbstractFitnessFactory {
 				"Categorizing field method calls: " + fieldMethodCalls.size());
 		
 		for(BytecodeInstruction fieldMethodCall : fieldMethodCalls) {
-			if(!GraphPool.canMakeCCFGForClass(fieldMethodCall.getCalledMethodsClass())) {
+			if(!GraphPool.getInstance(TestGenerationContext.getClassLoader()).canMakeCCFGForClass(fieldMethodCall.getCalledMethodsClass())) {
 							
 				String toAnalyze = fieldMethodCall.getCalledMethodsClass() + "."
 						+ fieldMethodCall.getCalledMethodName();
@@ -181,7 +179,7 @@ public class DefUseCoverageFactory extends AbstractFitnessFactory {
 				continue;
 			}
 			
-			ClassControlFlowGraph ccfg = GraphPool.getCCFG(fieldMethodCall.getCalledMethodsClass());
+			ClassControlFlowGraph ccfg = GraphPool.getInstance(TestGenerationContext.getClassLoader()).getCCFG(fieldMethodCall.getCalledMethodsClass());
 			if(ccfg.isPure(fieldMethodCall.getCalledMethod())) {
 				if(!DefUsePool.addAsUse(fieldMethodCall))
 					throw new IllegalStateException("unable to register field method call as a use "+fieldMethodCall.toString());
@@ -193,7 +191,7 @@ public class DefUseCoverageFactory extends AbstractFitnessFactory {
 	}
 
 	private static Set<DefUseCoverageTestFitness> getCCFGPairs() {
-		ClassControlFlowGraph ccfg = GraphPool
+		ClassControlFlowGraph ccfg = GraphPool.getInstance(TestGenerationContext.getClassLoader())
 				.getCCFG(Properties.TARGET_CLASS);
 		AllUsesAnalysis aua = new AllUsesAnalysis(ccfg);
 		Set<DefUseCoverageTestFitness> r = aua.determineDefUsePairs();
@@ -324,7 +322,7 @@ public class DefUseCoverageFactory extends AbstractFitnessFactory {
 			countGoal(goal);
 		}
 		// paramGoalsCount = r.size();
-		logger.info("# Parameter-Uses: " + r.size());
+//		LoggingUtils.getEvoLogger().debug("# Parameter-Uses: " + r.size());
 		return r;
 	}
 

@@ -4,11 +4,10 @@ import java.util.ArrayList;
 import java.util.Iterator;
 
 import org.evosuite.symbolic.expr.Expression;
-import org.evosuite.symbolic.expr.IntegerExpression;
 import org.evosuite.symbolic.expr.Operator;
-import org.evosuite.symbolic.expr.StringExpression;
-import org.evosuite.symbolic.expr.StringMultipleComparison;
-import org.evosuite.symbolic.expr.StringToIntCast;
+import org.evosuite.symbolic.expr.bv.IntegerValue;
+import org.evosuite.symbolic.expr.bv.StringMultipleComparison;
+import org.evosuite.symbolic.expr.str.StringValue;
 import org.evosuite.symbolic.vm.NullReference;
 import org.evosuite.symbolic.vm.Operand;
 import org.evosuite.symbolic.vm.Reference;
@@ -19,11 +18,11 @@ public final class RegionMatches extends StringFunction {
 
 	private static final String REGION_MATCHES = "regionMatches";
 
-	private IntegerExpression lenExpr;
-	private IntegerExpression ooffsetExpr;
-	private StringExpression otherExpr;
-	private IntegerExpression toffsetExpr;
-	private IntegerExpression ignoreCaseExpr;
+	private IntegerValue lenExpr;
+	private IntegerValue ooffsetExpr;
+	private StringValue otherExpr;
+	private IntegerValue toffsetExpr;
+	private IntegerValue ignoreCaseExpr;
 
 	public RegionMatches(SymbolicEnvironment env) {
 		super(env, REGION_MATCHES,
@@ -35,7 +34,7 @@ public final class RegionMatches extends StringFunction {
 		Iterator<Operand> it = env.topFrame().operandStack.iterator();
 		lenExpr = bv32(it.next());
 		ooffsetExpr = bv32(it.next());
-		otherExpr = getStringExpression(it.next());
+		it.next(); // discard now
 		toffsetExpr = bv32(it.next());
 		ignoreCaseExpr = bv32(it.next());
 		Operand receiver_operand = it.next();
@@ -44,8 +43,17 @@ public final class RegionMatches extends StringFunction {
 		if (receiver_ref instanceof NullReference) {
 			return;
 		}
-		stringReceiverExpr = getStringExpression(receiver_operand);
+		stringReceiverExpr = getStringExpression(receiver_operand, receiver);
 
+	}
+
+	@Override
+	public void CALLER_STACK_PARAM(int nr, int calleeLocalsIndex, Object value) {
+		String string_value = (String) value;
+		Iterator<Operand> it = env.topFrame().operandStack.iterator();
+		it.next();
+		it.next();
+		this.otherExpr = getStringExpression(it.next(), string_value);
 	}
 
 	@Override

@@ -21,114 +21,257 @@
 package org.evosuite.runtime;
 
 import java.io.BufferedWriter;
+import java.io.EvoSuiteIO;
 import java.io.File;
 import java.io.FileWriter;
 import java.io.IOException;
 import java.io.Writer;
 
-import org.apache.commons.vfs2.FileSystemException;
-import org.apache.commons.vfs2.FileSystemManager;
 import org.evosuite.Properties;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import de.unisb.cs.st.evosuite.io.IOWrapper;
-
 /**
- * <p>FileSystem class.</p>
- *
- * @author fraser
+ * Provides file system operations for an <code>EvoSuiteFile</code>. Uses the {@link EvoSuiteIO} library to simulate these file operations on virtual
+ * copies of the original files.
+ * 
+ * @author Daniel Muth
  */
 public class FileSystem {
 
 	private static Logger logger = LoggerFactory.getLogger(FileSystem.class);
 
-	/** Constant <code>manager</code> */
-	public static FileSystemManager manager = null;
-
 	/**
-	 * Test method that sets content of a file
-	 *
-	 * @param fileName a {@link org.evosuite.runtime.EvoSuiteFile} object.
-	 * @param content a {@link java.lang.String} object.
-	 */
-	public static void setFileContent(EvoSuiteFile fileName, String content) {
-		// Put "content" into "file"
-		try {
-			for (String canonicalPath : IOWrapper.getAccessedFiles()) {
-				if (canonicalPath.equals(fileName.getPath())) {
-					logger.info("Writing content to (virtual) file " + fileName.getPath());
-					File ramFile = new File(fileName.getPath());
-					Writer writer = new BufferedWriter(new FileWriter(ramFile));
-					writer.write(content);
-					writer.close();
-				}
-			}
-		} catch (FileSystemException e) {
-			// TODO Auto-generated catch block
-			e.printStackTrace();
-		} catch (IOException e) {
-			// TODO Auto-generated catch block
-			e.printStackTrace();
-		}
-	}
-
-	// TODO
-	// public static void setFilePermission(EvoSuiteFile file, ...);
-
-	// TODO
-	// public static void deleteFile(EvoSuiteFile file);
-
-	/**
-	 * Reset runtime to initial state
+	 * Resets the vfs to a default state (all files deleted or all files in a specific state)
+	 * 
 	 */
 	public static void reset() {
 		if (Properties.VIRTUAL_FS) {
-			try {
-				// Class<?> clazz = TestCluster.classLoader
-				// .loadClass("org.apache.commons.vfs2.VFS");
-				// clazz.getMethod("getManager", new Class<?>[] {}).invoke(null); // throws FileSystemException
-
-				IOWrapper.initVFS();
-
-				// for (File f : File.createdFiles) {
-				// f.delete();
-				// }
-				// TODO: Find proper way to clear filesystem
-
-				IOWrapper.clearAccessedFiles();
-				IOWrapper.activeVFS = true;
-			} catch (FileSystemException e) {
-				logger.warn("Error during initialization of virtual FS: " + e
-						+ ", " + e.getCause());//
-			} catch (Throwable t) {
-				logger.warn("Error: " + t);
+			if (!EvoSuiteIO.isInitialized()) {
+				EvoSuiteIO.initialize(Properties.PROJECT_PREFIX,
+						Properties.READ_ONLY_FROM_SANDBOX_FOLDER, new File(
+								Properties.SANDBOX_FOLDER, "read")
+								.getAbsoluteFile());
+				EvoSuiteIO.disableTolerantExceptionHandling();
 			}
-			/*
-			 * catch (ClassNotFoundException e) { // TODO Auto-generated catch block e.printStackTrace(); } catch (IllegalArgumentException e) { //
-			 * TODO Auto-generated catch block e.printStackTrace(); } catch (SecurityException e) { // TODO Auto-generated catch block
-			 * e.printStackTrace(); } catch (IllegalAccessException e) { // TODO Auto-generated catch block e.printStackTrace(); } catch
-			 * (InvocationTargetException e) { // TODO Auto-generated catch block e.printStackTrace(); } catch (NoSuchMethodException e) { // TODO
-			 * Auto-generated catch block e.printStackTrace(); }
-			 */
+			
+			logger.info("Resetting and enabling the VFS...");
+			try {	
+				EvoSuiteIO.resetVFS();
+			} catch (IOException e) {
+				logger.warn("Error during initialization/reset of virtual FS: "
+						+ e + ", " + e.getCause());
+			}
 		}
 	}
 
 	/**
-	 * <p>restoreOriginalFS</p>
+	 * Test method that sets content of a file. Also creates the file if it does not exist.
+	 * 
+	 * @param evoSuiteFile
+	 * @param content
+	 * @throws IOException
 	 */
-	public static void restoreOriginalFS() {
-		if (Properties.VIRTUAL_FS) {
-			IOWrapper.activeVFS = false;
+	public static void setFileContent(EvoSuiteFile evoSuiteFile, String content)
+			throws IOException {
+		if (evoSuiteFile == null)
+			throw new NullPointerException("evoSuiteFile must not be null!");
+
+		File file = new File(evoSuiteFile.getPath());
+
+		// the GA would have to insert FileSystem.createFile before this setFileContent statement if the file does not exist but it is terribly bad at
+		// it for some reason; therefore the following is outcommented what implies, that the FileWriter will try to create the file if it does not
+		// exist already
+		// if (!file.exists())
+		// throw new FileNotFoundException("File does not exist: \""
+		// + evoSuiteFile.getPath() + "\"");
+
+		// Put "content" into "file"
+		logger.info("Writing \"" + content + "\" to (virtual) file "
+				+ evoSuiteFile.getPath());
+		EvoSuiteIO.setOriginal(file, false);
+		Writer writer = new BufferedWriter(new FileWriter(file));
+		try {
+			writer.write(content);
+		} finally {
+			writer.close();
+		}
+	}
+
+	public static void setReadPermission(EvoSuiteFile evoSuiteFile,
+			boolean readable) {
+		if (evoSuiteFile == null)
+			throw new NullPointerException("evoSuiteFile must not be null!");
+
+		File file = new File(evoSuiteFile.getPath());
+		EvoSuiteIO.setOriginal(file, false);
+		if (file.setReadable(readable)) {
+			logger.debug("Read permisson of " + evoSuiteFile.getPath()
+					+ " was successfully set to " + readable + " !");
+		} else {
+			logger.debug("Setting read permission of " + evoSuiteFile.getPath()
+					+ " to " + readable + " failed!");
+		}
+	}
+
+	public static void setWritePermission(EvoSuiteFile evoSuiteFile,
+			boolean writable) {
+		if (evoSuiteFile == null)
+			throw new NullPointerException("evoSuiteFile must not be null!");
+
+		File file = new File(evoSuiteFile.getPath());
+		EvoSuiteIO.setOriginal(file, false);
+		if (file.setWritable(writable)) {
+			logger.debug("Write permisson of " + evoSuiteFile.getPath()
+					+ " was successfully set to " + writable + " !");
+		} else {
+			logger.debug("Setting write permission of "
+					+ evoSuiteFile.getPath() + " to " + writable + " failed!");
+		}
+	}
+
+	public static void setExecutePermission(EvoSuiteFile evoSuiteFile,
+			boolean executable) {
+		if (evoSuiteFile == null)
+			throw new NullPointerException("evoSuiteFile must not be null!");
+
+		File file = new File(evoSuiteFile.getPath());
+		EvoSuiteIO.setOriginal(file, false);
+		if (file.setExecutable(executable)) {
+			logger.debug("Execute permisson of " + evoSuiteFile.getPath()
+					+ " was successfully set to " + executable + " !");
+		} else {
+			logger.debug("Setting execute permission of "
+					+ evoSuiteFile.getPath() + " to " + executable + " failed!");
 		}
 	}
 
 	/**
-	 * Getter to check whether this runtime replacement was accessed during test execution
-	 *
-	 * @return a boolean.
+	 * Test method that tries to delete a file or directory by calling {@link EvoSuiteIO#deepDelete(File)}. In contrast to normal deletion this method
+	 * also deletes a directory that contains children (by deleting them as well).
+	 * 
+	 * @param evoSuiteFile
+	 * @throws IOException
 	 */
-	public static boolean wasAccessed() {
-		return IOWrapper.filesWereAccessed();
+	public static void deepDelete(EvoSuiteFile evoSuiteFile) throws IOException {
+		if (evoSuiteFile == null)
+			throw new NullPointerException("evoSuiteFile must not be null!");
+
+		File file = new File(evoSuiteFile.getPath());
+		EvoSuiteIO.setOriginal(file, false);
+		if (EvoSuiteIO.deepDelete(file)) {
+			logger.debug("Deep-deleting \"" + evoSuiteFile.getPath()
+					+ "\" was successful!");
+		} else {
+			logger.debug("Deep-deleting \"" + evoSuiteFile.getPath()
+					+ "\" failed!");
+		}
 	}
+
+	public static void createFile(EvoSuiteFile evoSuiteFile) throws IOException { // TODO unnecessary? -> setFileContent
+		if (evoSuiteFile == null)
+			throw new NullPointerException("evoSuiteFile must not be null!");
+
+		File file = new File(evoSuiteFile.getPath());
+		EvoSuiteIO.setOriginal(file, false);
+		if (file.createNewFile()) {
+			logger.debug(evoSuiteFile.getPath()
+					+ " was successfully created as a file!");
+		} else {
+			logger.debug("Creation of " + evoSuiteFile.getPath()
+					+ " as a file failed!");
+		}
+	}
+
+	/**
+	 * Test method that tries to create this file as a directory. Also creates any necessary but nonexistent parent directories.
+	 * 
+	 * @param evoSuiteFile
+	 */
+	public static void createDirectory(EvoSuiteFile evoSuiteFile) {
+		if (evoSuiteFile == null)
+			throw new NullPointerException("evoSuiteFile must not be null!");
+
+		File file = new File(evoSuiteFile.getPath());
+		EvoSuiteIO.setOriginal(file, false);
+		if (file.mkdirs()) {
+			logger.debug(evoSuiteFile.getPath()
+					+ " was successfully created as a directory!");
+		} else {
+			logger.debug("Creation of " + evoSuiteFile.getPath()
+					+ " as a directory failed!");
+		}
+	}
+
+	/**
+	 * Test method that tries to fill a directory with a subFile and a subDirectory
+	 * 
+	 * @param evoSuiteFile
+	 * @return true if the directory was filled successfully
+	 * @throws IOException
+	 */
+	public static void createAndFillDirectory(EvoSuiteFile evoSuiteFile)  // TODO fill with actually accessed files/directories?
+			throws IOException {
+		if (evoSuiteFile == null)
+			throw new NullPointerException("evoSuiteFile must not be null!");
+
+		File file = new File(evoSuiteFile.getPath());
+		EvoSuiteIO.setOriginal(file, false);
+		file.mkdirs();
+
+		File subDirectory = new File(file, "EvoSuiteTestSubDirectory");
+		EvoSuiteIO.setOriginal(subDirectory, false);
+
+		File subFile = new File(file, "EvoSuiteTestSubFile");
+		EvoSuiteIO.setOriginal(subFile, false);
+
+		boolean successful = true;
+		successful &= subDirectory.mkdir();
+		successful &= subFile.createNewFile();
+
+		if (successful) {
+			logger.debug("creating and filling directory "
+					+ evoSuiteFile.getPath() + " was successful!");
+		} else {
+			logger.debug("creating and filling directory "
+					+ evoSuiteFile.getPath() + " failed!");
+		}
+	}
+
+	/**
+	 * 
+	 * @param evoSuiteFile
+	 * @return <code>true</code>, if creation was successful, <code>false</code> otherwise
+	 * @throws IOException
+	 */
+	public static void createParent(EvoSuiteFile evoSuiteFile)
+			throws IOException {
+		if (evoSuiteFile == null)
+			throw new NullPointerException("evoSuiteFile must not be null!");
+
+		File file = new File(evoSuiteFile.getPath());
+		EvoSuiteIO.setOriginal(file, false);
+
+		File parent = file.getCanonicalFile().getParentFile();
+		if (parent != null) {
+			EvoSuiteIO.setOriginal(parent, false);
+			parent.mkdirs();
+		}
+	}
+
+	public static void deepDeleteParent(EvoSuiteFile evoSuiteFile) // TODO unnecessary?
+			throws IOException {
+		if (evoSuiteFile == null)
+			throw new NullPointerException("evoSuiteFile must not be null!");
+
+		File file = new File(evoSuiteFile.getPath());
+		EvoSuiteIO.setOriginal(file, false);
+
+		File parent = file.getCanonicalFile().getParentFile();
+		if (parent != null) {
+			EvoSuiteIO.setOriginal(parent, false);
+			EvoSuiteIO.deepDelete(parent);
+		}
+	}
+
 }

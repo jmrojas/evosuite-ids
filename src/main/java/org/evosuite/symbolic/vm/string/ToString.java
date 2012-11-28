@@ -1,6 +1,5 @@
 package org.evosuite.symbolic.vm.string;
 
-import org.evosuite.symbolic.expr.StringConstant;
 import org.evosuite.symbolic.vm.NonNullReference;
 import org.evosuite.symbolic.vm.SymbolicEnvironment;
 import org.evosuite.symbolic.vm.SymbolicHeap;
@@ -16,7 +15,7 @@ public final class ToString extends StringFunction {
 	@Override
 	protected void INVOKEVIRTUAL_String(String receiver) {
 		this.stringReceiverExpr = getStringExpression(env.topFrame().operandStack
-				.peekOperand());
+				.peekOperand(), receiver);
 	}
 
 	@Override
