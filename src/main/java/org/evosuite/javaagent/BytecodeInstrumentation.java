@@ -141,6 +141,7 @@ public class BytecodeInstrumentation {
 		        && !className.startsWith("java.")
 		        && !className.startsWith("sun.")
 		        && !className.startsWith("org.evosuite")
+		        && !className.startsWith("org.exsyst")		        
 		        && !className.startsWith("de.unisb.cs.st.evosuite")
 		        && !className.startsWith("de.unisb.cs.st.specmate")
 		        && !className.startsWith("javax.")
@@ -218,6 +219,7 @@ public class BytecodeInstrumentation {
 		TransformationStatistics.reset();
 
 		ClassWriter writer = new ClassWriter(ClassWriter.COMPUTE_MAXS);
+		        //| ClassWriter.COMPUTE_FRAMES);
 
 		ClassVisitor cv = writer;
 		if (logger.isDebugEnabled()) {
