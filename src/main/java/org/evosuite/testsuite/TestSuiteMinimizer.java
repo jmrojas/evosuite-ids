@@ -22,17 +22,23 @@ import java.util.Collections;
 import java.util.Comparator;
 import java.util.HashSet;
 import java.util.Iterator;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Set;
 
 import org.evosuite.Properties;
 import org.evosuite.coverage.TestFitnessFactory;
 import org.evosuite.coverage.branch.BranchCoverageFactory;
+import org.evosuite.coverage.dataflow.DefUsePool;
 import org.evosuite.ga.ConstructionFailedException;
 import org.evosuite.junit.TestSuiteWriter;
+import org.evosuite.rmi.ClientServices;
+import org.evosuite.rmi.service.ClientState;
+import org.evosuite.rmi.service.ClientStateInformation;
 import org.evosuite.testcase.ExecutableChromosome;
 import org.evosuite.testcase.ExecutionResult;
 import org.evosuite.testcase.ExecutionTracer;
+import org.evosuite.testcase.StructuredTestCase;
 import org.evosuite.testcase.TestCase;
 import org.evosuite.testcase.TestCaseExecutor;
 import org.evosuite.testcase.TestChromosome;
@@ -54,9 +60,6 @@ public class TestSuiteMinimizer {
 	private final static Logger logger = LoggerFactory.getLogger(TestSuiteMinimizer.class);
 
 	private final TestFitnessFactory testFitnessFactory;
-
-	/** Maximum number of seconds. 0 = infinite time */
-	protected static int maxSeconds = Properties.MINIMIZATION_TIMEOUT;
 
 	/** Assume the search has not started until startTime != 0 */
 	protected static long startTime = 0L;
@@ -88,14 +91,28 @@ public class TestSuiteMinimizer {
 		if (strategy.contains(":"))
 			strategy = strategy.substring(0, strategy.indexOf(':'));
 
-		logger.info("Minimization Strategy: " + strategy + ", " + suite.size() + " tests");
+		ClientServices.getInstance().getClientNode().trackOutputVariable("full_size", suite.size());
+		ClientServices.getInstance().getClientNode().trackOutputVariable("full_length", suite.totalLengthOfTestCases());
 
+		logger.info("Minimization Strategy: " + strategy + ", " + suite.size() + " tests");
+		suite.clearMutationHistory();
+		
 		if (Properties.MINIMIZE_OLD)
 			minimizeSuite(suite);
 		else
 			minimizeTests(suite);
+
+		ClientServices.getInstance().getClientNode().trackOutputVariable("minimized_size", suite.size());
+		ClientServices.getInstance().getClientNode().trackOutputVariable("minimized_length", suite.totalLengthOfTestCases());
 	}
 
+	private void updateClientStatus(int progress) {
+		ClientState state = ClientState.MINIMIZATION;
+		ClientStateInformation information = new ClientStateInformation(state);
+		information.setProgress(progress);
+		ClientServices.getInstance().getClientNode().changeState(state, information);
+	}
+	
 	/**
 	 * Minimize test suite with respect to the isCovered Method of the goals
 	 * defined by the supplied TestFitnessFactory
@@ -115,10 +132,10 @@ public class TestSuiteMinimizer {
 			test.clearCachedResults();
 		}
 
-		List<TestFitnessFunction> goals = testFitnessFactory.getCoverageGoals();
+		List<TestFitnessFunction> goals = new ArrayList<TestFitnessFunction>(testFitnessFactory.getCoverageGoals());
 		List<TestFitnessFunction> branchGoals = new ArrayList<TestFitnessFunction>();
 		int numCovered = 0;
-		int numGoals = goals.size();
+		int currentGoal = 0;
 
 		if (Properties.CRITERION != Properties.Criterion.BRANCH) {
 			BranchCoverageFactory branchFactory = new BranchCoverageFactory();
@@ -126,21 +143,52 @@ public class TestSuiteMinimizer {
 			goals.addAll(branchGoals);
 		}
 
+		int numGoals = goals.size();
+
 		Collections.sort(goals);
-		Set<TestFitnessFunction> covered = new HashSet<TestFitnessFunction>();
+		Set<TestFitnessFunction> covered = new LinkedHashSet<TestFitnessFunction>();
 		List<TestChromosome> minimizedTests = new ArrayList<TestChromosome>();
 		TestSuiteWriter minimizedSuite = new TestSuiteWriter();
-
+				
 		for (TestFitnessFunction goal : goals) {
+			updateClientStatus(100 * currentGoal / numGoals);
+			currentGoal++;
+			if (isTimeoutReached()){
+				/*
+				 * FIXME: if timeout, this algorithm should be changed in a way that the modifications
+				 * done so far are not lost
+				 */
+				logger.warn("Minimization timeout. Roll back to original test suite");
+				return;
+			}
 			logger.info("Considering goal: " + goal);
-			for (TestChromosome test : minimizedTests) {
+			for (TestChromosome test : minimizedTests) {	
+				if (isTimeoutReached()){
+					logger.warn("Minimization timeout. Roll back to original test suite");
+					return;
+				}
 				if (goal.isCovered(test)) {
-					logger.info("Covered by minimized test: " + goal);
-					covered.add(goal);
-					if (!branchGoals.contains(goal))
-						numCovered++;
-					test.getTestCase().addCoveredGoal(goal);
-					break;
+					if (Properties.STRUCTURED_TESTS) {
+						StructuredTestCase structuredTest = (StructuredTestCase) test.getTestCase();
+						if (structuredTest.getTargetMethods().contains(goal.getTargetMethod())) {
+							logger.info("Covered by minimized test targeting "
+							        + structuredTest.getTargetMethods() + ": " + goal
+							        + " ");
+							covered.add(goal);
+							if (!branchGoals.contains(goal))
+								numCovered++;
+							structuredTest.addPrimaryGoal(goal);
+							break;
+						}
+
+					} else {
+						logger.info("Covered by minimized test: " + goal);
+						covered.add(goal);
+						if (!branchGoals.contains(goal))
+							numCovered++;
+						test.getTestCase().addCoveredGoal(goal);
+						break;
+					}
 				}
 			}
 			if (covered.contains(goal)) {
@@ -160,11 +208,22 @@ public class TestSuiteMinimizer {
 				org.evosuite.testcase.TestCaseMinimizer minimizer = new org.evosuite.testcase.TestCaseMinimizer(
 				        goal);
 				TestChromosome copy = (TestChromosome) test.clone();
+				if (Properties.STRUCTURED_TESTS) {
+					copy.setTestCase(new StructuredTestCase(test.getTestCase()));
+				}
 				minimizer.minimize(copy);
+				if (Properties.STRUCTURED_TESTS) {
+					// TODO: Find proper way to determine statements
+					((StructuredTestCase) copy.getTestCase()).setExerciseStatement(copy.size() - 1);
+				}
 
 				// TODO: Need proper list of covered goals
 				copy.getTestCase().clearCoveredGoals();
-				copy.getTestCase().addCoveredGoal(goal);
+				if (Properties.STRUCTURED_TESTS) {
+					((StructuredTestCase) copy.getTestCase()).addPrimaryGoal(goal);
+				} else {
+					copy.getTestCase().addCoveredGoal(goal);
+				}
 				minimizedTests.add(copy);
 				minimizedSuite.insertTest(copy.getTestCase());
 				covered.add(goal);
@@ -201,6 +260,7 @@ public class TestSuiteMinimizer {
 
 	private boolean isTimeoutReached() {
 		long currentTime = System.currentTimeMillis();
+		int maxSeconds = Properties.MINIMIZATION_TIMEOUT;
 		if (maxSeconds != 0 && startTime != 0
 		        && (currentTime - startTime) / 1000 > maxSeconds)
 			logger.info("Timeout reached");
@@ -222,7 +282,7 @@ public class TestSuiteMinimizer {
 		try {
 			result = executor.execute(test);
 		} catch (Exception e) {
-			logger.warn("TG: Exception caught: " + e.getMessage(),e);
+			logger.warn("TG: Exception caught: " + e.getMessage(), e);
 			try {
 				Thread.sleep(1000);
 				result.setTrace(ExecutionTracer.getExecutionTracer().getTrace());

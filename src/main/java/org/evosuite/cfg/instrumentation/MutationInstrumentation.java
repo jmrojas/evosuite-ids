@@ -36,12 +36,15 @@ import org.evosuite.cfg.instrumentation.mutation.ReplaceBitwiseOperator;
 import org.evosuite.cfg.instrumentation.mutation.ReplaceComparisonOperator;
 import org.evosuite.cfg.instrumentation.mutation.ReplaceConstant;
 import org.evosuite.cfg.instrumentation.mutation.ReplaceVariable;
+import org.evosuite.coverage.branch.BranchPool;
 import org.evosuite.coverage.mutation.Mutation;
 import org.evosuite.coverage.mutation.MutationObserver;
+import org.evosuite.coverage.mutation.MutationPool;
 import org.evosuite.graphs.GraphPool;
 import org.evosuite.graphs.cfg.BytecodeInstruction;
 import org.evosuite.graphs.cfg.RawControlFlowGraph;
 import org.evosuite.javaagent.BooleanValueInterpreter;
+import org.evosuite.rmi.ClientServices;
 import org.evosuite.setup.DependencyAnalysis;
 import org.evosuite.testcase.ExecutionTracer;
 import org.objectweb.asm.Opcodes;
@@ -137,8 +140,13 @@ public class MutationInstrumentation implements MethodInstrumentation {
 		logger.info("Applying mutation operators ");
 		int frameIndex = 0;
 		int numMutants = 0;
-		assert (frames.length == mn.instructions.size()) : "Length " + frames.length
-		        + " vs " + mn.instructions.size();
+		if(frames.length != mn.instructions.size()) {
+			logger.error("Number of frames does not match number number of bytecode instructions: "+frames.length +"/" + mn.instructions.size());
+			logger.error("Skipping mutation of method "+className+"."+methodName);
+			return;
+		}
+		//assert (frames.length == mn.instructions.size()) : "Length " + frames.length
+		//        + " vs " + mn.instructions.size();
 		while (j.hasNext()) {
 			Frame currentFrame = frames[frameIndex++];
 			AbstractInsnNode in = j.next();
@@ -270,5 +278,4 @@ public class MutationInstrumentation implements MethodInstrumentation {
 		mn.instructions.insertBefore(original, instructions);
 		mn.instructions.insert(original, endLabel);
 	}
-
 }

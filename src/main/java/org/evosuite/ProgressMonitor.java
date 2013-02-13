@@ -20,16 +20,15 @@
  */
 package org.evosuite;
 
-import java.io.IOException;
-import java.io.ObjectInputStream;
-import java.io.ObjectOutputStream;
 import java.io.Serializable;
-import java.net.Socket;
 
 import org.evosuite.ga.Chromosome;
 import org.evosuite.ga.GeneticAlgorithm;
 import org.evosuite.ga.SearchListener;
 import org.evosuite.ga.stoppingconditions.StoppingCondition;
+import org.evosuite.rmi.ClientServices;
+import org.evosuite.rmi.service.ClientState;
+import org.evosuite.rmi.service.ClientStateInformation;
 import org.evosuite.testsuite.TestSuiteChromosome;
 
 /**
@@ -43,54 +42,11 @@ public class ProgressMonitor implements SearchListener, Serializable {
 
 	private static final long serialVersionUID = -8518559681906649686L;
 
-	protected transient Socket connection;
-	protected transient ObjectOutputStream out;
-	protected boolean connected = false;
 	protected int lastCoverage = 0;
 	protected int lastProgress = 0;
-	protected String currentTask = "";
-	protected int phases = 0;
-	protected int currentPhase = 0;
+	protected int iteration = 0;
+	protected ClientState state = ClientState.INITIALIZATION;
 
-	/**
-	 * <p>
-	 * Constructor for ProgressMonitor.
-	 * </p>
-	 */
-	public ProgressMonitor() {
-		this(1);
-	}
-
-	/**
-	 * <p>
-	 * Constructor for ProgressMonitor.
-	 * </p>
-	 */
-	public ProgressMonitor(int phases) {
-		this.phases = phases;
-		connected = connectToMainProcess(Properties.PROGRESS_STATUS_PORT);
-	}
-
-	/**
-	 * <p>
-	 * connectToMainProcess
-	 * </p>
-	 * 
-	 * @param port
-	 *            a int.
-	 * @return a boolean.
-	 */
-	public boolean connectToMainProcess(int port) {
-
-		try {
-			connection = new Socket("127.0.0.1", port);
-			out = new ObjectOutputStream(connection.getOutputStream());
-		} catch (Exception e) {
-			return false;
-		}
-
-		return true;
-	}
 
 	/**
 	 * <p>
@@ -103,20 +59,20 @@ public class ProgressMonitor implements SearchListener, Serializable {
 	 *            a int.
 	 */
 	public void updateStatus(int percent) {
-		if (connected) {
-			try {
-				lastProgress = percent;
-				// lastCoverage = coverage;
-				out.writeInt(percent);
-				out.writeInt(currentPhase);
-				out.writeInt(phases);
-				out.writeInt(currentCoverage);
-				out.writeObject(currentTask);
-				out.flush();
-			} catch (IOException e) {
-				connected = false;
-			}
-		}
+		ClientState state = ClientState.SEARCH;
+		ClientStateInformation information = new ClientStateInformation(state);
+		information.setCoverage(currentCoverage);
+		information.setProgress(percent);
+		information.setIteration(iteration);
+		//LoggingUtils.getEvoLogger().info("Setting to: "+state.getNumPhase()+": "+information.getCoverage()+"/"+information.getProgress());
+		ClientServices.getInstance().getClientNode().changeState(state, information);
+		lastProgress = percent;
+		lastCoverage = currentCoverage;
+		//out.writeInt(percent);
+		//out.writeInt(currentPhase);
+		//out.writeInt(phases);
+		//out.writeInt(currentCoverage);
+		//out.writeObject(currentTask);
 	}
 
 	private StoppingCondition stoppingCondition = null;
@@ -144,6 +100,7 @@ public class ProgressMonitor implements SearchListener, Serializable {
 		long current = stoppingCondition.getCurrentValue();
 		currentCoverage = (int) Math.floor(((TestSuiteChromosome) algorithm.getBestIndividual()).getCoverage() * 100);
 		updateStatus((int) (100 * current / max));
+		iteration++;
 	}
 
 	/* (non-Javadoc)
@@ -153,7 +110,10 @@ public class ProgressMonitor implements SearchListener, Serializable {
 	@Override
 	public void searchFinished(GeneticAlgorithm algorithm) {
 		currentCoverage = (int) Math.floor(((TestSuiteChromosome) algorithm.getBestIndividual()).getCoverage() * 100);
-		System.out.println("");
+		if(currentCoverage > lastCoverage) {
+			updateStatus((int) (100 * stoppingCondition.getCurrentValue() / max));
+		}
+		// System.out.println("");
 	}
 
 	/* (non-Javadoc)
@@ -162,8 +122,10 @@ public class ProgressMonitor implements SearchListener, Serializable {
 	/** {@inheritDoc} */
 	@Override
 	public void fitnessEvaluation(Chromosome individual) {
-		long current = stoppingCondition.getCurrentValue();
-		updateStatus((int) (100 * current / max));
+		int current = (int) ((int)(100 * stoppingCondition.getCurrentValue())/max);
+		currentCoverage = (int) Math.floor(((TestSuiteChromosome) individual).getCoverage() * 100);
+		if(currentCoverage > lastCoverage || current > lastProgress)
+			updateStatus(current);
 	}
 
 	/* (non-Javadoc)
@@ -176,29 +138,5 @@ public class ProgressMonitor implements SearchListener, Serializable {
 
 	}
 
-	/**
-	 * Set the name of the current task. As everything is done in sequence in
-	 * EvoSuite currently we just make this static.
-	 * 
-	 * @param task
-	 */
-	public void setCurrentPhase(String task) {
-		currentTask = task;
-		currentPhase++;
-		updateStatus(0);
-	}
 
-	public void updateAssertionStatus(int assertions, int totalAssertions) {
-
-	}
-
-	public void setNumberOfPhases(int phases) {
-		this.phases = phases;
-	}
-
-	private void readObject(ObjectInputStream ois) throws ClassNotFoundException,
-	        IOException {
-		ois.defaultReadObject();
-		connectToMainProcess(Properties.PROGRESS_STATUS_PORT);
-	}
 }

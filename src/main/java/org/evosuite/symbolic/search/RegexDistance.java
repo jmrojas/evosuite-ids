@@ -164,10 +164,19 @@ public class RegexDistance {
 
 			for (Transition t : currentState.getTransitions()) {
 				for (int row = 0; row <= NUM_CHARS; row++) {
-					// 1. add a deletion edge with cost 1 from currentState to t.getDest
+					// 1. add an insertion edge from currentState in row to target state in same row
+
 					ensureState(transitions, t.getDest(), NUM_CHARS);
-					transitions.get(row).get(t.getDest()).add(new GraphTransition(1.0,
-					                                                  row, currentState));
+					//					transitions.get(row).get(t.getDest()).add(new GraphTransition(1.0,
+					//					                                                  row, currentState));
+
+					// AVM change: Insertion is only possible in the last row, as we only allow adding characters at the end of the string
+					transitions.get(NUM_CHARS).get(t.getDest()).add(new GraphTransition(
+					                                                        NUM_CHARS
+					                                                                - row
+					                                                                + 1,
+					                                                        row,
+					                                                        currentState));
 				}
 
 				for (int row = 0; row < NUM_CHARS; row++) {
@@ -191,10 +200,17 @@ public class RegexDistance {
 			}
 
 			ensureState(transitions, currentState, NUM_CHARS);
+			ensureState(transitions, intToStateMap.get(NUM_STATES - 1), NUM_CHARS);
 			for (int row = 0; row < NUM_CHARS; row++) {
-				// 3. add an insertion edge from currentState in row to currentState in row+1
-				transitions.get(row + 1).get(currentState).add(new GraphTransition(1.0,
-				                                                       row, currentState));
+				// 3. add a deletion edge with cost 1 from currentState to t.getDest in next row
+				//				transitions.get(row + 1).get(currentState).add(new GraphTransition(1.0,
+				//				                                                       row, currentState));
+
+				// AVM change: add a deletion edge with cost of remaining num characters to last row
+				transitions.get(NUM_CHARS).get(currentState).add(new GraphTransition(
+				                                                         NUM_CHARS - row,
+				                                                         row,
+				                                                         currentState));
 			}
 			numState++;
 		}
@@ -211,9 +227,14 @@ public class RegexDistance {
 		intToStateMap.put(numState, finalState);
 		stateToIntMap.put(finalState, numState);
 
-		// First column is costs of removing every single state from regex
+		// First column of matrix is costs of removing every single state from regex
 		for (int row = 0; row <= NUM_CHARS; row++) {
-			graph[row][0] = row;
+			//graph[row][0] = row;
+
+			// AVM change: 
+			// I am not really sure what goes here
+			// NUM_CHARS?
+			graph[row][0] = NUM_CHARS - row + 1;
 		}
 
 		// First row is cost of matching empty sequence on regex
@@ -224,6 +245,9 @@ public class RegexDistance {
 			//System.out.println(transitions.get(0));
 			for (GraphTransition t : transitions.get(0).get(state)) {
 				int oldCol = stateToIntMap.get(t.fromState) + 1;
+				if (oldCol == -1)
+					continue;
+
 				double oldCost = graph[t.fromRow][oldCol];
 				if (col == oldCol && t.fromRow == 0)
 					continue;
@@ -231,11 +255,17 @@ public class RegexDistance {
 				min = Math.min(min, oldCost + t.cost);
 			}
 			if (min == Double.MAX_VALUE) {
-				min = 0;
+				// AVM change:
+				// Again, not sure
+				min = col - 1; //0.0;
 			}
 			graph[0][col] = min;
 		}
 
+		// For each other cell it is the  minimum of:
+		// incoming transitions in automaton
+		// incoming transitions from row-1
+		//
 		for (int row = 1; row <= NUM_CHARS; row++) {
 			for (int col = 1; col <= NUM_STATES + 1; col++) {
 				State state = intToStateMap.get(col - 1);
@@ -248,12 +278,13 @@ public class RegexDistance {
 						continue;
 					min = Math.min(min, oldCost + t.cost);
 				}
-				if (min == Double.MAX_VALUE)
-					min = 0.0;
+				if (min == Double.MAX_VALUE) {
+					// min = 0.0;
+					// AVM change:
+					// Again, not sure what goes here. 
+					min = row;
 
-				// minimum of:
-				// incoming transitions in automaton
-				// incoming transitions from row-1
+				}
 
 				graph[row][col] = min;
 			}

@@ -75,6 +75,29 @@
 	</prerequisites>
 
 	<profiles>
+	 	<profile>
+	 	  <id>Java6</id>
+	  	  <activation>
+	  	  	<jdk>1.6</jdk>
+			<property>
+		 	<name>Java6</name>
+			</property>
+		  </activation>
+	<build>
+		<plugins>
+			<plugin>
+				<groupId>org.apache.maven.plugins</groupId>
+				<artifactId>maven-compiler-plugin</artifactId>
+				<version>3.0</version>
+				<configuration>
+					<source>1.6</source>
+					<target>1.6</target>
+					<encoding>${project.build.sourceEncoding}</encoding>
+				</configuration>
+			</plugin>
+		</plugins>
+	</build>
+	 	</profile>
 		<profile>
 			<id>exsyst</id>
 			<activation>
@@ -168,11 +191,13 @@
 			<artifactId>automaton</artifactId>
 			<version>1.11-8</version>
 		</dependency>
+		<!--
 		<dependency>
 			<groupId>com.googlecode.jmockit</groupId>
 			<artifactId>jmockit</artifactId>
 			<version>0.999.16</version>
 		</dependency>
+		-->
 		<dependency>
 			<groupId>org.slf4j</groupId>
 			<artifactId>slf4j-api</artifactId>
@@ -181,7 +206,7 @@
 		<dependency>
 			<groupId>ch.qos.logback</groupId>
 			<artifactId>logback-classic</artifactId>
-			<version>1.0.7</version>
+			<version>1.0.9</version>
 		</dependency>
 		<dependency>
 			<groupId>junit</groupId>
@@ -212,7 +237,7 @@
 		<dependency>
 			<groupId>com.thoughtworks.xstream</groupId>
 			<artifactId>xstream</artifactId>
-			<version>1.4.3</version>
+			<version>1.4.4</version>
 		</dependency>
 
 		<dependency>
@@ -299,7 +324,7 @@
 		<dependency>
 			<groupId>org.evosuite</groupId>
 			<artifactId>evosuite-io</artifactId>
-			<version>0.5.0</version>
+			<version>0.5.3</version>
 		</dependency>
 		<dependency>
       		<groupId>oro</groupId>
@@ -387,7 +412,7 @@
 			<plugin>
 				<groupId>org.apache.maven.plugins</groupId>
 				<artifactId>maven-compiler-plugin</artifactId>
-				<version>2.5.1</version>
+				<version>3.0</version>
 				<configuration>
 					<source>1.7</source>
 					<target>1.7</target>
@@ -406,7 +431,7 @@
 			<plugin>
 				<groupId>org.apache.maven.plugins</groupId>
 				<artifactId>maven-release-plugin</artifactId>
-				<version>2.3.2</version>
+				<version>2.4</version>
 			</plugin>
 			<plugin>
 				<groupId>org.apache.maven.plugins</groupId>
@@ -419,7 +444,7 @@
 			<plugin>
 				<groupId>org.apache.maven.plugins</groupId>
 				<artifactId>maven-assembly-plugin</artifactId>
-				<version>2.3</version>
+				<version>2.4</version>
 				<configuration>
 					<archive>
 						<manifest>
@@ -443,8 +468,9 @@
 							<goal>single</goal> <!-- goals == mojos -->
 						</goals>
 					</execution>
-				</executions>
+				</executions>				
 			</plugin>
+			<!--
 			<plugin>
 				<groupId>org.apache.maven.plugins</groupId>
 				<artifactId>maven-dependency-plugin</artifactId>
@@ -471,10 +497,11 @@
 					</execution>
 				</executions>
 			</plugin>
+			-->
 			<plugin>
 				<groupId>org.apache.maven.plugins</groupId>
 				<artifactId>maven-surefire-plugin</artifactId>
-				<version>2.12.4</version>
+				<version>2.13</version>
 				<configuration>
 					<skipTests>${skipTests}</skipTests>
 					<forkMode>once</forkMode>

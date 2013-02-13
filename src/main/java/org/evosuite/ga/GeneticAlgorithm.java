@@ -30,6 +30,7 @@ import java.util.Set;
 
 import org.evosuite.Properties;
 import org.evosuite.Properties.Strategy;
+import org.evosuite.Properties.AdaptiveLocalSearchTarget;
 import org.evosuite.ga.stoppingconditions.GlobalTimeStoppingCondition;
 import org.evosuite.ga.stoppingconditions.MaxGenerationStoppingCondition;
 import org.evosuite.ga.stoppingconditions.StoppingCondition;
@@ -111,6 +112,19 @@ public abstract class GeneticAlgorithm implements SearchAlgorithm, Serializable 
 			return false;
 
 		return (getAge() % Properties.LOCAL_SEARCH_RATE == 0);
+	}
+
+	/**
+	 * Local search is applied to individuals if they improved fitness
+	 * 
+	 * @param individual
+	 */
+	protected void applyAdaptiveLocalSearch(Chromosome individual) {
+
+		if (Properties.ADAPTIVE_LOCAL_SEARCH == AdaptiveLocalSearchTarget.OFF)
+			return;
+
+		individual.applyAdaptiveLocalSearch(localObjective);
 	}
 
 	/**
@@ -771,7 +785,14 @@ public abstract class GeneticAlgorithm implements SearchAlgorithm, Serializable 
 		} else {
 			return chromosome1.compareTo(chromosome2) <= 0;
 		}
-
+	}
+	
+	protected boolean isBetter(Chromosome chromosome1, Chromosome chromosome2) {
+		if (fitnessFunction.isMaximizationFunction()) {
+			return chromosome1.compareTo(chromosome2) > 0;
+		} else {
+			return chromosome1.compareTo(chromosome2) < 0;
+		}
 	}
 
 	/**

@@ -18,9 +18,12 @@
 package org.evosuite.testcase;
 
 import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Set;
 
 import org.evosuite.Properties;
+import org.evosuite.Properties.AdaptiveLocalSearchTarget;
 import org.evosuite.coverage.mutation.Mutation;
 import org.evosuite.coverage.mutation.MutationExecutionResult;
 import org.evosuite.ga.Chromosome;
@@ -28,6 +31,7 @@ import org.evosuite.ga.ConstructionFailedException;
 import org.evosuite.ga.GeneticAlgorithm;
 import org.evosuite.ga.LocalSearchBudget;
 import org.evosuite.ga.LocalSearchObjective;
+import org.evosuite.ga.MutationHistory;
 import org.evosuite.ga.SecondaryObjective;
 import org.evosuite.setup.TestCluster;
 import org.evosuite.symbolic.BranchCondition;
@@ -48,6 +52,9 @@ public class TestChromosome extends ExecutableChromosome {
 
 	/** The test case encoded in this chromosome */
 	protected TestCase test = new DefaultTestCase();
+
+	/** To keep track of what has changed since last fitness evaluation */
+	protected MutationHistory<TestMutationHistoryEntry> mutationHistory = new MutationHistory<TestMutationHistoryEntry>();
 
 	/** Secondary objectives used during ranking */
 	private static final List<SecondaryObjective> secondaryObjectives = new ArrayList<SecondaryObjective>();
@@ -88,6 +95,7 @@ public class TestChromosome extends ExecutableChromosome {
 		super.setChanged(changed);
 		if (changed)
 			clearCachedResults();
+
 		CurrentChromosomeTracker.getInstance().changed(this);
 	}
 
@@ -114,6 +122,19 @@ public class TestChromosome extends ExecutableChromosome {
 		c.solution = solution;
 		c.copyCachedResults(this);
 		c.setChanged(isChanged());
+		if (Properties.ADAPTIVE_LOCAL_SEARCH != AdaptiveLocalSearchTarget.OFF) {
+			logger.info("Cloning mutation history of test " + test.toCode());
+			logger.info("Mutation entries: " + mutationHistory.size());
+			for (TestMutationHistoryEntry mutation : mutationHistory) {
+				logger.info("Mutation of type " + mutation.getMutationType());
+				logger.info(mutation.whatwasit);
+				if (mutation.getMutationType() != TestMutationHistoryEntry.TestMutation.DELETION)
+					logger.debug("Cloning mutation entry for statement "
+					        + mutation.getStatement().getPosition());
+				c.mutationHistory.addMutationEntry(mutation.clone(c.getTestCase()));
+			}
+		}
+		// c.mutationHistory.set(mutationHistory);
 
 		return c;
 	}
@@ -196,6 +217,119 @@ public class TestChromosome extends ExecutableChromosome {
 		return test.hashCode();
 	}
 
+	public MutationHistory<TestMutationHistoryEntry> getMutationHistory() {
+		return mutationHistory;
+	}
+
+	public boolean hasRelevantMutations() {
+
+		if (mutationHistory.isEmpty()) {
+			logger.info("Mutation history is empty");
+			return false;
+		}
+
+		// Only apply local search up to the point where an exception was thrown
+		int lastPosition = test.size() - 1;
+		if (lastExecutionResult != null && !isChanged()) {
+			Integer lastPos = lastExecutionResult.getFirstPositionOfThrownException();
+			if (lastPos != null)
+				lastPosition = lastPos.intValue();
+		}
+
+		for (TestMutationHistoryEntry mutation : mutationHistory) {
+			logger.info("Considering: " + mutation.getMutationType());
+			if (mutation.getMutationType() != TestMutationHistoryEntry.TestMutation.DELETION) {
+				for (StatementInterface s : test) {
+					logger.info(s.toString());
+				}
+				logger.info("-> " + mutation.getStatement());
+				logger.info("=> " + mutation.getStatement().getPosition());
+			}
+
+			if (mutation.getMutationType() != TestMutationHistoryEntry.TestMutation.DELETION
+			        && mutation.getStatement().getPosition() <= lastPosition
+			        && mutation.getStatement() instanceof PrimitiveStatement<?>) {
+				if (!test.hasReferences(mutation.getStatement().getReturnValue())
+				        && !mutation.getStatement().getReturnClass().equals(Properties.getTargetClass())) {
+					continue;
+				}
+
+				int newPosition = -1;
+				for (int i = 0; i <= lastPosition; i++) {
+					if (test.getStatement(i) == mutation.getStatement()) {
+						newPosition = i;
+						break;
+					}
+				}
+
+				// Couldn't find statement, may have been deleted in other mutation?
+				assert (newPosition >= 0);
+				if (newPosition < 0) {
+					continue;
+				}
+
+				return true;
+			}
+		}
+		return false;
+	}
+
+	@Override
+	public void applyAdaptiveLocalSearch(LocalSearchObjective objective) {
+
+		double oldFitness = getFitness();
+		logger.info("Applying local search on test case");
+
+		// Only apply local search up to the point where an exception was thrown
+		int lastPosition = test.size() - 1;
+		if (lastExecutionResult != null && !isChanged()) {
+			Integer lastPos = lastExecutionResult.getFirstPositionOfThrownException();
+			if (lastPos != null)
+				lastPosition = lastPos.intValue();
+		}
+
+		Set<Integer> targetPositions = new HashSet<Integer>();
+
+		logger.info("Mutation history: " + mutationHistory.toString());
+		logger.info("Checking {} mutations", mutationHistory.size());
+		for (TestMutationHistoryEntry mutation : mutationHistory) {
+			if (LocalSearchBudget.isFinished())
+				break;
+
+			if (mutation.getMutationType() != TestMutationHistoryEntry.TestMutation.DELETION
+			        && mutation.getStatement().getPosition() <= lastPosition
+			        && mutation.getStatement() instanceof PrimitiveStatement<?>) {
+				logger.info("Found suitable mutation");
+
+				if (!test.hasReferences(mutation.getStatement().getReturnValue())
+				        && !mutation.getStatement().getReturnClass().equals(Properties.getTargetClass())) {
+					logger.info("Return value of statement "
+					        + " is not referenced and not SUT, not doing local search");
+					continue;
+				}
+
+				targetPositions.add(mutation.getStatement().getPosition());
+			} else {
+				logger.info("Unsuitable mutation");
+			}
+		}
+
+		if (!targetPositions.isEmpty()) {
+			logger.info("Yes, now applying the search at positions {}!", targetPositions);
+			DSELocalSearch dse = new DSELocalSearch();
+			dse.doSearch(this, targetPositions, objective);
+		}
+		mutationHistory.clear();
+
+		LocalSearchBudget.individualImproved(this);
+
+		assert (getFitness() <= oldFitness);
+		//logger.info("Test after local search: " + test.toCode());
+
+		// TODO: Handle arrays in local search
+		// TODO: mutating an int might have an effect on array lengths
+	}
+
 	/* (non-Javadoc)
 	 * @see org.evosuite.ga.Chromosome#localSearch()
 	 */
@@ -256,6 +390,7 @@ public class TestChromosome extends ExecutableChromosome {
 	@Override
 	public void mutate() {
 		boolean changed = false;
+		mutationHistory.clear();
 
 		logger.debug("Mutation: delete");
 		// Delete
@@ -280,6 +415,7 @@ public class TestChromosome extends ExecutableChromosome {
 		if (changed) {
 			setChanged(true);
 		}
+
 	}
 
 	/**
@@ -302,6 +438,8 @@ public class TestChromosome extends ExecutableChromosome {
 					TestCase copy = test.clone();
 					// test_factory.deleteStatement(test, num);
 					changed = true;
+					mutationHistory.addMutationEntry(new TestMutationHistoryEntry(
+					        TestMutationHistoryEntry.TestMutation.DELETION));
 					testFactory.deleteStatementGracefully(copy, num);
 					test = copy;
 
@@ -342,12 +480,21 @@ public class TestChromosome extends ExecutableChromosome {
 				if (Randomness.nextDouble() <= pl) {
 					assert (test.isValid());
 					int oldDistance = statement.getReturnValue().getDistance();
+					if (statement instanceof StringPrimitiveStatement) {
+					}
 					if (statement.mutate(test, testFactory)) {
 						changed = true;
+						mutationHistory.addMutationEntry(new TestMutationHistoryEntry(
+						        TestMutationHistoryEntry.TestMutation.CHANGE, statement));
 						assert (test.isValid());
 					} else if (!statement.isAssignmentStatement()) {
-						if (testFactory.changeRandomCall(test, statement))
+						int pos = statement.getPosition();
+						if (testFactory.changeRandomCall(test, statement)) {
 							changed = true;
+							mutationHistory.addMutationEntry(new TestMutationHistoryEntry(
+							        TestMutationHistoryEntry.TestMutation.CHANGE,
+							        test.getStatement(pos)));
+						}
 						assert (test.isValid());
 					}
 					statement.getReturnValue().setDistance(oldDistance);
@@ -375,7 +522,12 @@ public class TestChromosome extends ExecutableChromosome {
 			count++;
 			// Insert at position as during initialization (i.e., using helper
 			// sequences)
-			testFactory.insertRandomStatement(test);
+			int position = testFactory.insertRandomStatement(test);
+			if (position >= 0 && position < test.size()) {
+				mutationHistory.addMutationEntry(new TestMutationHistoryEntry(
+				        TestMutationHistoryEntry.TestMutation.INSERTION,
+				        test.getStatement(position)));
+			}
 			changed = true;
 		}
 		return changed;
@@ -424,7 +576,7 @@ public class TestChromosome extends ExecutableChromosome {
 			// logger.info("Old test");
 			// logger.info(test.toCode());
 			this.test = newTest;
-			this.changed = true;
+			this.setChanged(true);
 			this.lastExecutionResult = null;
 		} else {
 			logger.debug("CONCOLIC: Did not create new test");

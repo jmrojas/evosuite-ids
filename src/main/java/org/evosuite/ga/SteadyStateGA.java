@@ -21,6 +21,7 @@ import java.util.ArrayList;
 import java.util.List;
 
 import org.evosuite.Properties;
+import org.evosuite.Properties.AdaptiveLocalSearchTarget;
 import org.evosuite.utils.Randomness;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -108,6 +109,13 @@ public class SteadyStateGA extends GeneticAlgorithm {
 			notifyMutation(offspring2);
 			offspring2.mutate();
 
+			if (offspring1.isChanged()) {
+				offspring1.updateAge(currentIteration);
+			}
+			if (offspring2.isChanged()) {
+				offspring2.updateAge(currentIteration);
+			}
+
 			// The two offspring replace the parents if and only if one of
 			// the offspring is not worse than the best parent.
 
@@ -128,13 +136,19 @@ public class SteadyStateGA extends GeneticAlgorithm {
 				int rejected = 0;
 				if (isTooLong(offspring1) || offspring1.size() == 0) {
 					rejected++;
-				} else
-					newGeneration.add(offspring1);
+				} else {
+				    if(Properties.ADAPTIVE_LOCAL_SEARCH == AdaptiveLocalSearchTarget.ALL)
+					applyAdaptiveLocalSearch(offspring1);
+				    newGeneration.add(offspring1);
+				}
 
 				if (isTooLong(offspring2) || offspring2.size() == 0) {
 					rejected++;
-				} else
-					newGeneration.add(offspring2);
+				} else {
+				    if(Properties.ADAPTIVE_LOCAL_SEARCH == AdaptiveLocalSearchTarget.ALL)
+					applyAdaptiveLocalSearch(offspring2);
+				    newGeneration.add(offspring2);
+				}
 
 				if (rejected == 1)
 					newGeneration.add(Randomness.choice(parent1, parent2));
@@ -188,6 +202,9 @@ public class SteadyStateGA extends GeneticAlgorithm {
 				applyLocalSearch();
 
 			sortPopulation();
+			if(Properties.ADAPTIVE_LOCAL_SEARCH == AdaptiveLocalSearchTarget.BEST)
+			    applyAdaptiveLocalSearch(getBestIndividual());
+
 			double newFitness = getBestIndividual().getFitness();
 
 			if (fitnessFunction.isMaximizationFunction())

@@ -43,11 +43,13 @@ public class OnePlusOneEA extends GeneticAlgorithm {
 
 		Chromosome parent = population.get(0);
 		Chromosome offspring = parent.clone();
+		offspring.updateAge(currentIteration);
 
 		notifyMutation(offspring);
 		do {
 			offspring.mutate();
-		} while (!offspring.changed);
+		} while (!offspring.isChanged());
+
 
 		fitnessFunction.getFitness(offspring);
 		notifyEvaluation(offspring);
@@ -55,6 +57,9 @@ public class OnePlusOneEA extends GeneticAlgorithm {
 
 		if (isBetterOrEqual(offspring, parent)) {
 			//logger.info("Replacing old population");
+			if(isBetter(offspring, parent))
+				applyAdaptiveLocalSearch(offspring);
+
 			population.set(0, offspring);
 		} else {
 			//logger.info("Keeping old population");

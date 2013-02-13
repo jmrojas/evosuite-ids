@@ -296,6 +296,13 @@ public class Properties {
 	@Parameter(key = "local_search_rate", group = "Search Algorithm", description = "Apply local search at every X generation")
 	public static int LOCAL_SEARCH_RATE = -1;
 
+	public enum AdaptiveLocalSearchTarget {
+	    OFF, BEST, ALL
+	}
+	
+	@Parameter(key = "adaptive_local_search", group = "Search Algorithm", description = "Apply adaptive local search")
+	public static AdaptiveLocalSearchTarget ADAPTIVE_LOCAL_SEARCH = AdaptiveLocalSearchTarget.OFF;
+	
 	/** Constant <code>LOCAL_SEARCH_BUDGET=100</code> */
 	@Parameter(key = "local_search_budget", group = "Search Algorithm", description = "Maximum attempts at improving individuals per local search")
 	public static long LOCAL_SEARCH_BUDGET = 100;
@@ -522,6 +529,9 @@ public class Properties {
 	@Parameter(key = "test_format", group = "Output", description = "Format of the resulting test cases")
 	public static OutputFormat TEST_FORMAT = OutputFormat.JUNIT4;
 
+	@Parameter(key = "structured_tests", group = "Output", description = "Structure tests according to setup - exercise - check")
+	public static boolean STRUCTURED_TESTS = false;
+
 	@Parameter(key = "test_comments", group = "Output", description = "Include a header with coverage information for each test")
 	public static boolean TEST_COMMENTS = true;
 
@@ -632,10 +642,6 @@ public class Properties {
 	@Parameter(key = "write_cfg", group = "Output", description = "Create CFG graphs")
 	public static boolean WRITE_CFG = false;
 
-	/** Constant <code>WRITE_EXCEL=false</code> */
-	@Parameter(key = "write_excel", group = "Output", description = "Create Excel workbook")
-	public static boolean WRITE_EXCEL = false;
-
 	/** Constant <code>SHUTDOWN_HOOK=true</code> */
 	@Parameter(key = "shutdown_hook", group = "Output", description = "Store test suite on Ctrl+C")
 	public static boolean SHUTDOWN_HOOK = true;
@@ -647,7 +653,23 @@ public class Properties {
 	/** Constant <code>SERIALIZE_RESULT=false</code> */
 	@Parameter(key = "serialize_result", group = "Output", description = "Serialize result of search to main process")
 	public static boolean SERIALIZE_RESULT = false;
+	
+	@Parameter(key = "new_statistics", group = "Output", description = "Use the new statistics backend on the master")
+	public static boolean NEW_STATISTICS = false;
+	
+	public enum StatisticsBackend {
+		NONE, CONSOLE, CSV;
+	}
+	
+	@Parameter(key = "statistics_backend", group = "Output", description = "Which backend to use to collect data")
+	public static StatisticsBackend STATISTICS_BACKEND = StatisticsBackend.CSV;
 
+	/** Constant <code>TIMELINE_INTERVAL=60000</code> */
+	@Parameter(key = "timeline_interval", group = "Output", description = "Time interval in milliseconds for timeline statistics")
+	public static long TIMELINE_INTERVAL = 60 * 1000;
+
+	
+	
 	public enum OutputGranularity {
 		MERGED, TESTCASE
 	}
@@ -666,6 +688,14 @@ public class Properties {
 	/** Constant <code>SANDBOX=false</code> */
 	@Parameter(key = "sandbox", group = "Sandbox", description = "Execute tests in a sandbox environment")
 	public static boolean SANDBOX = false;
+
+	public enum SandboxMode {
+		OFF, RECOMMENDED, IO
+	}
+
+	/** Constant <code>SANDBOX=false</code> */
+	@Parameter(key = "sandbox_mode", group = "Sandbox", description = "Mode in which the sandbox is applied")
+	public static SandboxMode SANDBOX_MODE = SandboxMode.RECOMMENDED;
 
 	/** Constant <code>MOCKS=false</code> */
 	@Parameter(key = "mocks", group = "Sandbox", description = "Usage of the mocks for the IO, Network etc")
@@ -780,10 +810,6 @@ public class Properties {
 	@Parameter(key = "constraint_solution_attempts", description = "Number of attempts to solve constraints related to one code branch")
 	public static int CONSTRAINT_SOLUTION_ATTEMPTS = 3;
 
-	/** Constant <code>UI_TEST=false</code> */
-	@Parameter(key = "ui", description = "Do User Interface tests")
-	public static boolean UI_TEST = false;
-
 	/** Constant <code>TESTABILITY_TRANSFORMATION=false</code> */
 	@Parameter(key = "testability_transformation", description = "Apply testability transformation (Yanchuan)")
 	public static boolean TESTABILITY_TRANSFORMATION = false;
@@ -895,10 +921,6 @@ public class Properties {
 	@Parameter(key = "alternative_fitness_range", description = "")
 	public static double ALTERNATIVE_FITNESS_RANGE = 100.0;
 
-	/** Constant <code>PREORDER_GOALS_BY_DIFFICULTY=false</code> */
-	@Parameter(key = "preorder_goals_by_difficulty", description = "")
-	public static boolean PREORDER_GOALS_BY_DIFFICULTY = false;
-
 	/** Constant <code>STARVE_BY_FITNESS=true</code> */
 	@Parameter(key = "starve_by_fitness", description = "")
 	public static boolean STARVE_BY_FITNESS = true;
@@ -1000,10 +1022,6 @@ public class Properties {
 	/** Constant <code>STOPPING_PORT=-1</code> */
 	@Parameter(key = "stopping_port", group = "Runtime", description = "Port at which a stopping condition waits for interruption")
 	public static int STOPPING_PORT = -1;
-
-	/** Constant <code>PROGRESS_STATUS_PORT=20080</code> */
-	@Parameter(key = "progress_status_port", group = "Runtime", description = "Port at which the progress status messages are transmitted")
-	public static int PROGRESS_STATUS_PORT = 20080;
 
 	/** Constant <code>MAX_STALLED_THREADS=10</code> */
 	@Parameter(key = "max_stalled_threads", group = "Runtime", description = "Number of stalled threads")
@@ -1643,11 +1661,11 @@ public class Properties {
 		TARGET_CLASS_INSTANCE = null;
 
 		try {
-			TARGET_CLASS_INSTANCE = Class.forName(TARGET_CLASS, true,
+			TARGET_CLASS_INSTANCE = Class.forName(TARGET_CLASS, false,
 			                                      TestGenerationContext.getClassLoader());
 
 		} catch (ClassNotFoundException e) {
-			LoggingUtils.getEvoLogger().info("* Could not find class under test: " + e);
+			LoggingUtils.getEvoLogger().info("* Could not find class under test: " +Properties.TARGET_CLASS+": "+ e);
 			for (StackTraceElement s : e.getStackTrace()) {
 				LoggingUtils.getEvoLogger().info("   " + s.toString());
 			}

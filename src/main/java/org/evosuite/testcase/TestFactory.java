@@ -15,6 +15,7 @@ import java.util.Collection;
 import java.util.Collections;
 import java.util.HashSet;
 import java.util.Iterator;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Set;
 
@@ -65,7 +66,7 @@ public class TestFactory {
 	 * @param call
 	 * @param position
 	 */
-	private void addCallFor(TestCase test, VariableReference callee,
+	private boolean addCallFor(TestCase test, VariableReference callee,
 	        AccessibleObject call, int position) {
 		logger.trace("addCallFor " + callee.getName());
 
@@ -77,6 +78,7 @@ public class TestFactory {
 			} else if (call instanceof Field) {
 				addFieldFor(test, callee, (Field) call, position);
 			}
+			return true;
 		} catch (ConstructionFailedException e) {
 			// TODO: Check this!
 			logger.debug("Inserting call " + call + " has failed. Removing statements");
@@ -88,6 +90,7 @@ public class TestFactory {
 				        + test.getStatement(position + i).getCode());
 				test.remove(position + i);
 			}
+			return false;
 		}
 	}
 
@@ -902,41 +905,6 @@ public class TestFactory {
 			List<VariableReference> candidates = test.getObjects(Object.class, position);
 			filterVariablesByClass(candidates, Object.class);
 
-			/*
-			Set<VariableReference> candidates = new HashSet<VariableReference>();
-			int num = 0;
-			for (StatementInterface statement : test) {
-				if (num++ >= position)
-					break;
-				if (statement instanceof MethodStatement) {
-					MethodStatement ms = (MethodStatement) statement;
-					if (Properties.getTargetClass().equals(ms.getMethod().getDeclaringClass())) {
-						candidates.addAll(ms.getVariableReferences());
-					}
-				} else if (statement instanceof ConstructorStatement) {
-					ConstructorStatement cs = (ConstructorStatement) statement;
-					if (Properties.getTargetClass().equals(cs.getConstructor().getDeclaringClass())) {
-						candidates.addAll(cs.getVariableReferences());
-					}
-				} else if (statement instanceof FieldStatement) {
-					FieldStatement fs = (FieldStatement) statement;
-					if (Properties.getTargetClass().equals(fs.getField().getDeclaringClass())) {
-						candidates.addAll(fs.getVariableReferences());
-					}
-				}
-			}
-			
-
-			Set<VariableReference> objects = new HashSet<VariableReference>();
-			for (VariableReference candidate : candidates) {
-				// if in acceptable set of classes
-				if (TestCluster.isCastClass(candidate.getClassName())
-				        || candidate.getVariableClass().equals(Object.class))
-					objects.add(candidate);
-			}
-			LoggingUtils.getEvoLogger().info("Candidates for Object.class: " + objects);
-			if (!objects.isEmpty())
-				*/
 			if (!candidates.isEmpty())
 				return Randomness.choice(candidates);
 		}
@@ -958,12 +926,12 @@ public class TestFactory {
 		logger.debug("Deleting target statement - " + position);
 		//logger.info(test.toCode());
 
-		Set<VariableReference> references = new HashSet<VariableReference>();
-		Set<Integer> positions = new HashSet<Integer>();
+		Set<VariableReference> references = new LinkedHashSet<VariableReference>();
+		Set<Integer> positions = new LinkedHashSet<Integer>();
 		positions.add(position);
 		references.add(test.getReturnValue(position));
 		for (int i = position; i < test.size(); i++) {
-			Set<VariableReference> temp = new HashSet<VariableReference>();
+			Set<VariableReference> temp = new LinkedHashSet<VariableReference>();
 			for (VariableReference v : references) {
 				if (test.getStatement(i).references(v)) {
 					temp.add(test.getStatement(i).getReturnValue());
@@ -1115,7 +1083,7 @@ public class TestFactory {
 	 * @return
 	 */
 	private static Set<Type> getDependencies(Constructor<?> constructor) {
-		Set<Type> dependencies = new HashSet<Type>();
+		Set<Type> dependencies = new LinkedHashSet<Type>();
 		for (Type type : constructor.getGenericParameterTypes()) {
 			dependencies.add(type);
 		}
@@ -1130,7 +1098,7 @@ public class TestFactory {
 	 * @return
 	 */
 	private static Set<Type> getDependencies(Field field) {
-		Set<Type> dependencies = new HashSet<Type>();
+		Set<Type> dependencies = new LinkedHashSet<Type>();
 		if (!Modifier.isStatic(field.getModifiers())) {
 			dependencies.add(field.getDeclaringClass());
 		}
@@ -1145,7 +1113,7 @@ public class TestFactory {
 	 * @return
 	 */
 	private static Set<Type> getDependencies(Method method) {
-		Set<Type> dependencies = new HashSet<Type>();
+		Set<Type> dependencies = new LinkedHashSet<Type>();
 		if (!Modifier.isStatic(method.getModifiers())) {
 			dependencies.add(method.getDeclaringClass());
 		}
@@ -1179,10 +1147,14 @@ public class TestFactory {
 		for (AccessibleObject call : allCalls) {
 			Set<Type> dependencies = null;
 			if (call instanceof Method) {
+				if (!((Method) call).getReturnType().equals(returnType))
+					continue;
 				dependencies = getDependencies((Method) call);
 			} else if (call instanceof Constructor<?>) {
 				dependencies = getDependencies((Constructor<?>) call);
 			} else if (call instanceof Field) {
+				if (!((Field) call).getType().equals(returnType))
+					continue;
 				dependencies = getDependencies((Field) call);
 			} else {
 				assert (false);
@@ -1203,7 +1175,7 @@ public class TestFactory {
 	 * @param test
 	 * @param position
 	 */
-	public void insertRandomCall(TestCase test, int position) {
+	public boolean insertRandomCall(TestCase test, int position) {
 		int previousLength = test.size();
 		String name = "";
 		currentRecursion.clear();
@@ -1221,17 +1193,46 @@ public class TestFactory {
 				Method m = (Method) o;
 				//logger.info("Adding method call " + m.getName());
 				name = m.getName();
-				VariableReference callee = test.getRandomObject(Properties.getTargetClass(), position);
-				addMethodFor(test, callee, m, position);
-				//addMethod(test, m, position, 0);
+				if(!Modifier.isStatic(m.getModifiers())) {
+					VariableReference callee = null;
+					Class<?> target = Properties.getTargetClass();
+					if(!m.getDeclaringClass().isAssignableFrom(Properties.getTargetClass())) {
+						// If this is an inner class, we cannot force to use the target class
+						target = m.getDeclaringClass();
+					} 
+
+					if(!test.hasObject(target, position)) {
+						callee = createObject(test, target, position, 0);
+						position += test.size() - previousLength;
+						previousLength = test.size();
+					} else {
+						callee = test.getRandomNonNullObject(target,
+								position);
+						// This may also be an inner class, in this case we can't use a SUT instance
+						//if (!callee.isAssignableTo(m.getDeclaringClass())) {
+						//	callee = test.getRandomNonNullObject(m.getDeclaringClass(), position);
+						//}
+					}
+					addMethodFor(test, callee, m, position);
+				} else {
+					// We only use this for static methods to avoid using wrong constructors (?)
+					addMethod(test, m, position, 0);
+				}
 			} else if (o instanceof Field) {
 				Field f = (Field) o;
-				//logger.info("Adding field assignment " + f.getName());
 				name = f.getName();
-				addFieldAssignment(test, f, position, 0);
+				if(Randomness.nextBoolean()) {
+					//logger.info("Adding field assignment " + f.getName());
+					addFieldAssignment(test, f, position, 0);
+				} else {
+					//logger.info("Adding field " + f.getName());
+					addField(test, f, position);
+				}
 			} else {
 				logger.error("Got type other than method or constructor!");
 			}
+			
+			return true;
 		} catch (ConstructionFailedException e) {
 			// TODO: Check this! - TestCluster replaced
 			// TestCluster.getInstance().checkDependencies(o);
@@ -1245,6 +1246,7 @@ public class TestFactory {
 				        + test.getStatement(position + i).getCode());
 				test.remove(position + i);
 			}
+			return false;
 
 			// logger.info("Attempting search");
 			// test.chop(previous_length);
@@ -1258,7 +1260,7 @@ public class TestFactory {
 	 * @param test
 	 * @param position
 	 */
-	public void insertRandomCallOnObject(TestCase test, int position) {
+	public boolean insertRandomCallOnObject(TestCase test, int position) {
 		// Select a random variable
 		VariableReference var = selectVariableForCall(test, position);
 
@@ -1267,14 +1269,14 @@ public class TestFactory {
 			logger.debug("Inserting call at position " + position + ", chosen var: "
 			        + var.getName() + ", distance: " + var.getDistance() + ", class: "
 			        + var.getClassName());
-			insertRandomCallOnObjectAt(test, var, position);
+			return insertRandomCallOnObjectAt(test, var, position);
 		} else {
 			logger.debug("Adding new call on UUT");
-			insertRandomCall(test, position);
+			return insertRandomCall(test, position);
 		}
 	}
 
-	public void insertRandomCallOnObjectAt(TestCase test, VariableReference var,
+	public boolean insertRandomCallOnObjectAt(TestCase test, VariableReference var,
 	        int position) {
 		// Select a random variable
 		logger.debug("Chosen object: " + var.getName());
@@ -1300,6 +1302,7 @@ public class TestFactory {
 					// logger.info("Failed!");
 				}
 				*/
+				return true;
 			}
 		} else {
 			logger.debug("Getting calls for object " + var.toString());
@@ -1307,23 +1310,26 @@ public class TestFactory {
 			if (!calls.isEmpty()) {
 				AccessibleObject call = Randomness.choice(calls);
 				logger.debug("Chosen call " + call);
-				addCallFor(test, var, call, position);
-				logger.debug("Done adding call " + call);
+				return addCallFor(test, var, call, position);
+				// logger.debug("Done adding call " + call);
 			}
 
 		}
+		
+		return false;
 	}
 
 	/* (non-Javadoc)
 	 * @see de.unisb.cs.st.evosuite.testcase.AbstractTestFactory#insertRandomStatement(de.unisb.cs.st.evosuite.testcase.TestCase)
 	 */
-	public void insertRandomStatement(TestCase test) {
+	public int insertRandomStatement(TestCase test) {
 		final double P = Properties.INSERTION_SCORE_UUT
 		        + Properties.INSERTION_SCORE_OBJECT
 		        + Properties.INSERTION_SCORE_PARAMETER;
 		final double P_UUT = Properties.INSERTION_SCORE_UUT / P;
 		final double P_OBJECT = P_UUT + Properties.INSERTION_SCORE_OBJECT / P;
 
+		int oldSize = test.size();
 		double r = Randomness.nextDouble();
 		int position = Randomness.nextInt(test.size() + 1);
 
@@ -1333,17 +1339,28 @@ public class TestFactory {
 		}
 
 		//		if (r <= P_UUT) {
+		boolean success = false;
 		if (r <= 0.5) {
 			// add new call of the UUT - only declared in UUT!
 			logger.debug("Adding new call on UUT");
-			insertRandomCall(test, position);
+			success = insertRandomCall(test, position);
+			if(test.size() - oldSize > 1) {
+				position += (test.size() - oldSize - 1);
+			}
 		} else { // if (r <= P_OBJECT) {
 			logger.debug("Adding new call on existing object");
-			insertRandomCallOnObject(test, position);
+			success = insertRandomCallOnObject(test, position);
+			if(test.size() - oldSize > 1) {
+				position += (test.size() - oldSize - 1);
+			}
 			//		} else {
 			//			logger.debug("Adding new call with existing object as parameter");
 			// insertRandomCallWithObject(test, position);
 		}
+		if(success)
+			return position;
+		else
+			return -1;
 	}
 
 	/**
@@ -1402,6 +1419,7 @@ public class TestFactory {
 
 			if (dist >= rnd
 			        && !(test.getStatement(i).getReturnValue() instanceof NullReference)
+			        && !(test.getStatement(i).getReturnValue().isPrimitive())
 			        && !(test.getStatement(i).getReturnValue().isVoid())
 			        && !(test.getStatement(i) instanceof PrimitiveStatement))
 				return test.getStatement(i).getReturnValue();
@@ -1414,7 +1432,8 @@ public class TestFactory {
 
 		VariableReference var = test.getStatement(position).getReturnValue();
 		if (!(var instanceof NullReference) && !var.isVoid()
-		        && !(test.getStatement(position) instanceof PrimitiveStatement))
+		        && !(test.getStatement(position) instanceof PrimitiveStatement)
+		        && !var.isPrimitive())
 			return var;
 		else
 			return null;

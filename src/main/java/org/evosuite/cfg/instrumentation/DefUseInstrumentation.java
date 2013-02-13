@@ -25,11 +25,12 @@ import java.util.Iterator;
 import org.evosuite.Properties;
 import org.evosuite.Properties.Criterion;
 import org.evosuite.TestSuiteGenerator;
+import org.evosuite.coverage.branch.BranchPool;
 import org.evosuite.coverage.dataflow.DefUsePool;
 import org.evosuite.graphs.GraphPool;
 import org.evosuite.graphs.cfg.BytecodeInstruction;
 import org.evosuite.graphs.cfg.RawControlFlowGraph;
-import org.evosuite.utils.LoggingUtils;
+import org.evosuite.rmi.ClientServices;
 import org.objectweb.asm.Opcodes;
 import org.objectweb.asm.tree.AbstractInsnNode;
 import org.objectweb.asm.tree.InsnList;
@@ -66,10 +67,12 @@ public class DefUseInstrumentation implements MethodInstrumentation {
 	        String methodName, int access) {
 		RawControlFlowGraph completeCFG = GraphPool.getInstance(classLoader).getRawCFG(className,
 		                                                                               methodName);
+		logger.info("Applying DefUse instrumentation on CFG with "+completeCFG.vertexCount() +" nodes");
 		Iterator<AbstractInsnNode> j = mn.instructions.iterator();
 		while (j.hasNext()) {
 			AbstractInsnNode in = j.next();
 			for (BytecodeInstruction v : completeCFG.vertexSet()) {
+
 				if ((Properties.CRITERION == Criterion.DEFUSE
 				        || Properties.CRITERION == Criterion.ALLDEFS
 				        || Properties.CRITERION == Criterion.ANALYZE || TestSuiteGenerator.analyzing)

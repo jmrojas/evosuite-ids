@@ -140,5 +140,4 @@ public abstract class Constraint<T extends Object> implements Serializable {
 		result.addAll(this.getRightOperand().getVariables());
 		return result;
 	}
-
 }

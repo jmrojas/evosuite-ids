@@ -20,9 +20,10 @@
  */
 package org.evosuite;
 
-import java.io.ObjectInputStream;
-import java.net.ServerSocket;
-import java.net.Socket;
+import org.evosuite.rmi.MasterServices;
+import org.evosuite.rmi.service.ClientState;
+import org.evosuite.rmi.service.ClientStateInformation;
+import org.evosuite.utils.Listener;
 
 /**
  * <p>
@@ -31,105 +32,58 @@ import java.net.Socket;
  * 
  * @author Gordon Fraser
  */
-public class ConsoleProgressBar {
+public class ConsoleProgressBar implements Listener<ClientStateInformation>{
+
+	private static final long serialVersionUID = 8930332599188240933L;
 
 	/**
 	 * <p>
 	 * startProgressBar
 	 * </p>
 	 * 
-	 * @return a {@link java.lang.Thread} object.
 	 */
-	public static Thread startProgressBar() {
-		Thread progressPrinter = new Thread() {
+	public static void startProgressBar() {
+		MasterServices.getInstance().getMasterNode().addListener(new ConsoleProgressBar());
+	}
+	
+	@Override
+	public void receiveEvent(ClientStateInformation event) {
+		if(event.getState() != ClientState.SEARCH) {
+			return;
+		}
+		
+		int percent = event.getProgress();
+		int coverage = event.getCoverage();
+		
+		
+		StringBuilder bar = new StringBuilder("[Progress:");
 
-			public void printProgressBar(int percent, int coverage) {
-				StringBuilder bar = new StringBuilder("[Progress:");
-
-				/*
-				for (int i = 0; i < 50; i++) {
-					if (i < (percent / 2)) {
-						bar.append("=");
-					} else if (i == (percent / 2)) {
-						bar.append(">");
-					} else {
-						bar.append(" ");
-					}
-				}
-				bar.append("]   " + percent + "%  [Coverage: " + coverage + "%]");
-				System.out.print("\r" + bar.toString());
-				*/
-
-				for (int i = 0; i < 30; i++) {
-					if (i < (int) (percent * 0.30)) {
-						bar.append("=");
-					} else if (i == (int) (percent * 0.30)) {
-						bar.append(">");
-					} else {
-						bar.append(" ");
-					}
-				}
-
-				bar.append(Math.min(100, percent) + "%] [Cov:");
-
-				for (int i = 0; i < 35; i++) {
-					if (i < (int) (coverage * 0.35)) {
-						bar.append("=");
-					} else if (i == (int) (coverage * 0.35)) {
-						bar.append(">");
-					} else {
-						bar.append(" ");
-					}
-				}
-
-				bar.append(coverage + "%]");
-
-				System.out.print("\r" + bar.toString());
-
+		for (int i = 0; i < 30; i++) {
+			if (i < (int) (percent * 0.30)) {
+				bar.append("=");
+			} else if (i == (int) (percent * 0.30)) {
+				bar.append(">");
+			} else {
+				bar.append(" ");
 			}
+		}
 
-			@Override
-			public void run() {
-				try {
+		bar.append(Math.min(100, percent) + "%] [Cov:");
 
-					ServerSocket serverSocket = new ServerSocket(
-					        Properties.PROGRESS_STATUS_PORT);
-					Socket connection = serverSocket.accept();
-					ObjectInputStream in = new ObjectInputStream(
-					        connection.getInputStream());
-
-					int percent = 0;
-					int coverage = 0;
-					int phase = 0;
-					while (percent != -1 && !isInterrupted()) {
-						percent = in.readInt();
-						phase = in.readInt(); // phase
-						in.readInt(); // phases
-						coverage = in.readInt();
-						in.readObject(); // phase name
-						if (percent != -1 && phase <= 1) {
-							printProgressBar(percent, coverage);
-						}
-					}
-
-				} catch (Exception e) {
-					//System.err.println("Exception while reading output of client process "
-					//        + e);
-				}
-
+		for (int i = 0; i < 35; i++) {
+			if (i < (int) (coverage * 0.35)) {
+				bar.append("=");
+			} else if (i == (int) (coverage * 0.35)) {
+				bar.append(">");
+			} else {
+				bar.append(" ");
 			}
+		}
 
-			/* (non-Javadoc)
-			 * @see java.lang.Thread#interrupt()
-			 */
-			@Override
-			public void interrupt() {
-				System.out.print("\n");
-				super.interrupt();
-			}
-		};
-		progressPrinter.start();
-		return progressPrinter;
+		bar.append(coverage + "%]");
+
+		System.out.print("\r" + bar.toString());
+		
 	}
 
 }

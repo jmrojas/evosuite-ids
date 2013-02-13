@@ -29,6 +29,7 @@ import java.lang.reflect.Method;
 import java.lang.reflect.Modifier;
 import java.util.ArrayList;
 import java.util.HashSet;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -208,8 +209,13 @@ public class MethodStatement extends AbstractStatement {
 				        InstantiationException, CodeUnderTestException {
 					Object callee_object;
 					try {
+						java.lang.reflect.Type[] parameterTypes =  method.getGenericParameterTypes();
 						for (int i = 0; i < parameters.size(); i++) {
-							inputs[i] = parameters.get(i).getObject(scope);
+							VariableReference parameterVar = parameters.get(i);
+							if(!parameterVar.isAssignableTo(parameterTypes[i])) {
+								throw new CodeUnderTestException(new UncompilableCodeException());
+							}
+							inputs[i] = parameterVar.getObject(scope);
 						}
 
 						callee_object = (Modifier.isStatic(method.getModifiers())) ? null
@@ -309,7 +315,7 @@ public class MethodStatement extends AbstractStatement {
 	/** {@inheritDoc} */
 	@Override
 	public Set<VariableReference> getVariableReferences() {
-		Set<VariableReference> references = new HashSet<VariableReference>();
+		Set<VariableReference> references = new LinkedHashSet<VariableReference>();
 		references.add(retval);
 		if (isInstanceMethod()) {
 			references.add(callee);

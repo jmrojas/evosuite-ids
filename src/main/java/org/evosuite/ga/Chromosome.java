@@ -45,17 +45,23 @@ public abstract class Chromosome implements Comparable<Chromosome>, Serializable
 
 	/** Last recorded fitness value */
 	private double fitness = 0.0;
+	
+	/** Previous fitness, to see if there was an improvement */
+	private double lastFitness = 0.0;
 
 	/** True if this is a solution */
 	protected boolean solution = false;
 
 	/** Has this chromosome changed since its fitness was last evaluated? */
-	protected boolean changed = true;
+	private boolean changed = true;
 
 	protected double coverage = 0.0;
 
 	protected int numOfCoveredGoals = 0;
-
+	
+	/** Generation in which this chromosome was created */
+	protected int age = 0;
+	
 	/**
 	 * Return current fitness value
 	 * 
@@ -72,8 +78,13 @@ public abstract class Chromosome implements Comparable<Chromosome>, Serializable
 	 *            a double.
 	 */
 	public void setFitness(double value) {
+		lastFitness = fitness;
 		fitness = value;
 		// changed = false;
+	}
+	
+	public boolean hasFitnessChanged() {
+		return fitness != lastFitness;
 	}
 
 	/**
@@ -183,6 +194,16 @@ public abstract class Chromosome implements Comparable<Chromosome>, Serializable
 	public abstract void localSearch(LocalSearchObjective objective);
 
 	/**
+	 * Apply the local search
+	 * 
+	 * @param objective
+	 *            a {@link org.evosuite.ga.LocalSearchObjective} object.
+	 */
+	public void applyAdaptiveLocalSearch(LocalSearchObjective objective) {
+		// No-op
+	}
+
+	/**
 	 * Apply DSE
 	 * 
 	 * @param algorithm
@@ -241,5 +262,13 @@ public abstract class Chromosome implements Comparable<Chromosome>, Serializable
 
 	public void setNumOfCoveredGoals(int numOfCoveredGoals) {
 		this.numOfCoveredGoals = numOfCoveredGoals;
+	}
+	
+	public void updateAge(int generation) {
+		this.age = generation;
+	}
+	
+	public int getAge() {
+		return age;
 	}
 }

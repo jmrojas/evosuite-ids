@@ -40,6 +40,7 @@ import java.util.zip.ZipFile;
 
 import org.evosuite.Properties;
 import org.evosuite.TestGenerationContext;
+import org.evosuite.rmi.ClientServices;
 import org.evosuite.utils.LoggingUtils;
 import org.objectweb.asm.ClassReader;
 import org.objectweb.asm.tree.ClassNode;
@@ -63,14 +64,16 @@ public class InheritanceTreeGenerator {
 	 * @return
 	 */
 	public static InheritanceTree analyze(List<String> classPath) {
-		if(!Properties.INHERITANCE_FILE.isEmpty()) {
+		if (!Properties.INHERITANCE_FILE.isEmpty()) {
 			try {
 				InheritanceTree tree = readInheritanceTree(Properties.INHERITANCE_FILE);
-				LoggingUtils.getEvoLogger().info("* Inheritance tree loaded from {}", Properties.INHERITANCE_FILE);
+				LoggingUtils.getEvoLogger().info("* Inheritance tree loaded from {}",
+				                                 Properties.INHERITANCE_FILE);
 				return tree;
-				
+
 			} catch (IOException e) {
-				LoggingUtils.getEvoLogger().warn("* Error loading inheritance tree: {}", e);
+				LoggingUtils.getEvoLogger().warn("* Error loading inheritance tree: {}",
+				                                 e);
 			}
 		}
 		InheritanceTree inheritanceTree = readJDKData();
@@ -87,6 +90,11 @@ public class InheritanceTreeGenerator {
 			analyze(inheritanceTree, classPathEntry);
 		}
 		return inheritanceTree;
+	}
+
+	public static void gatherStatistics(InheritanceTree inheritanceTree) {
+		ClientServices.getInstance().getClientNode().trackOutputVariable("classpath_classes",
+		                                                                 inheritanceTree.getNumClasses());
 	}
 
 	/**
@@ -140,7 +148,7 @@ public class InheritanceTreeGenerator {
 			try {
 				analyzeClassStream(inheritanceTree, zf.getInputStream(ze));
 			} catch (IOException e1) {
-				logger.error("",e1);
+				logger.error("", e1);
 			}
 		}
 		try {
@@ -160,7 +168,7 @@ public class InheritanceTreeGenerator {
 		try {
 			analyzeClassStream(inheritanceTree, new FileInputStream(classFile));
 		} catch (FileNotFoundException e) {
-			logger.error("",e);
+			logger.error("", e);
 		}
 	}
 
@@ -169,6 +177,8 @@ public class InheritanceTreeGenerator {
 	        InputStream inputStream) {
 		try {
 			ClassReader reader = new ClassReader(inputStream);
+			inputStream.close();
+
 			ClassNode cn = new ClassNode();
 			reader.accept(cn, ClassReader.SKIP_FRAMES | ClassReader.SKIP_DEBUG
 			        | ClassReader.SKIP_CODE);
@@ -185,13 +195,15 @@ public class InheritanceTreeGenerator {
 			// TODO: Should we store the ClassNode?
 
 		} catch (IOException e) {
-			logger.error("",e);
+			logger.error("", e);
 		}
 	}
 
 	private static List<String> classExceptions = Arrays.asList(new String[] {
 	        "java/lang/Class", "java/lang/Object", "java/lang/String",
-	        "java/lang/Comparable", "java/io/Serializable", "com/apple", "apple/", "sun/", "com/sun", "com/oracle", "sun/awt" });
+	        "java/lang/Comparable", "java/io/Serializable", "com/apple", "apple/",
+	        "sun/", "com/sun", "com/oracle", "sun/awt",
+	        "java/util/prefs/MacOSXPreferences" });
 
 	/**
 	 * During runtime, we do not want to consider standard classes to safe some
@@ -201,11 +213,10 @@ public class InheritanceTreeGenerator {
 		Collection<String> list = getAllResources();
 		InheritanceTree inheritanceTree = new InheritanceTree();
 
-		EXCEPTION:
-		for (String name : list) {
+		EXCEPTION: for (String name : list) {
 			// We do not consider sun.* and apple.* and com.* 
-			for(String exception : classExceptions) {
-				if(name.startsWith(exception))
+			for (String exception : classExceptions) {
+				if (name.startsWith(exception))
 					continue EXCEPTION;
 			}
 			InputStream stream = TestGenerationContext.getClassLoader().getResourceAsStream(name);
@@ -219,8 +230,8 @@ public class InheritanceTreeGenerator {
 			XStream xstream = new XStream();
 			xstream.toXML(inheritanceTree, stream);
 		} catch (FileNotFoundException e) {
-			logger.error("",e);
-			System.out.println("EEEEE "+e);
+			logger.error("", e);
+			System.out.println("EEEEE " + e);
 		}
 	}
 
@@ -232,17 +243,19 @@ public class InheritanceTreeGenerator {
 		else
 			return new InheritanceTree();
 	}
-	
+
 	public static InheritanceTree readInheritanceTree(String fileName) throws IOException {
 		XStream xstream = new XStream();
 		// InputStream inheritance = new FileInputStream(new File(fileName));
-		GZIPInputStream inheritance = new GZIPInputStream(new FileInputStream(new File(fileName)));
-		return (InheritanceTree) xstream.fromXML(inheritance);		
+		GZIPInputStream inheritance = new GZIPInputStream(new FileInputStream(new File(
+		        fileName)));
+		return (InheritanceTree) xstream.fromXML(inheritance);
 	}
 
-	public static void writeInheritanceTree(InheritanceTree tree, File file) throws IOException {
+	public static void writeInheritanceTree(InheritanceTree tree, File file)
+	        throws IOException {
 		XStream xstream = new XStream();
-//		OutputStream output = new FileOutputStream(file);	
+		//		OutputStream output = new FileOutputStream(file);	
 		GZIPOutputStream output = new GZIPOutputStream(new FileOutputStream(file));
 		xstream.toXML(tree, output);
 		output.close();
@@ -261,7 +274,7 @@ public class InheritanceTreeGenerator {
 
 	private static Collection<String> getResources(String classPath) {
 		final ArrayList<String> retval = new ArrayList<String>();
-		String[] classPathElements = classPath.split(":");
+		String[] classPathElements = classPath.split(File.pathSeparator);
 		Pattern pattern = Pattern.compile(".*\\.class$");
 
 		for (final String element : classPathElements) {

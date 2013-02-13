@@ -36,15 +36,20 @@ import java.util.Set;
 import org.apache.commons.io.FileUtils;
 import org.apache.commons.io.filefilter.IOFileFilter;
 import org.apache.commons.io.filefilter.TrueFileFilter;
+import org.apache.commons.lang3.StringUtils;
 import org.evosuite.Properties;
 import org.evosuite.Properties.Criterion;
 import org.evosuite.Properties.OutputFormat;
 import org.evosuite.Properties.OutputGranularity;
+import org.evosuite.Properties.SandboxMode;
 import org.evosuite.coverage.dataflow.DefUseCoverageTestFitness;
 import org.evosuite.repair.JUnit4AssertionLogAdapter;
 import org.evosuite.sandbox.Sandbox;
+import org.evosuite.testcase.CodeUnderTestException;
 import org.evosuite.testcase.ExecutionResult;
 import org.evosuite.testcase.StatementInterface;
+import org.evosuite.testcase.StructuredTestCase;
+import org.evosuite.testcase.StructuredTestCodeVisitor;
 import org.evosuite.testcase.TestCase;
 import org.evosuite.testcase.TestCaseExecutor;
 import org.evosuite.testcase.TestCodeVisitor;
@@ -78,12 +83,14 @@ public class TestSuiteWriter implements Opcodes {
 
 	private final UnitTestAdapter adapter = TestSuiteWriter.getAdapter();
 
-	private final TestCodeVisitor visitor = new TestCodeVisitor();
+	private TestCodeVisitor visitor = Properties.STRUCTURED_TESTS ? visitor = new StructuredTestCodeVisitor()
+	        : new TestCodeVisitor();
 
 	private static final String METHOD_SPACE = "  ";
 	private static final String BLOCK_SPACE = "    ";
 	private static final String INNER_BLOCK_SPACE = "      ";
 	private static final String INNER_INNER_BLOCK_SPACE = "        ";
+	private static final String INNER_INNER_INNER_BLOCK_SPACE = "          ";
 
 	private final String EXECUTOR_SERVICE = "executor";
 
@@ -213,6 +220,18 @@ public class TestSuiteWriter implements Opcodes {
 	}
 
 	/**
+	 * <p>
+	 * insertTests
+	 * </p>
+	 * 
+	 * @param tests
+	 *            a {@link java.util.List} object.
+	 */
+	public void insertAllTests(List<TestCase> tests) {
+		testCases.addAll(tests);
+	}
+
+	/**
 	 * Get all test cases
 	 * 
 	 * @return a {@link java.util.List} object.
@@ -338,6 +357,8 @@ public class TestSuiteWriter implements Opcodes {
 		if (wasSecurityException) {
 			//Add import info for EvoSuite classes used in the generated test suite
 			imports_sorted.add(Sandbox.class.getCanonicalName());
+			imports_sorted.add(Properties.class.getCanonicalName());
+			imports_sorted.add(Properties.SandboxMode.class.getCanonicalName());
 			imports_sorted.add(java.util.concurrent.ExecutorService.class.getCanonicalName());
 			imports_sorted.add(java.util.concurrent.Executors.class.getCanonicalName());
 			imports_sorted.add(java.util.concurrent.Future.class.getCanonicalName());
@@ -566,8 +587,14 @@ public class TestSuiteWriter implements Opcodes {
 
 		bd.append(METHOD_SPACE);
 		bd.append("public static void initEvoSuiteFramework(){ \n");
+		
+		//need to setup the Sandbox mode
+		bd.append(BLOCK_SPACE);
+		bd.append("Properties.SANDBOX_MODE = SandboxMode."+Properties.SANDBOX_MODE+"; \n");
+		
 		bd.append(BLOCK_SPACE);
 		bd.append("Sandbox.initializeSecurityManagerForSUT(); \n");
+		
 		bd.append(BLOCK_SPACE);
 		bd.append(EXECUTOR_SERVICE + " = Executors.newCachedThreadPool(); \n");
 		bd.append(METHOD_SPACE);
@@ -610,7 +637,7 @@ public class TestSuiteWriter implements Opcodes {
 		bd.append(METHOD_SPACE);
 		bd.append("public void doneWithTestCase(){ \n");
 		bd.append(BLOCK_SPACE);
-		bd.append("Sandbox.goingToEndExecutingSUTCode(); \n");
+		bd.append("Sandbox.doneWithExecutingSUTCode(); \n");
 		bd.append(METHOD_SPACE);
 		bd.append("} \n");
 
@@ -618,6 +645,8 @@ public class TestSuiteWriter implements Opcodes {
 
 		return bd.toString();
 	}
+
+	private final Map<String, Integer> testMethodNumber = new HashMap<String, Integer>();
 
 	/**
 	 * Convert one test case to a Java method
@@ -638,9 +667,25 @@ public class TestSuiteWriter implements Opcodes {
 			builder.append(METHOD_SPACE);
 			builder.append("//");
 			builder.append(getInformation(id));
-			builder.append("\n");
 		}
-		builder.append(adapter.getMethodDefinition("test" + number));
+		if (Properties.STRUCTURED_TESTS) {
+			StructuredTestCase structuredTest = (StructuredTestCase) testCases.get(id);
+			String targetMethod = structuredTest.getTargetMethods().iterator().next();
+			targetMethod = targetMethod.replace("<init>", "Constructor");
+			if (targetMethod.indexOf('(') != -1)
+				targetMethod = targetMethod.substring(0, targetMethod.indexOf('('));
+			targetMethod = StringUtils.capitalize(targetMethod);
+			int num = 0;
+			if (testMethodNumber.containsKey(targetMethod)) {
+				num = testMethodNumber.get(targetMethod);
+				testMethodNumber.put(targetMethod, num + 1);
+			} else {
+				testMethodNumber.put(targetMethod, 1);
+			}
+			builder.append(adapter.getMethodDefinition("test" + targetMethod + num));
+		} else {
+			builder.append(adapter.getMethodDefinition("test" + number));
+		}
 
 		/*
 		 * A test case might throw a lot of different kinds of exceptions. 
@@ -650,11 +695,22 @@ public class TestSuiteWriter implements Opcodes {
 		 * we need to declare them in the signature with "throws". So, the easiest (but still correct) option
 		 * is to just declare once to throw any genetic Exception, and be done with it once and for all
 		 */
-		builder.append(" throws Exception ");
+		builder.append(" throws Throwable ");
 		builder.append(" {\n");
 
 		// ---------   start with the body -------------------------
 		String CODE_SPACE = INNER_BLOCK_SPACE;
+
+		// No code after an exception should be printed as it would break compilability
+		TestCase test = testCases.get(id);
+		Integer pos = result.getFirstPositionOfThrownException();
+		if (pos != null) {
+			if (result.getExceptionThrownAtPosition(pos) instanceof CodeUnderTestException) {
+				test.chop(pos);
+			} else {
+				test.chop(pos + 1);
+			}
+		}
 
 		if (wasSecurityException) {
 			builder.append(BLOCK_SPACE);
@@ -664,10 +720,15 @@ public class TestSuiteWriter implements Opcodes {
 			builder.append("@Override \n");
 			builder.append(INNER_BLOCK_SPACE);
 			builder.append("public void run() { \n");
-			CODE_SPACE = INNER_INNER_BLOCK_SPACE;
+			Set<Class<?>> exceptions = test.getDeclaredExceptions();
+			if (!exceptions.isEmpty()) {
+				builder.append(INNER_INNER_BLOCK_SPACE);
+				builder.append("try {\n");
+			}
+			CODE_SPACE = INNER_INNER_INNER_BLOCK_SPACE;
 		}
 
-		for (String line : adapter.getTestString(id, testCases.get(id),
+		for (String line : adapter.getTestString(id, test,
 		                                         result.exposeExceptionMapping(), visitor).split("\\r?\\n")) {
 			builder.append(CODE_SPACE);
 			builder.append(line);
@@ -675,6 +736,16 @@ public class TestSuiteWriter implements Opcodes {
 		}
 
 		if (wasSecurityException) {
+			Set<Class<?>> exceptions = test.getDeclaredExceptions();
+			if (!exceptions.isEmpty()) {
+				builder.append(INNER_INNER_BLOCK_SPACE);
+				builder.append("} catch(Throwable t) {\n");
+				builder.append(INNER_INNER_INNER_BLOCK_SPACE);
+				builder.append("  // Need to catch declared exceptions\n");
+				builder.append(INNER_INNER_BLOCK_SPACE);
+				builder.append("}\n");
+			}
+
 			builder.append(INNER_BLOCK_SPACE);
 			builder.append("} \n"); //closing run(){
 			builder.append(BLOCK_SPACE);

@@ -34,10 +34,12 @@ import org.evosuite.Properties.TheReplacementFunction;
 import org.evosuite.assertion.AssertionGenerator;
 import org.evosuite.assertion.CompleteAssertionGenerator;
 import org.evosuite.assertion.MutationAssertionGenerator;
+import org.evosuite.assertion.StructuredAssertionGenerator;
 import org.evosuite.assertion.UnitAssertionGenerator;
 import org.evosuite.classcreation.ClassFactory;
 import org.evosuite.contracts.ContractChecker;
 import org.evosuite.contracts.FailingTestSet;
+import org.evosuite.coverage.CoverageAnalysis;
 import org.evosuite.coverage.FitnessLogger;
 import org.evosuite.coverage.TestFitnessFactory;
 import org.evosuite.coverage.branch.BranchCoverageFactory;
@@ -103,11 +105,12 @@ import org.evosuite.primitives.ObjectPool;
 import org.evosuite.regression.RegressionSuiteFitness;
 import org.evosuite.regression.RegressionTestChromosomeFactory;
 import org.evosuite.regression.RegressionTestSuiteChromosomeFactory;
+import org.evosuite.rmi.ClientServices;
+import org.evosuite.rmi.service.ClientState;
 import org.evosuite.sandbox.PermissionStatistics;
 import org.evosuite.sandbox.Sandbox;
 import org.evosuite.setup.DependencyAnalysis;
 import org.evosuite.setup.TestCluster;
-import org.evosuite.setup.TestClusterGenerator;
 import org.evosuite.symbolic.DSEStats;
 import org.evosuite.testcarver.capture.CaptureLog;
 import org.evosuite.testcarver.capture.Capturer;
@@ -197,17 +200,19 @@ public class TestSuiteGenerator {
 
 		LoggingUtils.getEvoLogger().info("* Analyzing classpath: ");
 
+		ClientServices.getInstance().getClientNode().changeState(ClientState.INITIALIZATION);
+
 		Sandbox.goingToExecuteSUTCode();
 		Sandbox.goingToExecuteUnsafeCodeOnSameThread();
 		try {
 			DependencyAnalysis.analyze(Properties.TARGET_CLASS,
-			                           Arrays.asList(Properties.CP.split(":")));
-			LoggingUtils.getEvoLogger().info("* Finished to analyze classpath");
+			                           Arrays.asList(Properties.CP.split(File.pathSeparator)));
+			LoggingUtils.getEvoLogger().info("* Finished analyzing classpath");
 		} catch (Throwable e) {
 			LoggingUtils.getEvoLogger().error("* Error while initializing target class: "
 			                                          + (e.getMessage() != null ? e.getMessage()
 			                                                  : e.toString()));
-			logger.error("Problem for "+Properties.TARGET_CLASS+". Full stack:",e);
+			logger.error("Problem for " + Properties.TARGET_CLASS + ". Full stack:", e);
 			return "";
 		} finally {
 			Sandbox.doneWithExecutingUnsafeCodeOnSameThread();
@@ -215,7 +220,6 @@ public class TestSuiteGenerator {
 		}
 
 		TestCaseExecutor.initExecutor();
-		setupProgressMonitor();
 
 		Utils.addURL(ClassFactory.getStubDir() + "/classes/");
 
@@ -236,8 +240,10 @@ public class TestSuiteGenerator {
 		 * TODO: when we will have several processes running in parallel, we ll
 		 * need to handle the gathering of the statistics. 
 		 */
+		ClientServices.getInstance().getClientNode().changeState(ClientState.WRITING_STATISTICS);
 		statistics.writeReport();
-		statistics.writeStatistics();
+		if (!Properties.NEW_STATISTICS)
+			statistics.writeStatistics();
 		PermissionStatistics.getInstance().printStatistics();
 
 		LoggingUtils.getEvoLogger().info("* Done!");
@@ -278,18 +284,6 @@ public class TestSuiteGenerator {
 		CoverageStatistics.writeCSV();
 	}
 
-	private void setupProgressMonitor() {
-		int phases = 1;
-		if (Properties.ASSERTIONS)
-			phases++;
-		//if (Properties.JUNIT_TESTS)
-		//	phases++;
-		if (Properties.MINIMIZE || Properties.INLINE || Properties.MINIMIZE_VALUES)
-			phases++;
-
-		progressMonitor.setNumberOfPhases(phases);
-	}
-
 	private List<TestCase> generateTests() {
 		List<TestCase> tests;
 		// Make sure target class is loaded at this point
@@ -325,10 +319,15 @@ public class TestSuiteGenerator {
 
 		if (Properties.ASSERTIONS) {
 			LoggingUtils.getEvoLogger().info("* Generating assertions");
-			progressMonitor.setCurrentPhase("Generating assertions");
+			//progressMonitor.setCurrentPhase("Generating assertions");
+			ClientServices.getInstance().getClientNode().changeState(ClientState.ASSERTION_GENERATION);
 			if (Properties.CRITERION == Criterion.MUTATION
 			        || Properties.CRITERION == Criterion.STRONGMUTATION) {
-				handleMutations(tests);
+				if (Properties.ASSERTION_STRATEGY == AssertionStrategy.MUTATION) {
+					handleMutations(tests);
+				} else {
+					addAssertions(tests);
+				}
 			} else {
 				// If we're not using mutation testing, we need to re-instrument
 				addAssertions(tests);
@@ -369,8 +368,13 @@ public class TestSuiteGenerator {
 	 */
 	public static void writeJUnitTests(List<TestCase> tests) {
 		if (Properties.JUNIT_TESTS) {
+			ClientServices.getInstance().getClientNode().changeState(ClientState.WRITING_TESTS);
+
 			TestSuiteWriter suite = new TestSuiteWriter();
-			suite.insertTests(tests);
+			if (Properties.STRUCTURED_TESTS)
+				suite.insertAllTests(tests);
+			else
+				suite.insertTests(tests);
 			String name = Properties.TARGET_CLASS.substring(Properties.TARGET_CLASS.lastIndexOf(".") + 1);
 			String testDir = Properties.TEST_DIR;
 			if (analyzing)
@@ -444,26 +448,42 @@ public class TestSuiteGenerator {
 				                                         + NumberFormat.getPercentInstance().format(1.0));
 
 			} else {
-				MutationAssertionGenerator masserter = new MutationAssertionGenerator();
-				Set<Integer> tkilled = new HashSet<Integer>();
-				int numTest = 0;
-				for (TestCase test : tests) {
-					long currentTime = System.currentTimeMillis() / 1000;
-					if (currentTime - startTime > Properties.ASSERTION_TIMEOUT) {
-						logger.info("Reached maximum time to generate assertions!");
-						break;
+				if (Properties.STRUCTURED_TESTS) {
+					StructuredAssertionGenerator sasserter = new StructuredAssertionGenerator();
+					int numTest = 0;
+					for (TestCase test : tests) {
+						long currentTime = System.currentTimeMillis() / 1000;
+						if (currentTime - startTime > Properties.ASSERTION_TIMEOUT) {
+							logger.info("Reached maximum time to generate assertions!");
+							break;
+						}
+						//Set<Integer> killed = new HashSet<Integer>();
+						sasserter.addAssertions(test);
+						progressMonitor.updateStatus((100 * numTest++) / tests.size());
+						//tkilled.addAll(killed);
 					}
-					//Set<Integer> killed = new HashSet<Integer>();
-					masserter.addAssertions(test, tkilled);
-					progressMonitor.updateStatus((100 * numTest++) / tests.size());
-					//tkilled.addAll(killed);
+				} else {
+					MutationAssertionGenerator masserter = new MutationAssertionGenerator();
+					Set<Integer> tkilled = new HashSet<Integer>();
+					int numTest = 0;
+					for (TestCase test : tests) {
+						long currentTime = System.currentTimeMillis() / 1000;
+						if (currentTime - startTime > Properties.ASSERTION_TIMEOUT) {
+							logger.info("Reached maximum time to generate assertions!");
+							break;
+						}
+						//Set<Integer> killed = new HashSet<Integer>();
+						masserter.addAssertions(test, tkilled);
+						progressMonitor.updateStatus((100 * numTest++) / tests.size());
+						//tkilled.addAll(killed);
+					}
+					Properties.CRITERION = oldCriterion;
+					double score = (double) tkilled.size()
+					        / (double) MutationPool.getMutantCounter();
+					SearchStatistics.getInstance().mutationScore(score);
+					LoggingUtils.getEvoLogger().info("* Resulting test suite's mutation score: "
+					                                         + NumberFormat.getPercentInstance().format(score));
 				}
-				Properties.CRITERION = oldCriterion;
-				double score = (double) tkilled.size()
-				        / (double) MutationPool.getMutantCounter();
-				SearchStatistics.getInstance().mutationScore(score);
-				LoggingUtils.getEvoLogger().info("* Resulting test suite's mutation score: "
-				                                         + NumberFormat.getPercentInstance().format(score));
 			}
 
 			return;
@@ -622,7 +642,7 @@ public class TestSuiteGenerator {
 
 		ga.setChromosomeFactory(getChromosomeFactory(fitness_function));
 		//if (Properties.SHOW_PROGRESS && !logger.isInfoEnabled())
-		ga.addListener(progressMonitor);
+		ga.addListener(progressMonitor); // FIXME progressMonitor may cause client hang if EvoSuite is executed with -prefix!
 
 		if (Properties.CRITERION == Criterion.DEFUSE
 		        || Properties.CRITERION == Criterion.ALLDEFS
@@ -636,11 +656,14 @@ public class TestSuiteGenerator {
 		TestFitnessFactory<? extends TestFitnessFunction> goalFactory = getFitnessFactory();
 		List<? extends TestFitnessFunction> goals = goalFactory.getCoverageGoals();
 		LoggingUtils.getEvoLogger().info("* Total number of test goals: " + goals.size());
+		ClientServices.getInstance().getClientNode().trackOutputVariable("total_goals",
+		                                                                 goals.size());
+
 		TestSuiteChromosome best = new TestSuiteChromosome();
-		if (!goals.isEmpty()) {
+		if (!(Properties.STOP_ZERO && goals.isEmpty())) {
 			// Perform search
 			LoggingUtils.getEvoLogger().info("* Starting evolution");
-			progressMonitor.setCurrentPhase("Generating test cases");
+			ClientServices.getInstance().getClientNode().changeState(ClientState.SEARCH);
 
 			ga.generateSolution();
 			best = (TestSuiteChromosome) ga.getBestIndividual();
@@ -683,32 +706,40 @@ public class TestSuiteGenerator {
 			}
 		}
 
-		progressMonitor.setCurrentPhase("Reducing tests");
 		if (Properties.MINIMIZE_VALUES) {
+			ClientServices.getInstance().getClientNode().changeState(ClientState.MINIMIZING_VALUES);
 			LoggingUtils.getEvoLogger().info("* Minimizing values");
 			ValueMinimizer minimizer = new ValueMinimizer();
 			minimizer.minimize(best, (TestSuiteFitnessFunction) fitness_function);
 			assert (fitness >= best.getFitness());
 		}
-		progressMonitor.updateStatus(33);
+		// progressMonitor.updateStatus(33);
 
 		if (Properties.INLINE) {
+			ClientServices.getInstance().getClientNode().changeState(ClientState.INLINING);
 			ConstantInliner inliner = new ConstantInliner();
 			// progressMonitor.setCurrentPhase("Inlining constants");
 			inliner.inline(best);
 			assert (fitness >= best.getFitness());
 		}
-		progressMonitor.updateStatus(66);
+		// progressMonitor.updateStatus(66);
 
 		if (Properties.MINIMIZE) {
+			ClientServices.getInstance().getClientNode().changeState(ClientState.MINIMIZATION);
 			LoggingUtils.getEvoLogger().info("* Minimizing result");
 			// progressMonitor.setCurrentPhase("Minimizing test cases");
 			TestSuiteMinimizer minimizer = new TestSuiteMinimizer(getFitnessFactory());
 			minimizer.minimize(best);
-		} else if(Properties.COVERAGE){
+		}
+
+		/*
+		 * FIXME: why was it as an "else" of previous condition???
+		 */
+
+		if (Properties.COVERAGE) {
 			CoverageAnalysis.analyzeCoverage(best, Properties.CRITERION);
 		}
-		progressMonitor.updateStatus(99);
+		// progressMonitor.updateStatus(99);
 
 		if (Properties.CRITERION == Criterion.MUTATION
 		        || Properties.CRITERION == Criterion.STRONGMUTATION) {
@@ -720,9 +751,10 @@ public class TestSuiteGenerator {
 		LoggingUtils.getEvoLogger().info("* Generated " + best.size()
 		                                         + " tests with total length "
 		                                         + best.totalLengthOfTestCases());
-
 		// TODO: In the end we will only need one analysis technique
 		if (!Properties.ANALYSIS_CRITERIA.isEmpty()) {
+			SearchStatistics.getInstance().addCoverage(Properties.CRITERION.toString(),
+			                                           best.getCoverage());
 			CoverageAnalysis.analyzeCriteria(best, Properties.ANALYSIS_CRITERIA);
 		}
 
@@ -734,13 +766,14 @@ public class TestSuiteGenerator {
 		}
 
 		ga.printBudget();
-		if (Properties.CRITERION == Criterion.DEFUSE)
+		if (Properties.CRITERION == Criterion.DEFUSE
+		        && Properties.ANALYSIS_CRITERIA.isEmpty())
 			DefUseCoverageSuiteFitness.printCoverage();
 
-		if (Properties.DSE_RATE>0) {
+		if (Properties.DSE_RATE > 0) {
 			DSEStats.printStatistics();
 		}
-		
+
 		return best.getTests();
 	}
 
@@ -936,7 +969,6 @@ public class TestSuiteGenerator {
 		return false;
 	}
 
-
 	/**
 	 * Generate one random test at a time and check if adding it improves
 	 * fitness (1+1)RT
@@ -952,17 +984,17 @@ public class TestSuiteGenerator {
 		// GeneticAlgorithm suiteGA = setup();
 		stopping_condition = getStoppingCondition();
 		statistics.searchStarted(suiteGA);
-		
-		for(int i = 0; i < Properties.NUM_RANDOM_TESTS; i++) {
-			logger.info("Current test: "+i+"/"+Properties.NUM_RANDOM_TESTS);
+
+		for (int i = 0; i < Properties.NUM_RANDOM_TESTS; i++) {
+			logger.info("Current test: " + i + "/" + Properties.NUM_RANDOM_TESTS);
 			TestChromosome test = factory.getChromosome();
 			ExecutionResult result = TestCaseExecutor.runTest(test.getTestCase());
 			Integer pos = result.getFirstPositionOfThrownException();
-			if(pos != null) {
-				if(result.getExceptionThrownAtPosition(pos) instanceof CodeUnderTestException) {
-					test.getTestCase().chop(pos);					
+			if (pos != null) {
+				if (result.getExceptionThrownAtPosition(pos) instanceof CodeUnderTestException) {
+					test.getTestCase().chop(pos);
 				} else {
-					test.getTestCase().chop(pos+1);
+					test.getTestCase().chop(pos + 1);
 				}
 				test.setChanged(true);
 			} else {
@@ -970,7 +1002,7 @@ public class TestSuiteGenerator {
 			}
 			suite.addTest(test);
 		}
-		
+
 		suiteGA.getPopulation().add(suite);
 		statistics.searchFinished(suiteGA);
 		suiteGA.printBudget();
@@ -978,7 +1010,7 @@ public class TestSuiteGenerator {
 
 		return suite.getTests();
 	}
-	
+
 	/**
 	 * Generate one random test at a time and check if adding it improves
 	 * fitness (1+1)RT
@@ -990,6 +1022,12 @@ public class TestSuiteGenerator {
 
 		TestSuiteChromosome suite = new TestSuiteChromosome();
 		TestSuiteFitnessFunction fitnessFunction = getFitnessFunction();
+
+		TestFitnessFactory<? extends TestFitnessFunction> goalFactory = getFitnessFactory();
+		List<? extends TestFitnessFunction> goals = goalFactory.getCoverageGoals();
+		LoggingUtils.getEvoLogger().info("* Total number of test goals: " + goals.size());
+		ClientServices.getInstance().getClientNode().trackOutputVariable("total_goals",
+		                                                                 goals.size());
 
 		// The GA is not actually used, except to provide the same statistics as during search
 		GeneticAlgorithm suiteGA = getGeneticAlgorithm(new TestSuiteChromosomeFactory());
@@ -1023,6 +1061,7 @@ public class TestSuiteGenerator {
 
 		if (Properties.MINIMIZE) {
 			LoggingUtils.getEvoLogger().info("* Minimizing result");
+			ClientServices.getInstance().getClientNode().changeState(ClientState.MINIMIZATION);
 			TestSuiteMinimizer minimizer = new TestSuiteMinimizer(getFitnessFactory());
 			minimizer.minimize((TestSuiteChromosome) suiteGA.getBestIndividual());
 		}
@@ -1077,14 +1116,8 @@ public class TestSuiteGenerator {
 			//LoggingUtils.getEvoLogger().info("* Shuffling goals");
 			Randomness.shuffle(goals);
 		}
-		if (Properties.PREORDER_GOALS_BY_DIFFICULTY) {
-			orderGoalsByDifficulty(goals);
-			//LoggingUtils.getEvoLogger().info("* Time taken for difficulty computation: "
-			//        + DefUseCoverageTestFitness.difficulty_time + "ms");
-		}// else
-		 //	LoggingUtils.getEvoLogger().info("* Goal preordering by difficulty disabled!");
-		 //if (!Properties.RECYCLE_CHROMOSOMES)
-		 //	LoggingUtils.getEvoLogger().info("* ChromosomeRecycler disabled!");
+		ClientServices.getInstance().getClientNode().trackOutputVariable("total_goals",
+		                                                                 goals.size());
 
 		LoggingUtils.getEvoLogger().info("* Total number of test goals: " + goals.size());
 
@@ -1171,6 +1204,7 @@ public class TestSuiteGenerator {
 					        + MaxStatementsStoppingCondition.getNumExecutedStatements());
 					TestChromosome best = (TestChromosome) ga.getBestIndividual();
 					if (Properties.MINIMIZE && !Properties.MINIMIZE_OLD) {
+						ClientServices.getInstance().getClientNode().changeState(ClientState.MINIMIZATION);
 						TestCaseMinimizer minimizer = new TestCaseMinimizer(
 						        fitnessFunction);
 						minimizer.minimize(best);
@@ -1327,13 +1361,6 @@ public class TestSuiteGenerator {
 		statistics.minimized(suite);
 
 		return suite.getTests();
-	}
-
-	private void orderGoalsByDifficulty(List<? extends TestFitnessFunction> goals) {
-
-		Collections.sort(goals);
-		// for(TestFitnessFunction goal : goals)
-		// LoggingUtils.getEvoLogger().info(goal.toString());
 	}
 
 	/**
@@ -1704,6 +1731,9 @@ public class TestSuiteGenerator {
 
 		ChromosomeFactory<? extends Chromosome> factory = getDefaultChromosomeFactory();
 		GeneticAlgorithm ga = getGeneticAlgorithm(factory);
+
+		if (Properties.NEW_STATISTICS)
+			ga.addListener(new org.evosuite.statistics.StatisticsListener());
 
 		// How to select candidates for reproduction
 		SelectionFunction selection_function = getSelectionFunction();
