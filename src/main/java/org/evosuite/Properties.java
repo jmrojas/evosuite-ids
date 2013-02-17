@@ -282,7 +282,7 @@ public class Properties {
 	public static int DSE_CONSTRAINT_LENGTH = 100000;
 
 	public enum DSEBudgetType {
-		INDIVIDUALS, TIME
+		INDIVIDUALS, TIME, BEST_TIME
 	}
 
 	/** Constant <code>DSE_BUDGET_TYPE</code> */
@@ -308,6 +308,9 @@ public class Properties {
 
 	@Parameter(key = "adaptive_local_search", group = "Search Algorithm", description = "Apply adaptive local search")
 	public static AdaptiveLocalSearchTarget ADAPTIVE_LOCAL_SEARCH = AdaptiveLocalSearchTarget.OFF;
+	
+	@Parameter(key = "adaptive_local_search_dse", group = "Search Algorithm", description = "Use DSE on entire test suite in local search")
+	public static boolean ADAPTIVE_LOCAL_SEARCH_DSE = false;
 
 	@Parameter(key = "dse_keep_all_tests", group = "Search Algorithm", description = "Keep tests even if they do not increase fitness")
 	public static boolean DSE_KEEP_ALL_TESTS = false;
@@ -634,6 +637,9 @@ public class Properties {
 	@Parameter(key = "assertion_strategy", group = "Output", description = "Which assertions to generate")
 	public static AssertionStrategy ASSERTION_STRATEGY = AssertionStrategy.MUTATION;
 
+	@Parameter(key = "filter_assertions", group = "Output", description = "Filter flaky assertions")
+	public static boolean FILTER_ASSERTIONS = true; 
+	
 	@Parameter(key = "max_mutants_per_test", group = "Output", description = "How many mutants to use when trying to find assertions for a test")
 	public static int MAX_MUTANTS_PER_TEST = 100;
 
@@ -969,7 +975,7 @@ public class Properties {
 	// Runtime parameters
 
 	public enum Criterion {
-		EXCEPTION, LCSAJ, DEFUSE, ALLDEFS, PATH, BRANCH, STRONGMUTATION, WEAKMUTATION, MUTATION, COMP_LCSAJ_BRANCH, STATEMENT, ANALYZE, DATA, BEHAVIORAL, IBRANCH, LOOP_INV_CANDIDATE_FALSE_BRANCH, REGRESSION
+		EXCEPTION, LCSAJ, DEFUSE, ALLDEFS, PATH, BRANCH, STRONGMUTATION, WEAKMUTATION, MUTATION, COMP_LCSAJ_BRANCH, STATEMENT, DATA, BEHAVIORAL, IBRANCH, REGRESSION
 	}
 
 	/** Cache target class */
