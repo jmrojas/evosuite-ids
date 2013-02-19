@@ -26,9 +26,11 @@ import java.util.HashSet;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
+import java.util.PriorityQueue;
 import java.util.Set;
 
 import org.evosuite.Properties;
+import org.evosuite.TestGenerationContext;
 import org.evosuite.ga.DSEBudget;
 import org.evosuite.symbolic.BranchCondition;
 import org.evosuite.symbolic.ConcolicExecution;
@@ -37,8 +39,9 @@ import org.evosuite.symbolic.expr.Comparator;
 import org.evosuite.symbolic.expr.Constraint;
 import org.evosuite.symbolic.expr.Expression;
 import org.evosuite.symbolic.expr.Variable;
-import org.evosuite.symbolic.search.ConstraintSolver;
-import org.evosuite.testcase.ExecutionResult;
+import org.evosuite.symbolic.search.CachedConstraintSolver;
+import org.evosuite.symbolic.search.ConstraintSolverTimeoutException;
+import org.evosuite.testcase.DefaultTestCase;
 import org.evosuite.testcase.PrimitiveStatement;
 import org.evosuite.testcase.StatementInterface;
 import org.evosuite.testcase.TestCase;
@@ -57,7 +60,8 @@ import org.slf4j.LoggerFactory;
  */
 public class TestSuiteDSE {
 
-	private static final Logger logger = LoggerFactory.getLogger(TestSuiteDSE.class);
+	private static final Logger logger = LoggerFactory
+			.getLogger(TestSuiteDSE.class);
 
 	/** Constant <code>nrConstraints=0</code> */
 	public static int nrConstraints = 0;
@@ -81,13 +85,39 @@ public class TestSuiteDSE {
 
 	private final Map<String, Integer> solutionAttempts = new HashMap<String, Integer>();
 
-	private class TestBranchPair {
+	private class TestBranchPair implements Comparable<TestBranchPair> {
 		TestChromosome test;
 		BranchCondition branch;
 
-		TestBranchPair(TestChromosome test, BranchCondition branch) {
+		private final double ranking;
+
+		TestBranchPair(TestChromosome test, BranchCondition branchCondition) {
 			this.test = test;
-			this.branch = branch;
+			this.branch = branchCondition;
+			this.ranking = computeRanking(branchCondition);
+		}
+
+		public double getRanking() {
+			return ranking;
+		}
+
+		private double computeRanking(BranchCondition condition) {
+			int length = 1 + condition.getReachingConstraints().size();
+
+			int totalSize = 0;
+			for (Constraint<?> constraint : condition.getReachingConstraints()) {
+				totalSize += constraint.getSize();
+			}
+			double avg_size = (double) totalSize
+					/ (double) condition.getReachingConstraints().size();
+
+			double ranking = length * avg_size;
+			return ranking;
+		}
+
+		@Override
+		public int compareTo(TestBranchPair arg0) {
+			return Double.compare(this.ranking, arg0.ranking);
 		}
 
 	}
@@ -118,13 +148,14 @@ public class TestSuiteDSE {
 
 			// First make sure we are up to date with the execution
 			if (test.getLastExecutionResult() == null || test.isChanged()) {
-				test.setLastExecutionResult(TestCaseExecutor.runTest(test.getTestCase()));
+				test.setLastExecutionResult(TestCaseExecutor.runTest(test
+						.getTestCase()));
 				test.setChanged(false);
 			}
 
 			// We skip tests that have problems
 			if (test.getLastExecutionResult().hasTimeout()
-			        || test.getLastExecutionResult().hasTestException()) {
+					|| test.getLastExecutionResult().hasTestException()) {
 				logger.info("Skipping test with timeout or exception");
 				continue;
 			}
@@ -160,26 +191,27 @@ public class TestSuiteDSE {
 				String index = getBranchIndex(branch);
 				if (!solvedConstraints.containsKey(index))
 					solvedConstraints.put(index,
-					                      new HashMap<Comparator, Set<TestBranchPair>>());
+							new HashMap<Comparator, Set<TestBranchPair>>());
 
 				Constraint<?> c = branch.getLocalConstraint();
-				if (!solvedConstraints.get(index).containsKey(c.getComparator()))
+				if (!solvedConstraints.get(index)
+						.containsKey(c.getComparator()))
 					solvedConstraints.get(index).put(c.getComparator(),
-					                                 new HashSet<TestBranchPair>());
-				solvedConstraints.get(index).get(c.getComparator()).add(new TestBranchPair(
-				                                                                test,
-				                                                                branch));
+							new HashSet<TestBranchPair>());
+				solvedConstraints.get(index).get(c.getComparator())
+						.add(new TestBranchPair(test, branch));
 			}
 		}
 
 		for (String index : solvedConstraints.keySet()) {
 			if (solvedConstraints.get(index).size() == 1) {
-				Set<TestBranchPair> branches = solvedConstraints.get(index).values().iterator().next();
+				Set<TestBranchPair> branches = solvedConstraints.get(index)
+						.values().iterator().next();
 				unsolvedBranchConditions.addAll(branches);
 			}
 		}
 		logger.info("Update set of unsolved branch conditions to "
-		        + unsolvedBranchConditions.size());
+				+ unsolvedBranchConditions.size());
 
 		Randomness.shuffle(unsolvedBranchConditions);
 	}
@@ -190,7 +222,8 @@ public class TestSuiteDSE {
 	 * @param test
 	 */
 	private void updatePathConstraints(TestChromosome test) {
-		List<BranchCondition> branches = ConcolicExecution.getSymbolicPath(test);
+		List<BranchCondition> branches = ConcolicExecution
+				.getSymbolicPath(test);
 		branchConditions.put(test, branches);
 	}
 
@@ -221,9 +254,10 @@ public class TestSuiteDSE {
 		String index = getBranchIndex(pair.branch);
 		if (!unsolvedBranchConditions.isEmpty()) {
 			while (solutionAttempts.containsKey(index)
-			        && solutionAttempts.get(index) >= Properties.CONSTRAINT_SOLUTION_ATTEMPTS
-			        && !unsolvedBranchConditions.isEmpty()) {
-				logger.info("Reached maximum number of attempts for branch " + index);
+					&& solutionAttempts.get(index) >= Properties.CONSTRAINT_SOLUTION_ATTEMPTS
+					&& !unsolvedBranchConditions.isEmpty()) {
+				logger.info("Reached maximum number of attempts for branch "
+						+ index);
 				pair = unsolvedBranchConditions.remove(0);
 				index = getBranchIndex(pair.branch);
 			}
@@ -252,82 +286,107 @@ public class TestSuiteDSE {
 	 * 
 	 * @param individual
 	 */
-	public boolean applyDSE(TestSuiteChromosome individual) {
+	private boolean applyNegateAllConditionsDSE(TestSuiteChromosome individual) {
 		logger.info("[DSE] Current test suite: " + individual.toString());
-		
+
 		boolean wasSuccess = false;
 		TestSuiteChromosome expandedTests = expandTestSuite(individual);
-		createPathConstraints(expandedTests);
-		fitness.getFitness(expandedTests);
+		double minimum_fitness = fitness.getFitness(expandedTests);
 
-		double originalFitness = individual.getFitness();
+		queue.clear();
+		for (TestCase test_case : expandedTests.getTests()) {
+			TestChromosome testChromosome = new TestChromosome();
+			testChromosome.setTestCase(test_case);
+			updateRankingQueue(testChromosome);
+		}
 
-		while (hasNextBranchCondition() && !DSEBudget.isFinished()) {
-			logger.info("DSE time remaining: " + DSEBudget.getTimeRemaining());
-			logger.info("Branches remaining: " + unsolvedBranchConditions.size());
-			/*
-			 * for (TestBranchPair b : unsolvedBranchConditions) {
-			 * logger.info(b.branch.getFullName() + " : " +
-			 * b.branch.getInstructionIndex() + ", " +
-			 * b.branch.getReachingConstraints().size()); }
-			 */
-			TestBranchPair next = getNextBranchCondition();
-			BranchCondition branch = next.branch;
-			// logger.info("Chosen branch condition: " + branch);
-			// logger.info(branch.getReachingConstraints().toString());
+		while (!queue.isEmpty()) {
 
-			TestCase newTest = negateCondition(branch.getReachingConstraints(),
-			                                   branch.getLocalConstraint(),
-			                                   next.test.getTestCase());
+			TestBranchPair testBranchPair = queue.poll();
 
-			if (newTest != null) {
-				logger.info("Found new test: " + newTest.toCode());
-				// TestChromosome newTestChromosome =
-				// expandedTests.addTest(newTest);
-				TestChromosome newTestChromosome = new TestChromosome();
-				newTestChromosome.setTestCase(newTest);
-				expandedTests.addTest(newTestChromosome);
+			BranchCondition condition = testBranchPair.branch;
+			TestCase testCase = testBranchPair.test.getTestCase();
 
-				if (Properties.DSE_KEEP_ALL_TESTS) {
-					updatePathConstraints(newTestChromosome);
-					calculateUncoveredBranches();
-					individual.addTest(newTest);
+			HashSet<Constraint<?>> constraints = new HashSet<Constraint<?>>();
+			constraints.addAll(condition.getReachingConstraints());
+			constraints.add(condition.getLocalConstraint().negate());
+
+			CachedConstraintSolver solver = new CachedConstraintSolver();
+			DSEStats.reportNewConstraints(constraints);
+
+			long startSolvingTime = System.currentTimeMillis();
+			Map<String, Object> solution;
+			try {
+				solution = solver.solve(constraints);
+				long estimatedSolvingTime = System.currentTimeMillis()
+						- startSolvingTime;
+				DSEStats.reportNewSolvingTime(estimatedSolvingTime);
+				System.out.println("Ranking->" + testBranchPair.getRanking());
+				System.out.println("Solving time->"
+						+ (((double) estimatedSolvingTime / 1000)));
+			} catch (ConstraintSolverTimeoutException e) {
+				solution = null;
+				DSEStats.reportNewTimeout();
+				System.out.println("Ranking->" + testBranchPair.getRanking());
+				System.out.println("Solving TIMEOUT!");
+				break; // stop working on this test
+			}
+			long estimatedSolvingTime = System.currentTimeMillis()
+					- startSolvingTime;
+			DSEStats.reportNewSolvingTime(estimatedSolvingTime);
+
+			if (solution != null) {
+				DSEStats.reportNewSAT();
+				DefaultTestCase newTest = (DefaultTestCase) updateTest(
+						testCase, solution);
+
+				expandedTests.addTest(newTest);
+
+				double newFitness = fitness.getFitness(expandedTests);
+
+				if (newFitness < minimum_fitness) {
+					System.out.println("new fitness->" + newFitness);
+					DSEStats.reportNewTestUseful();
+					minimum_fitness = newFitness;
+					TestChromosome newTestChromosome = individual
+							.addTest(newTest);
+					updateRankingQueue(newTestChromosome);
 					wasSuccess = true;
 				} else {
-
-					if (fitness.getFitness(expandedTests) < originalFitness) {
-						logger.info("New test improves fitness to {}",
-						            expandedTests.getFitness());
-						DSEStats.reportNewTestUseful();
-						wasSuccess = true;
-						// expandedTests.addTest(newTestChromosome); // no need to
-						// clone so we
-						// can keep
-						// executionresult
-						updatePathConstraints(newTestChromosome);
-						calculateUncoveredBranches();
-						individual.addTest(newTest);
-						originalFitness = expandedTests.getFitness();
-						// TODO: Cancel on fitness 0 - would need to know if
-						// ZeroFitness is a stopping condition
-					} else {
-						logger.info("New test does not improve fitness");
-						DSEStats.reportNewTestUnuseful();
-						expandedTests.deleteTest(newTest);
-					}
+					DSEStats.reportNewTestUnuseful();
+					expandedTests.deleteTest(newTest);
 				}
 				success++;
 			} else {
-				unsolvableBranchConditions.add(branch);
+				// unsat
+				DSEStats.reportNewUNSAT();
+
 				failed++;
 				logger.info("Failed to find new test.");
 			}
+
 		}
+
 		logger.info("Finished DSE");
 		fitness.getFitness(individual);
 		DSEBudget.evaluation();
-		
+
 		return wasSuccess;
+	}
+
+	private final PriorityQueue<TestBranchPair> queue = new PriorityQueue<TestBranchPair>();
+
+	private void updateRankingQueue(TestChromosome testChromosome) {
+
+		List<BranchCondition> path_condition = ConcolicExecution
+				.getSymbolicPath(testChromosome);
+		DefaultTestCase defaultTestCase = (DefaultTestCase) testChromosome
+				.getTestCase();
+		defaultTestCase.changeClassLoader(TestGenerationContext
+				.getClassLoader());
+		for (BranchCondition branchCondition : path_condition) {
+			queue.add(new TestBranchPair(testChromosome, branchCondition));
+		}
 	}
 
 	/**
@@ -341,7 +400,7 @@ public class TestSuiteDSE {
 	// @SuppressWarnings("rawtypes")
 	@SuppressWarnings({ "unchecked", "rawtypes" })
 	private TestCase negateCondition(Set<Constraint<?>> reachingConstraints,
-	        Constraint<?> localConstraint, TestCase test) {
+			Constraint<?> localConstraint, TestCase test) {
 		List<Constraint<?>> constraints = new LinkedList<Constraint<?>>();
 		constraints.addAll(reachingConstraints);
 
@@ -362,9 +421,11 @@ public class TestSuiteDSE {
 		 * DistanceEstimator.getDistance(constraints)); }
 		 */
 		if (size > 0) {
-			logger.debug("Calculating cone of influence for " + size + " constraints");
+			logger.debug("Calculating cone of influence for " + size
+					+ " constraints");
 			constraints = reduce(constraints);
-			logger.info("Reduced constraints from " + size + " to " + constraints.size());
+			logger.info("Reduced constraints from " + size + " to "
+					+ constraints.size());
 			// for (Constraint<?> c : constraints) {
 			// logger.info(c.toString());
 			// }
@@ -374,12 +435,18 @@ public class TestSuiteDSE {
 		nrConstraints += nrCurrConstraints;
 
 		logger.info("Applying local search");
-		ConstraintSolver skr = new ConstraintSolver();
+		CachedConstraintSolver skr = new CachedConstraintSolver();
 		DSEStats.reportNewConstraints(constraints);
 
 		long startSolvingTime = System.currentTimeMillis();
-		Map<String, Object> values = skr.solve(constraints);
-		long estimatedSolvingTime = System.currentTimeMillis() - startSolvingTime;
+		Map<String, Object> values;
+		try {
+			values = skr.solve(constraints);
+		} catch (ConstraintSolverTimeoutException e) {
+			values = null;
+		}
+		long estimatedSolvingTime = System.currentTimeMillis()
+				- startSolvingTime;
 		DSEStats.reportNewSolvingTime(estimatedSolvingTime);
 
 		if (values != null && !values.isEmpty()) {
@@ -411,15 +478,16 @@ public class TestSuiteDSE {
 							p.setValue(value.byteValue() > 0);
 						else
 							logger.warn("New value is of an unsupported type: "
-							        + p.getValue().getClass() + val);
+									+ p.getValue().getClass() + val);
 					} else if (val instanceof String) {
 						String name = ((String) key).replace("__SYM", "");
 						PrimitiveStatement p = getStatement(newTest, name);
 						// logger.warn("New string value for " + name + " is " +
 						// val);
 						assert (p != null) : "Could not find variable " + name
-						        + " in test: " + newTest.toCode() + " / Orig test: "
-						        + test.toCode() + ", seed: " + Randomness.getSeed();
+								+ " in test: " + newTest.toCode()
+								+ " / Orig test: " + test.toCode() + ", seed: "
+								+ Randomness.getSeed();
 						if (p.getValue().getClass().equals(Character.class))
 							p.setValue((char) Integer.parseInt(val.toString()));
 						else
@@ -431,17 +499,20 @@ public class TestSuiteDSE {
 						// logger.warn("New double value for " + name + " is " +
 						// value);
 						assert (p != null) : "Could not find variable " + name
-						        + " in test: " + newTest.toCode() + " / Orig test: "
-						        + test.toCode() + ", seed: " + Randomness.getSeed();
+								+ " in test: " + newTest.toCode()
+								+ " / Orig test: " + test.toCode() + ", seed: "
+								+ Randomness.getSeed();
 
 						if (p.getValue().getClass().equals(Double.class))
 							p.setValue(value);
 						else if (p.getValue().getClass().equals(Float.class))
 							p.setValue(value.floatValue());
 						else
-							logger.warn("New value is of an unsupported type: " + val);
+							logger.warn("New value is of an unsupported type: "
+									+ val);
 					} else {
-						logger.debug("New value is of an unsupported type: " + val);
+						logger.debug("New value is of an unsupported type: "
+								+ val);
 					}
 				} else {
 					logger.debug("New value is null");
@@ -473,26 +544,6 @@ public class TestSuiteDSE {
 			}
 		}
 		return null;
-	}
-
-	/**
-	 * Concrete execution
-	 * 
-	 * @param test
-	 * @return
-	 */
-	private ExecutionResult runTest(TestCase test) {
-
-		ExecutionResult result = new ExecutionResult(test, null);
-
-		try {
-			result = TestCaseExecutor.getInstance().execute(test);
-		} catch (Exception e) {
-			logger.error("", e);
-			throw new Error(e);
-		}
-
-		return result;
 	}
 
 	/**
@@ -548,13 +599,174 @@ public class TestSuiteDSE {
 	 * @param variables
 	 *            a {@link java.util.Set} object.
 	 */
-	public static void getVariables(Expression<?> expr, Set<Variable<?>> variables) {
+	public static void getVariables(Expression<?> expr,
+			Set<Variable<?>> variables) {
 		variables.addAll(expr.getVariables());
 	}
 
 	private TestCase expandTestCase(TestCase test) {
 		TestCaseExpander expander = new TestCaseExpander();
 		return expander.expandTestCase(test);
+	}
+
+	private TestCase updateTest(TestCase test, Map<String, Object> values) {
+
+		TestCase newTest = test.clone();
+
+		for (Object key : values.keySet()) {
+			Object val = values.get(key);
+			if (val != null) {
+				if (val instanceof Long) {
+					Long value = (Long) val;
+					String name = ((String) key).replace("__SYM", "");
+					// logger.warn("New long value for " + name + " is " +
+					// value);
+					PrimitiveStatement p = getStatement(newTest, name);
+					if (p.getValue().getClass().equals(Character.class))
+						p.setValue((char) value.intValue());
+					else if (p.getValue().getClass().equals(Long.class))
+						p.setValue(value);
+					else if (p.getValue().getClass().equals(Integer.class))
+						p.setValue(value.intValue());
+					else if (p.getValue().getClass().equals(Short.class))
+						p.setValue(value.shortValue());
+					else if (p.getValue().getClass().equals(Boolean.class))
+						p.setValue(value.intValue() > 0);
+					else if (p.getValue().getClass().equals(Byte.class))
+						p.setValue(value.byteValue() > 0);
+					else {
+
+					}
+				} else if (val instanceof String) {
+					String name = ((String) key).replace("__SYM", "");
+					PrimitiveStatement p = getStatement(newTest, name);
+					// logger.warn("New string value for " + name + " is " +
+					// val);
+					assert (p != null) : "Could not find variable " + name
+							+ " in test: " + newTest.toCode()
+							+ " / Orig test: " + test.toCode() + ", seed: "
+							+ Randomness.getSeed();
+					if (p.getValue().getClass().equals(Character.class))
+						p.setValue((char) Integer.parseInt(val.toString()));
+					else
+						p.setValue(val.toString());
+				} else if (val instanceof Double) {
+					Double value = (Double) val;
+					String name = ((String) key).replace("__SYM", "");
+					PrimitiveStatement p = getStatement(newTest, name);
+					// logger.warn("New double value for " + name + " is " +
+					// value);
+					assert (p != null) : "Could not find variable " + name
+							+ " in test: " + newTest.toCode()
+							+ " / Orig test: " + test.toCode() + ", seed: "
+							+ Randomness.getSeed();
+
+					if (p.getValue().getClass().equals(Double.class))
+						p.setValue(value);
+					else if (p.getValue().getClass().equals(Float.class))
+						p.setValue(value.floatValue());
+					else {
+
+					}
+				} else {
+
+				}
+			} else {
+
+			}
+		}
+		return newTest;
+
+	}
+
+	/**
+	 * Attempt to negate individual branches until budget is used up, or there
+	 * are no further branches to negate
+	 * 
+	 * @param individual
+	 */
+	public boolean applyDSE(TestSuiteChromosome individual) {
+
+		if (Properties.DSE_NEGATE_ALL_CONDITIONS == true) {
+			return applyNegateAllConditionsDSE(individual);
+		}
+
+		logger.info("[DSE] Current test suite: " + individual.toString());
+
+		boolean wasSuccess = false;
+		TestSuiteChromosome expandedTests = expandTestSuite(individual);
+		createPathConstraints(expandedTests);
+		fitness.getFitness(expandedTests);
+
+		double originalFitness = individual.getFitness();
+
+		while (hasNextBranchCondition() && !DSEBudget.isFinished()) {
+			logger.info("DSE time remaining: " + DSEBudget.getTimeRemaining());
+			logger.info("Branches remaining: "
+					+ unsolvedBranchConditions.size());
+			/*
+			 * for (TestBranchPair b : unsolvedBranchConditions) {
+			 * logger.info(b.branch.getFullName() + " : " +
+			 * b.branch.getInstructionIndex() + ", " +
+			 * b.branch.getReachingConstraints().size()); }
+			 */
+			TestBranchPair next = getNextBranchCondition();
+			BranchCondition branch = next.branch;
+			// logger.info("Chosen branch condition: " + branch);
+			// logger.info(branch.getReachingConstraints().toString());
+
+			TestCase newTest = negateCondition(branch.getReachingConstraints(),
+					branch.getLocalConstraint(), next.test.getTestCase());
+
+			if (newTest != null) {
+				logger.info("Found new test: " + newTest.toCode());
+				// TestChromosome newTestChromosome =
+				// expandedTests.addTest(newTest);
+				TestChromosome newTestChromosome = new TestChromosome();
+				newTestChromosome.setTestCase(newTest);
+				expandedTests.addTest(newTestChromosome);
+
+				if (Properties.DSE_KEEP_ALL_TESTS) {
+					updatePathConstraints(newTestChromosome);
+					calculateUncoveredBranches();
+					individual.addTest(newTest);
+					wasSuccess = true;
+				} else {
+
+					if (fitness.getFitness(expandedTests) < originalFitness) {
+						logger.info("New test improves fitness to {}",
+								expandedTests.getFitness());
+						DSEStats.reportNewTestUseful();
+						wasSuccess = true;
+						// expandedTests.addTest(newTestChromosome); // no need
+						// to
+						// clone so we
+						// can keep
+						// executionresult
+						updatePathConstraints(newTestChromosome);
+						calculateUncoveredBranches();
+						individual.addTest(newTest);
+						originalFitness = expandedTests.getFitness();
+						// TODO: Cancel on fitness 0 - would need to know if
+						// ZeroFitness is a stopping condition
+					} else {
+						logger.info("New test does not improve fitness");
+						DSEStats.reportNewTestUnuseful();
+						expandedTests.deleteTest(newTest);
+					}
+				}
+				success++;
+			} else {
+				unsolvableBranchConditions.add(branch);
+				failed++;
+				logger.info("Failed to find new test.");
+			}
+		}
+		logger.info("Finished DSE");
+		fitness.getFitness(individual);
+		DSEBudget.evaluation();
+
+		return wasSuccess;
 	}
 
 }

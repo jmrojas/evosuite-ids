@@ -27,8 +27,10 @@ import java.util.Map.Entry;
 import java.util.Set;
 
 import org.evosuite.Properties;
+import org.evosuite.Properties.DSEBudgetType;
 import org.evosuite.ga.Chromosome;
 import org.evosuite.ga.ChromosomeFactory;
+import org.evosuite.ga.DSEBudget;
 import org.evosuite.ga.GeneticAlgorithm;
 import org.evosuite.ga.LocalSearchBudget;
 import org.evosuite.ga.LocalSearchObjective;
@@ -190,6 +192,35 @@ public class TestSuiteChromosome extends AbstractTestSuiteChromosome<TestChromos
 		logger.info("Fitness has changed, applying local search with fitness "
 		        + getFitness());
 
+		// Apply standard DSE on entire suite?
+		if(Properties.ADAPTIVE_LOCAL_SEARCH_DSE) {
+			boolean hasRelevantTests = false;
+			for(TestChromosome test : tests) {
+				if(test.hasRelevantMutations()) {
+					hasRelevantTests = true;
+					break;
+				}
+			}
+			if(hasRelevantTests) {
+				if(Randomness.nextDouble() < Properties.DSE_ADAPTIVE_PROBABILITY) {
+					DSEBudget.DSEStarted();
+					TestSuiteDSE dse = new TestSuiteDSE(
+							(TestSuiteFitnessFunction) objective.getFitnessFunction());
+					boolean success = dse.applyDSE(this);
+					
+					if(success) {
+						Properties.DSE_ADAPTIVE_PROBABILITY *= Properties.DSE_ADAPTIVE_RATE;
+						Properties.DSE_ADAPTIVE_PROBABILITY = Math.min(Properties.DSE_ADAPTIVE_PROBABILITY, 1.0);
+					} else {
+						Properties.DSE_ADAPTIVE_PROBABILITY /= Properties.DSE_ADAPTIVE_RATE;
+						Properties.DSE_ADAPTIVE_PROBABILITY = Math.max(Properties.DSE_ADAPTIVE_PROBABILITY, 0.0);
+					}
+
+				}
+			}
+			return;
+		}
+		
 		List<TestChromosome> candidates = new ArrayList<TestChromosome>();
 		for(TestChromosome test : tests) {
 			logger.info("Checking test with history entries: "+test.getMutationHistory().size()+": "+test.getMutationHistory());
