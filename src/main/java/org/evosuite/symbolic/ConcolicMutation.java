@@ -28,7 +28,8 @@ import org.evosuite.symbolic.expr.Constraint;
 import org.evosuite.symbolic.expr.Expression;
 import org.evosuite.symbolic.expr.UnaryExpression;
 import org.evosuite.symbolic.expr.Variable;
-import org.evosuite.symbolic.search.ConstraintSolver;
+import org.evosuite.symbolic.search.CachedConstraintSolver;
+import org.evosuite.symbolic.search.ConstraintSolverTimeoutException;
 import org.evosuite.testcase.BooleanPrimitiveStatement;
 import org.evosuite.testcase.BytePrimitiveStatement;
 import org.evosuite.testcase.CharPrimitiveStatement;
@@ -90,8 +91,13 @@ public class ConcolicMutation {
 			// logger.info("Now solving: " + constraints);
 		}
 
-		ConstraintSolver solver = new ConstraintSolver();
-		Map<String, Object> values = solver.solve(constraints);
+		CachedConstraintSolver solver = new CachedConstraintSolver();
+		Map<String, Object> values;
+		try {
+			values = solver.solve(constraints);
+		} catch (ConstraintSolverTimeoutException e) {
+			values = null;
+		}
 
 		if (values != null) {
 			// logger.info(values.toString());

@@ -154,7 +154,12 @@ public abstract class GeneticAlgorithm<T extends Chromosome> implements SearchAl
 	 */
 	protected boolean shouldApplyDSE() {
 		
-		if(Properties.DSE_ADAPTIVE_RATE > 0.0) {
+		// If we use DSE in adaptive local search then this is not the place to apply it
+		if(Properties.ADAPTIVE_LOCAL_SEARCH_DSE)
+			return false;
+		
+		// If DSE is not applied in adaptive local search, it either has a fixed rate or probability
+		if(Properties.DSE_ADAPTIVE_PROBABILITY > 0.0) {
 			return Randomness.nextDouble() < Properties.DSE_ADAPTIVE_PROBABILITY;
 		} else if (Properties.DSE_RATE > 0) {
 			return (getAge() % Properties.DSE_RATE == 0);
@@ -190,7 +195,7 @@ public abstract class GeneticAlgorithm<T extends Chromosome> implements SearchAl
 				Properties.DSE_ADAPTIVE_PROBABILITY = Math.min(Properties.DSE_ADAPTIVE_PROBABILITY, 1.0);
 			} else {
 				Properties.DSE_ADAPTIVE_PROBABILITY /= Properties.DSE_ADAPTIVE_RATE;
-				Properties.DSE_ADAPTIVE_PROBABILITY = Math.max(Properties.DSE_ADAPTIVE_PROBABILITY, 0.0);
+				Properties.DSE_ADAPTIVE_PROBABILITY = Math.max(Properties.DSE_ADAPTIVE_PROBABILITY, Double.MIN_VALUE);
 			}
 			logger.info("Updating DSE probability to "+Properties.DSE_ADAPTIVE_PROBABILITY);
 		}

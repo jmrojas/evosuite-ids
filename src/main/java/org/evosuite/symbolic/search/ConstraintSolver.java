@@ -31,8 +31,11 @@ public final class ConstraintSolver implements Solver {
 	 * This method searches for a new model satisfying all constraints. If UNSAT
 	 * returns <code>null</code>.
 	 */
-	@Override
-	public Map<String, Object> solve(Collection<Constraint<?>> constraints) {
+	public Map<String, Object> solve(Collection<Constraint<?>> constraints)
+			throws ConstraintSolverTimeoutException {
+
+		long startTimeMillis = System.currentTimeMillis();
+
 		double distance = DistanceEstimator.getDistance(constraints);
 		if (distance == 0.0) {
 			log.info("Initial distance already is 0.0, skipping search");
@@ -41,8 +44,14 @@ public final class ConstraintSolver implements Solver {
 
 		Set<Variable<?>> variables = getVariables(constraints);
 		Map<String, Object> initialValues = getConcreteValues(variables);
-		for(int attempt = 0; attempt <= Properties.DSE_VARIABLE_RESETS; attempt++) {
+		for (int attempt = 0; attempt <= Properties.DSE_VARIABLE_RESETS; attempt++) {
 			for (Variable<?> v : variables) {
+				long currentTimeMillis = System.currentTimeMillis();
+				if (Properties.DSE_CONSTRAINT_SOLVER_TIMEOUT_MILLIS > 0
+						&& (currentTimeMillis - startTimeMillis > Properties.DSE_CONSTRAINT_SOLVER_TIMEOUT_MILLIS)) {
+					throw new ConstraintSolverTimeoutException();
+				}
+
 				log.debug("Variable: " + v + ", " + variables);
 
 				if (v instanceof IntegerVariable) {
@@ -59,7 +68,7 @@ public final class ConstraintSolver implements Solver {
 					avm.applyAVM();
 				} else {
 					throw new RuntimeException("Unknown variable type "
-							+ v.getClass().getName());
+					        + v.getClass().getName());
 				}
 				distance = DistanceEstimator.getDistance(constraints);
 				if (distance <= 0.0) {
@@ -72,11 +81,11 @@ public final class ConstraintSolver implements Solver {
 				break;
 			} else {
 				log.info("Randomizing variables");
-				randomizeValues(variables);
+				randomizeValues(variables, getConstants(constraints));
 			}
 		}
 
-		//distance = DistanceEstimator.getDistance(constraints);
+		// distance = DistanceEstimator.getDistance(constraints);
 		if (distance <= 0) {
 			log.debug("Distance is " + distance + ", found solution");
 			Map<String, Object> new_model = getConcreteValues(variables);
@@ -95,21 +104,52 @@ public final class ConstraintSolver implements Solver {
 
 	}
 
-	private void randomizeValues(Set<Variable<?>> variables) {
-		for(Variable<?> v : variables) {
-			if(v instanceof StringVariable) {
-				StringVariable sv = (StringVariable)v;
-				sv.setConcreteValue(Randomness.nextString(Properties.STRING_LENGTH));
-			} else if(v instanceof IntegerVariable) {
-				IntegerVariable iv = (IntegerVariable)v;
-				iv.setConcreteValue((long) Randomness.nextInt(Properties.MAX_INT * 2) - Properties.MAX_INT);
-			} else if(v instanceof RealVariable) {
-				RealVariable rv = (RealVariable)v;
-				rv.setConcreteValue((long) Randomness.nextInt(Properties.MAX_INT * 2) - Properties.MAX_INT);				
+	private void randomizeValues(Set<Variable<?>> variables, Set<Object> constants) {
+		Set<String> stringConstants = new HashSet<String>();
+		Set<Long> longConstants = new HashSet<Long>();
+		Set<Double> realConstants = new HashSet<Double>();
+		for (Object o : constants) {
+			if (o instanceof String)
+				stringConstants.add((String) o);
+			else if (o instanceof Double)
+				realConstants.add((Double) o);
+			else if (o instanceof Long)
+				longConstants.add((Long) o);
+			else
+				assert (false) : "Unexpected constant type: " + o;
+		}
+
+		for (Variable<?> v : variables) {
+			if (v instanceof StringVariable) {
+				StringVariable sv = (StringVariable) v;
+				if (!stringConstants.isEmpty()
+				        && Randomness.nextDouble() < Properties.DSE_CONSTANT_PROBABILITY) {
+					sv.setConcreteValue(Randomness.choice(stringConstants));
+				} else {
+					sv.setConcreteValue(Randomness.nextString(Properties.STRING_LENGTH));
+				}
+			} else if (v instanceof IntegerVariable) {
+				IntegerVariable iv = (IntegerVariable) v;
+				if (!longConstants.isEmpty()
+				        && Randomness.nextDouble() < Properties.DSE_CONSTANT_PROBABILITY) {
+					iv.setConcreteValue(Randomness.choice(longConstants));
+				} else {
+					iv.setConcreteValue((long) Randomness.nextInt(Properties.MAX_INT * 2)
+					        - Properties.MAX_INT);
+				}
+			} else if (v instanceof RealVariable) {
+				RealVariable rv = (RealVariable) v;
+				if (!realConstants.isEmpty()
+				        && Randomness.nextDouble() < Properties.DSE_CONSTANT_PROBABILITY) {
+					rv.setConcreteValue(Randomness.choice(realConstants));
+				} else {
+					rv.setConcreteValue((long) Randomness.nextInt(Properties.MAX_INT * 2)
+					        - Properties.MAX_INT);
+				}
 			}
 		}
 	}
-	
+
 	/**
 	 * Restore all concrete values of the variables using the concrete_values
 	 * mapping.
@@ -118,7 +158,7 @@ public final class ConstraintSolver implements Solver {
 	 * @param concrete_values
 	 */
 	private void restoreConcreteValues(Set<Variable<?>> variables,
-			Map<String, Object> concrete_values) {
+	        Map<String, Object> concrete_values) {
 		for (Variable<?> v : variables) {
 
 			String var_name = v.getName();
@@ -157,6 +197,14 @@ public final class ConstraintSolver implements Solver {
 			concrete_values.put(var_name, concrete_value);
 		}
 		return concrete_values;
+	}
+
+	private Set<Object> getConstants(Collection<Constraint<?>> constraints) {
+		Set<Object> constants = new HashSet<Object>();
+		for (Constraint<?> c : constraints) {
+			constants.addAll(c.getConstants());
+		}
+		return constants;
 	}
 
 	/**

@@ -35,12 +35,11 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 public final class RealUnaryToIntegerExpression extends AbstractExpression<Long>
-		implements IntegerValue, UnaryExpression<Double> {
+        implements IntegerValue, UnaryExpression<Double> {
 
 	private static final long serialVersionUID = 9086637495150131445L;
 
-	protected static Logger log = LoggerFactory
-			.getLogger(RealUnaryToIntegerExpression.class);
+	protected static Logger log = LoggerFactory.getLogger(RealUnaryToIntegerExpression.class);
 
 	private final Operator op;
 
@@ -93,7 +92,7 @@ public final class RealUnaryToIntegerExpression extends AbstractExpression<Long>
 		if (obj instanceof RealUnaryToIntegerExpression) {
 			RealUnaryToIntegerExpression v = (RealUnaryToIntegerExpression) obj;
 			return this.op.equals(v.op) && this.getSize() == v.getSize()
-					&& this.expr.equals(v.expr);
+			        && this.expr.equals(v.expr);
 		}
 		return false;
 	}
@@ -101,7 +100,7 @@ public final class RealUnaryToIntegerExpression extends AbstractExpression<Long>
 	/** {@inheritDoc} */
 	@Override
 	public Long execute() {
-		double leftVal = (Double) expr.execute();
+		double leftVal = expr.execute();
 
 		switch (op) {
 
@@ -121,6 +120,16 @@ public final class RealUnaryToIntegerExpression extends AbstractExpression<Long>
 		Set<Variable<?>> variables = new THashSet<Variable<?>>();
 		variables.addAll(this.expr.getVariables());
 		return variables;
+	}
+
+	@Override
+	public Set<Object> getConstants() {
+		return expr.getConstants();
+	}
+
+	@Override
+	public int hashCode() {
+		return this.op.hashCode() + this.getSize() + this.expr.hashCode();
 	}
 
 }
