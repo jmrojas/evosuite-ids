@@ -57,6 +57,17 @@
 	<role>Developer</role>
       </roles>
     </developer>
+    <developer>
+      <id>jcmc</id>
+      <name>José Campos</name>
+      <email>jose.carlos.campos@fe.up.pt</email>
+      <url>http://paginas.fe.up.pt/~jcmc/</url>
+      <organization>University Porto, Portugal</organization>
+      <timezone>2</timezone>
+      <roles>
+	<role>Developer</role>
+      </roles>
+    </developer>
   </developers>
 
   <scm>

@@ -13,7 +13,10 @@ import java.lang.reflect.Method;
 import java.text.NumberFormat;
 import java.util.ArrayList;
 import java.util.Collection;
+import java.util.Collections;
+import java.util.Comparator;
 import java.util.Enumeration;
+import java.util.HashSet;
 import java.util.List;
 import java.util.regex.Pattern;
 import java.util.zip.ZipEntry;
@@ -25,16 +28,12 @@ import org.evosuite.TestGenerationContext;
 import org.evosuite.TestSuiteGenerator;
 import org.evosuite.setup.TestCluster;
 import org.evosuite.testcase.ExecutionResult;
-import org.evosuite.testcase.ExecutionTrace;
-import org.evosuite.testcase.ExecutionTracer;
 import org.evosuite.testcase.TestChromosome;
 import org.evosuite.testcase.TestFitnessFunction;
 import org.evosuite.utils.ExternalProcessUtilities;
 import org.evosuite.utils.LoggingUtils;
 import org.evosuite.utils.ResourceList;
 import org.junit.Test;
-import org.junit.runner.JUnitCore;
-import org.junit.runner.Result;
 import org.junit.runners.Suite;
 import org.objectweb.asm.ClassReader;
 
@@ -44,6 +43,7 @@ import org.objectweb.asm.ClassReader;
  * </p>
  * 
  * @author Gordon Fraser
+ * @author José Campos
  */
 public class CoverageAnalysis {
 
@@ -58,7 +58,7 @@ public class CoverageAnalysis {
 
 		List<Class<?>> junitTests = getClasses();
 		LoggingUtils.getEvoLogger().info("* Found " + junitTests.size()
-		                                         + " unit test classes");
+		                                         + " test classes");
 		if (junitTests.isEmpty())
 			return;
 
@@ -66,8 +66,8 @@ public class CoverageAnalysis {
 		junitTests.toArray(classes);
 		LoggingUtils.getEvoLogger().info("* Executing tests");
 		long startTime = System.currentTimeMillis();
-		Result result = executeTests(classes);
-		printReport(result, junitTests, startTime);
+		List<TestResult> testResults = executeTests(classes);
+		printReport(testResults, junitTests, startTime);
 	}
 
 	public static double getCoverage() {
@@ -75,15 +75,15 @@ public class CoverageAnalysis {
 
 		List<Class<?>> junitTests = getClasses();
 		LoggingUtils.getEvoLogger().info("* Found " + junitTests.size()
-		                                         + " unit test classes");
+		                                         + " test classes");
 		if (junitTests.isEmpty())
 			return 0.0;
 
 		Class<?>[] classes = new Class<?>[junitTests.size()];
 		junitTests.toArray(classes);
 		LoggingUtils.getEvoLogger().info("* Executing tests");
-		Result result = executeTests(classes);
-		return getCoverage(result);
+		List<TestResult> testResults = executeTests(classes);
+		return getCoverage(testResults);
 	}
 
 	private static List<Class<?>> getClassesFromClasspath() {
@@ -134,6 +134,15 @@ public class CoverageAnalysis {
 				classes.addAll(getClassesFromClasspath());
 			}
 		}
+
+		// re-order classes
+		Collections.sort(classes, new Comparator<Class<?>>() {
+			@Override
+			public int compare(Class<?> arg0, Class<?> arg1) {
+				return Integer.valueOf(arg1.getCanonicalName().length()).compareTo(arg0.getCanonicalName().length());
+			}
+		});
+
 		return classes;
 	}
 
@@ -305,67 +314,86 @@ public class CoverageAnalysis {
 
 	}
 
-	private static double getCoverage(Result result) {
-		LoggingUtils.getEvoLogger().info("* Executed " + result.getRunCount() + " tests");
-		ExecutionTrace trace = ExecutionTracer.getExecutionTracer().getTrace();
+	private static double getCoverage(List<TestResult> testResults)
+	{
+		LoggingUtils.getEvoLogger().info("* Executed " + testResults.size() + " unit tests");
 
 		List<? extends TestFitnessFunction> goals = TestSuiteGenerator.getFitnessFactory().getCoverageGoals();
+
 		TestChromosome dummy = new TestChromosome();
 		ExecutionResult executionResult = new ExecutionResult(dummy.getTestCase());
-		executionResult.setTrace(trace);
-		dummy.setLastExecutionResult(executionResult);
-		dummy.setChanged(false);
 
-		int covered = 0;
-		for (TestFitnessFunction goal : goals) {
-			if (goal.isCovered(dummy))
-				covered++;
+		HashSet<Integer> covered = new HashSet<Integer>();
+
+		for (TestResult tR : testResults) {
+			executionResult.setTrace(tR.getExecutionTrace());
+			dummy.setLastExecutionResult(executionResult);
+			dummy.setChanged(false);
+
+			int index = 0;
+			for (TestFitnessFunction goal : goals) {
+				if (goal.isCovered(dummy))
+					covered.add(index);
+				index++;
+			}
 		}
 
-		return (double) covered / (double) goals.size();
+		return (double) covered.size() / (double) goals.size();
 	}
 
-	private static void printReport(Result result, List<Class<?>> classes, long startTime) {
-
-		LoggingUtils.getEvoLogger().info("* Executed " + result.getRunCount() + " tests");
-		ExecutionTrace trace = ExecutionTracer.getExecutionTracer().getTrace();
+	private static void printReport(List<TestResult> testResults, List<Class<?>> classes, long startTime)
+	{
+		LoggingUtils.getEvoLogger().info("* Executed " + testResults.size() + " unit tests");
 
 		List<? extends TestFitnessFunction> goals = TestSuiteGenerator.getFitnessFactory().getCoverageGoals();
+
 		TestChromosome dummy = new TestChromosome();
 		ExecutionResult executionResult = new ExecutionResult(dummy.getTestCase());
-		executionResult.setTrace(trace);
-		dummy.setLastExecutionResult(executionResult);
-		dummy.setChanged(false);
 
-		int covered = 0;
-		for (TestFitnessFunction goal : goals) {
-			if (goal.isCovered(dummy))
-				covered++;
+		HashSet<Integer> covered = new HashSet<Integer>();
+
+		for (TestResult tR : testResults) {
+			executionResult.setTrace(tR.getExecutionTrace());
+			dummy.setLastExecutionResult(executionResult);
+			dummy.setChanged(false);
+
+			int index = 0;
+			for (TestFitnessFunction goal : goals) {
+				if (goal.isCovered(dummy))
+					covered.add(index);
+				index++;
+			}
 		}
+
 		LoggingUtils.getEvoLogger().info("* Covered "
-		                                         + covered
+		                                         + covered.size()
 		                                         + "/"
 		                                         + goals.size()
 		                                         + " coverage goals: "
-		                                         + NumberFormat.getPercentInstance().format((double) covered
-
+		                                         + NumberFormat.getPercentInstance().format((double) covered.size()
 		                                                                                            / (double) goals.size()));
 
-		JUnitReportGenerator reportGenerator = new JUnitReportGenerator(covered,
+		JUnitReportGenerator reportGenerator = new JUnitReportGenerator(covered.size(),
 		        goals.size(),
 		        executionResult.getTrace().getCoveredLines(Properties.TARGET_CLASS),
 		        classes, startTime);
 		reportGenerator.writeReport();
 
+		CoverageReportGenerator coverageReport = new CoverageReportGenerator(testResults, goals);
+		coverageReport.writeCoverage();
 	}
 
-	private static Result executeTests(Class<?>... junitClasses) {
-		ExecutionTracer.enable();
-		ExecutionTracer.enableTraceCalls();
-		ExecutionTracer.setCheckCallerThread(false);
-		Result result = JUnitCore.runClasses(junitClasses);
-		ExecutionTracer.disable();
-		return result;
+	private static List<TestResult> executeTests(Class<?>... junitClasses)
+	{
+		List<TestResult> testResults = new ArrayList<TestResult>();
+
+		for (Class<?> junitClass : junitClasses) {
+			JUnitRunner junitRunner = new JUnitRunner();
+			junitRunner.run(junitClass);
+			testResults.addAll(junitRunner.getTestResults());
+		}
+
+		return testResults;
 	}
 
 	/**
