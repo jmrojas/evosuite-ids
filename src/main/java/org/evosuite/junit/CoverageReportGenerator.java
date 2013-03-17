@@ -75,7 +75,7 @@ public class CoverageReportGenerator extends ReportGenerator
 			suite.append(test);
 		}
 
-		Utils.writeFile(suite.toString(), new File(getReportDir().getAbsolutePath() + "/data/matrix"));
+		Utils.writeFile(suite.toString(), new File(getReportDir().getAbsolutePath() + "/data/" + Properties.TARGET_CLASS + ".matrix"));
 	}
 
 	@Override
