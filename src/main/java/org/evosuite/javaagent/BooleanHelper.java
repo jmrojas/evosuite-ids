@@ -30,6 +30,7 @@ import java.util.regex.Pattern;
 
 import org.evosuite.Properties;
 import org.evosuite.primitives.ConstantPoolManager;
+import org.evosuite.setup.TestClusterGenerator;
 import org.evosuite.utils.LoggingUtils;
 import org.objectweb.asm.Opcodes;
 
@@ -93,6 +94,8 @@ public class BooleanHelper {
 	 * @return a int.
 	 */
 	public static int collectionContains(Collection<?> c, Object o1) {
+		if(o1 != null)
+			TestClusterGenerator.addCastClassForContainer(o1.getClass());
 		int matching = 0;
 		double min_distance = Double.MAX_VALUE;
 		for (Object o2 : c) {
@@ -100,12 +103,17 @@ public class BooleanHelper {
 				matching++;
 			else {
 				if (o2 != null && o1 != null) {
-					if (o2.getClass().equals(o1.getClass()) && o1 instanceof Number) {
-						Number n1 = (Number) o1;
-						Number n2 = (Number) o2;
-						min_distance = Math.min(min_distance,
-						                        Math.abs(n1.doubleValue()
-						                                - n2.doubleValue()));
+					if (o2.getClass().equals(o1.getClass())) {
+						if (o1 instanceof Number) {
+							Number n1 = (Number) o1;
+							Number n2 = (Number) o2;
+							min_distance = Math.min(min_distance,
+							                        Math.abs(n1.doubleValue()
+							                                - n2.doubleValue()));
+						} else if (o2 instanceof String) {
+							min_distance = Math.min(min_distance,
+							                        editDistance((String) o1, (String) o2));
+						}
 					}
 				}
 			}
@@ -134,7 +142,7 @@ public class BooleanHelper {
 	public static int collectionContainsAll(Collection<?> c, Collection<?> c2) {
 		int mismatch = 0;
 		for (Object o : c2) {
-			if (c.contains(o))
+			if (!c.contains(o))
 				mismatch++;
 		}
 		return mismatch > 0 ? -mismatch : c2.size();
@@ -150,6 +158,9 @@ public class BooleanHelper {
 	 * @return a int.
 	 */
 	public static int mapContainsKey(Map<?, ?> m, Object o1) {
+		if(o1 != null)
+			TestClusterGenerator.addCastClassForContainer(o1.getClass());
+
 		return collectionContains(m.keySet(), o1);
 	}
 
@@ -163,6 +174,9 @@ public class BooleanHelper {
 	 * @return a int.
 	 */
 	public static int mapContainsValue(Map<?, ?> m, Object o1) {
+		if(o1 != null)
+			TestClusterGenerator.addCastClassForContainer(o1.getClass());
+
 		return collectionContains(m.values(), o1);
 	}
 
@@ -707,7 +721,7 @@ public class BooleanHelper {
 	public static int StringMatches(String str, String regex) {
 		int distance = RegexDistance.getDistance(str, regex);
 
-		if(Properties.DYNAMIC_POOL > 0.0) {
+		if (Properties.DYNAMIC_POOL > 0.0) {
 			if (distance > 0) {
 				String instance = RegexDistance.getRegexInstance(regex);
 				ConstantPoolManager.getInstance().addDynamicConstant(instance);
@@ -726,7 +740,7 @@ public class BooleanHelper {
 	public static int StringMatchRegex(String regex, CharSequence input) {
 		int distance = RegexDistance.getDistance(input.toString(), regex);
 
-		if(Properties.DYNAMIC_POOL > 0.0) {
+		if (Properties.DYNAMIC_POOL > 0.0) {
 			if (distance > 0) {
 				String instance = RegexDistance.getRegexInstance(regex);
 				ConstantPoolManager.getInstance().addDynamicConstant(instance);
@@ -735,7 +749,7 @@ public class BooleanHelper {
 				ConstantPoolManager.getInstance().addDynamicConstant(instance);
 			}
 		}
-		
+
 		if (distance > 0)
 			return -distance;
 		else
@@ -752,7 +766,7 @@ public class BooleanHelper {
 			input = (CharSequence) textField.get(matcher);
 			int distance = RegexDistance.getDistance(input.toString(), regex);
 
-			if(Properties.DYNAMIC_POOL > 0.0) {
+			if (Properties.DYNAMIC_POOL > 0.0) {
 				if (distance > 0) {
 					String instance = RegexDistance.getRegexInstance(regex);
 					ConstantPoolManager.getInstance().addDynamicConstant(instance);
@@ -954,15 +968,16 @@ public class BooleanHelper {
 			s1 = s1.toLowerCase();
 			s2 = s2.toLowerCase();
 		}
-		if(Properties.DYNAMIC_POOL > 0.0) {
+		if (Properties.DYNAMIC_POOL > 0.0) {
 			String sub1 = s1.substring(thisStart, length + thisStart);
 			String sub2 = s2.substring(start, length + start);
-			String sn1 = s1.substring(0, thisStart) + sub2 + s1.substring(thisStart + length);
+			String sn1 = s1.substring(0, thisStart) + sub2
+			        + s1.substring(thisStart + length);
 			String sn2 = s2.substring(0, start) + sub1 + s2.substring(start + length);
 			ConstantPoolManager.getInstance().addDynamicConstant(sn1);
 			ConstantPoolManager.getInstance().addDynamicConstant(sn2);
 		}
-		
+
 		return StringEquals(s1.substring(thisStart, length + thisStart),
 		                    s2.substring(start, length + start));
 	}
