@@ -269,22 +269,63 @@ public class GenericClass implements Serializable {
 	public boolean isParameterizedType() {
 		return type instanceof ParameterizedType;
 	}
-	
-	public boolean hasWildcardTypes() {
-		for(Type type : getParameterTypes()) {
-			if(type instanceof WildcardType)
-				return true;
-		}
-		
-		return false;
+
+	public GenericClass getOwnerType() {
+		return new GenericClass(((ParameterizedType) type).getOwnerType());
+	}
+
+	public boolean hasOwnerType() {
+		if (type instanceof ParameterizedType)
+			return ((ParameterizedType) type).getOwnerType() != null;
+		else
+			return false;
 	}
 	
-	public boolean hasTypeVariables() {
-		for(Type type : getParameterTypes()) {
-			if(type instanceof TypeVariable)
-				return true;
+	public GenericClass getWithOwnerType(Type ownerType) {
+		if (type instanceof ParameterizedType) {
+			ParameterizedType currentType = (ParameterizedType) type;
+			return new GenericClass(new ParameterizedTypeImpl(raw_class,
+		        currentType.getActualTypeArguments(), ownerType));
 		}
 		
+		return new GenericClass(type);
+	}
+
+
+	public void setOwnerType(GenericClass clazz) {
+		ParameterizedType currentType = (ParameterizedType) type;
+		this.type = new ParameterizedTypeImpl(raw_class,
+		        currentType.getActualTypeArguments(), clazz.getType());
+	}
+
+	public boolean hasWildcardOrTypeVariables() {
+		if (hasWildcardTypes())
+			return true;
+		if (hasTypeVariables())
+			return true;
+
+		if (hasOwnerType()) {
+			return getOwnerType().hasWildcardOrTypeVariables();
+		}
+
+		return false;
+	}
+
+	public boolean hasWildcardTypes() {
+		for (Type t : getParameterTypes()) {
+			if (t instanceof WildcardType)
+				return true;
+		}
+
+		return false;
+	}
+
+	public boolean hasTypeVariables() {
+		for (Type type : getParameterTypes()) {
+			if (type instanceof TypeVariable)
+				return true;
+		}
+
 		return false;
 	}
 
@@ -392,6 +433,7 @@ public class GenericClass implements Serializable {
 			} catch (IllegalStateException e) {
 				logger.debug("rhs is parameterized type " + rhsType
 				        + " and we got an illegal state");
+				logger.debug("lhs is: " + lhsType);
 				if (lhsType instanceof ParameterizedType)
 					return isAssignable(((ParameterizedType) lhsType).getRawType(),
 					                    rhsType);
@@ -418,7 +460,7 @@ public class GenericClass implements Serializable {
 		if (lhsType instanceof WildcardType) {
 			return isAssignable((WildcardType) lhsType, rhsType);
 		}
-		if(rhsType instanceof WildcardType) {
+		if (rhsType instanceof WildcardType) {
 			return TypeUtils.isAssignable(rhsType, lhsType);
 		}
 		//if(rhsType instanceof WildcardType) {
