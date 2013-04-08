@@ -10,6 +10,7 @@ import java.lang.reflect.TypeVariable;
 import java.lang.reflect.WildcardType;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.Map.Entry;
 
 /**
  * Mapping between type variables and actual parameters.
@@ -35,6 +36,13 @@ class VarMap {
 			map.put(variables[i], values[i]);
 		}
 	}
+	
+	void addAll(Map<TypeVariable<?>, GenericClass> variables) {
+		for(Entry<TypeVariable<?>, GenericClass> entry : variables.entrySet()) {
+			map.put(entry.getKey(), entry.getValue().getType());
+		}
+	}
+
 
 	VarMap(TypeVariable<?>[] variables, Type[] values) {
 		addAll(variables, values);
@@ -44,7 +52,8 @@ class VarMap {
 		if (type instanceof Class) {
 			return type;
 		} else if (type instanceof TypeVariable) {
-			assert map.containsKey(type);
+			// TypeVariables may also come from generic methods!
+			// assert map.containsKey(type);
 			return map.get(type);
 		} else if (type instanceof ParameterizedType) {
 			ParameterizedType pType = (ParameterizedType) type;

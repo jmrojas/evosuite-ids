@@ -10,6 +10,7 @@ import java.lang.reflect.Method;
 import java.lang.reflect.Modifier;
 import java.lang.reflect.ParameterizedType;
 import java.lang.reflect.Type;
+import java.lang.reflect.TypeVariable;
 
 import org.evosuite.TestGenerationContext;
 import org.evosuite.setup.TestClusterGenerator;
@@ -43,14 +44,24 @@ public class GenericMethod extends GenericAccessibleObject {
 
 	@Override
 	public GenericAccessibleObject copyWithNewOwner(GenericClass newOwner) {
-		GenericMethod gm = new GenericMethod(method, newOwner);
-		gm.getParameterTypes();
-		return gm;
+		GenericMethod copy = new GenericMethod(method, newOwner);
+		copy.getParameterTypes();
+		copy.typeVariables.addAll(typeVariables);
+		return copy;
 	}
 	
 	public GenericMethod copyWithOwnerFromReturnType(ParameterizedType returnType) {
 		GenericClass newOwner = new GenericClass(getTypeFromExactReturnType(returnType, (ParameterizedType)getOwnerType()));
-		return new GenericMethod(method, newOwner);
+		GenericMethod copy = new GenericMethod(method, newOwner);
+		copy.typeVariables.addAll(typeVariables);
+		return copy;
+	}
+	
+	@Override
+	public GenericAccessibleObject copy() {
+		GenericMethod copy = new GenericMethod(method, new GenericClass(owner));
+		copy.typeVariables.addAll(typeVariables);
+		return copy;
 	}
 	
 	public Method getMethod() {
@@ -66,7 +77,7 @@ public class GenericMethod extends GenericAccessibleObject {
 	}
 
 	public Type[] getParameterTypes() {
-		return GenericTypeReflector.getExactParameterTypes(method, owner.getType());
+		return getExactParameterTypes(method, owner.getType());
 	}
 
 	public Type[] getGenericParameterTypes() {
@@ -78,7 +89,7 @@ public class GenericMethod extends GenericAccessibleObject {
 	}
 
 	public Type getReturnType() {
-		Type returnType = GenericTypeReflector.getExactReturnType(method, owner.getType());
+		Type returnType = getExactReturnType(method, owner.getType());
 		if (returnType == null) {
 			LoggingUtils.getEvoLogger().info("Exact return type is null for " + method
 			                                         + " with owner " + owner);
@@ -91,7 +102,45 @@ public class GenericMethod extends GenericAccessibleObject {
 		}
 		return returnType;
 	}
+	
+	/**
+	 * Returns the exact return type of the given method in the given type.
+	 * This may be different from <tt>m.getGenericReturnType()</tt> when the method was declared in a superclass,
+	 * or <tt>type</tt> has a type parameter that is used in the return type, or <tt>type</tt> is a raw type.
+	 */
+	public Type getExactReturnType(Method m, Type type) {
+		Type returnType = m.getGenericReturnType();
+		Type exactDeclaringType = GenericTypeReflector.getExactSuperType(GenericTypeReflector.capture(type), m.getDeclaringClass());
+		if (exactDeclaringType == null) { // capture(type) is not a subtype of m.getDeclaringClass()
+			throw new IllegalArgumentException("The method " + m + " is not a member of type " + type);
+		}
+		return mapTypeParameters(returnType, exactDeclaringType);
+	}
+	
+	/**
+	 * Returns the exact parameter types of the given method in the given type.
+	 * This may be different from <tt>m.getGenericParameterTypes()</tt> when the method was declared in a superclass,
+	 * or <tt>type</tt> has a type parameter that is used in one of the parameters, or <tt>type</tt> is a raw type.
+	 */
+	public Type[] getExactParameterTypes(Method m, Type type) {
+		Type[] parameterTypes = m.getGenericParameterTypes();
+		Type exactDeclaringType = GenericTypeReflector.getExactSuperType(GenericTypeReflector.capture(type), m.getDeclaringClass());
+		if (exactDeclaringType == null) { // capture(type) is not a subtype of m.getDeclaringClass()
+			throw new IllegalArgumentException("The method " + m + " is not a member of type " + type);
+		}
 
+		Type[] result = new Type[parameterTypes.length];
+		for (int i = 0; i < parameterTypes.length; i++) {
+			result[i] = mapTypeParameters(parameterTypes[i], exactDeclaringType);
+		}
+		return result;
+	}
+
+	@Override
+	public TypeVariable<?>[] getTypeParameters() {
+		return method.getTypeParameters();
+	}
+	
 	/* (non-Javadoc)
 	 * @see org.evosuite.utils.GenericAccessibleObject#isMethod()
 	 */

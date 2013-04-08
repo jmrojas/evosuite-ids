@@ -7,9 +7,14 @@ import java.io.Serializable;
 import java.lang.reflect.ParameterizedType;
 import java.lang.reflect.Type;
 import java.lang.reflect.TypeVariable;
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 
 import org.apache.commons.lang3.reflect.TypeUtils;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import com.googlecode.gentyref.GenericTypeReflector;
 
@@ -22,7 +27,11 @@ public abstract class GenericAccessibleObject implements Serializable {
 	
 	private static final long serialVersionUID = 7069749492563662621L;
 
+	protected static final Logger logger = LoggerFactory.getLogger(GenericAccessibleObject.class);
+
 	protected GenericClass owner;
+	
+	protected List<GenericClass> typeVariables = new ArrayList<GenericClass>();
 
 	public GenericAccessibleObject(GenericClass owner) {
 		this.owner = owner;
@@ -39,6 +48,8 @@ public abstract class GenericAccessibleObject implements Serializable {
 	public abstract GenericAccessibleObject copyWithNewOwner(GenericClass newOwner);
 	
 	public abstract GenericAccessibleObject copyWithOwnerFromReturnType(ParameterizedType returnType);
+	
+	public abstract GenericAccessibleObject copy();
 	
 	public abstract Class<?> getDeclaringClass();
 
@@ -81,9 +92,9 @@ public abstract class GenericAccessibleObject implements Serializable {
 	 *            type arguments, or it's a raw type) Class
 	 * @return toMapType, but with type parameters from typeAndParams replaced.
 	 */
-	protected static Type mapTypeParameters(Type toMapType, Type typeAndParams) {
+	protected Type mapTypeParameters(Type toMapType, Type typeAndParams) {
 		if (isMissingTypeParameters(typeAndParams)) {
-			LoggingUtils.getEvoLogger().info("Is missing type parameters, so erasing types");
+			logger.debug("Is missing type parameters, so erasing types");
 			return GenericTypeReflector.erase(toMapType);
 		} else {
 			VarMap varMap = new VarMap();
@@ -94,10 +105,23 @@ public abstract class GenericAccessibleObject implements Serializable {
 				varMap.addAll(clazz.getTypeParameters(), pType.getActualTypeArguments());
 				handlingTypeAndParams = pType.getOwnerType();
 			}
+			varMap.addAll(getTypeVariableMap());
 			return varMap.map(toMapType);
 		}
 	}
 
+	protected Map<TypeVariable<?>, GenericClass> getTypeVariableMap() {
+		Map<TypeVariable<?>, GenericClass> typeMap = new HashMap<TypeVariable<?>, GenericClass>();
+		int pos = 0;
+		for(TypeVariable<?> variable : getTypeParameters()) {
+			if(typeVariables.size() <= pos)
+				break;
+			typeMap.put(variable, typeVariables.get(pos));
+			pos++;
+		}
+		return typeMap;
+	}
+	
 	/**
 	 * Checks if the given type is a class that is supposed to have type
 	 * parameters, but doesn't. In other words, if it's a really raw type.
@@ -151,5 +175,18 @@ public abstract class GenericAccessibleObject implements Serializable {
     	}
     	
     	return new ParameterizedTypeImpl((Class<?>)type.getRawType(), actualParameters, null);
+    }
+    
+    public TypeVariable<?>[] getTypeParameters() {
+    	return new TypeVariable<?>[] {};
+    }
+    
+    public void setTypeParameters(List<GenericClass> parameterTypes) {
+    	typeVariables.clear();
+    	typeVariables.addAll(parameterTypes);
+    }
+    
+    public boolean hasTypeParameters() {
+    	return getTypeParameters().length != 0;
     }
 }

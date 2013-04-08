@@ -10,6 +10,7 @@ import java.lang.reflect.Constructor;
 import java.lang.reflect.Modifier;
 import java.lang.reflect.ParameterizedType;
 import java.lang.reflect.Type;
+import java.lang.reflect.TypeVariable;
 
 import org.evosuite.TestGenerationContext;
 import org.evosuite.setup.TestClusterGenerator;
@@ -81,17 +82,33 @@ public class GenericConstructor extends GenericAccessibleObject {
 
 	@Override
 	public GenericAccessibleObject copyWithNewOwner(GenericClass newOwner) {
-		return new GenericConstructor(constructor, newOwner);
+		GenericConstructor copy = new GenericConstructor(constructor, newOwner);
+		copy.typeVariables.addAll(typeVariables);
+		return copy;
 	}
 	
 	@Override
 	public GenericAccessibleObject copyWithOwnerFromReturnType(
 			ParameterizedType returnType) {
-		return new GenericConstructor(constructor, new GenericClass(returnType));
+		GenericConstructor copy = new GenericConstructor(constructor, new GenericClass(returnType));
+		copy.typeVariables.addAll(typeVariables);
+		return copy;
+	}
+	
+	@Override
+	public GenericAccessibleObject copy() {
+		GenericConstructor copy = new GenericConstructor(constructor, new GenericClass(owner));
+		copy.typeVariables.addAll(typeVariables);
+		return copy;
 	}
 
 	public Type getReturnType() {
 		return owner.getType();
+	}
+	
+	@Override
+	public TypeVariable<?>[] getTypeParameters() {
+		return constructor.getTypeParameters();
 	}
 
 	/* (non-Javadoc)
@@ -135,7 +152,7 @@ public class GenericConstructor extends GenericAccessibleObject {
 	 * parameter that is used in one of the parameters, or <tt>type</tt> is a
 	 * raw type.
 	 */
-	public static Type[] getExactParameterTypes(Constructor<?> m, Type type) {
+	public Type[] getExactParameterTypes(Constructor<?> m, Type type) {
 		Type[] parameterTypes = m.getGenericParameterTypes();
 		Type exactDeclaringType = GenericTypeReflector.getExactSuperType(GenericTypeReflector.capture(type),
 		                                                                 m.getDeclaringClass());
