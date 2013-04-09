@@ -111,6 +111,7 @@ import org.evosuite.regression.RegressionTestChromosomeFactory;
 import org.evosuite.regression.RegressionTestSuiteChromosomeFactory;
 import org.evosuite.rmi.ClientServices;
 import org.evosuite.rmi.service.ClientState;
+import org.evosuite.rmi.service.ClientStateInformation;
 import org.evosuite.sandbox.PermissionStatistics;
 import org.evosuite.sandbox.Sandbox;
 import org.evosuite.setup.DependencyAnalysis;
@@ -270,7 +271,7 @@ public class TestSuiteGenerator {
 		// Make sure target class is loaded at this point
 		TestCluster.getInstance();
 
-		if (TestCluster.getInstance().getTestCalls().isEmpty()) {
+		if (TestCluster.getInstance().getNumTestCalls() == 0) {
 			LoggingUtils.getEvoLogger().info("* Found no testable methods in the target class "
 			                                         + Properties.TARGET_CLASS);
 			return new ArrayList<TestCase>();
@@ -318,11 +319,6 @@ public class TestSuiteGenerator {
 		// progressMonitor.setCurrentPhase("Writing JUnit test cases");
 		writeJUnitTests(tests);
 
-		if (Properties.CHECK_CONTRACTS) {
-			LoggingUtils.getEvoLogger().info("* Writing failing test cases");
-			FailingTestSet.writeJUnitTestSuite();
-		}
-
 		writeObjectPool(tests);
 
 		/*
@@ -351,6 +347,14 @@ public class TestSuiteGenerator {
 				suite.insertAllTests(tests);
 			else
 				suite.insertTests(tests);
+
+			if (Properties.CHECK_CONTRACTS) {
+				LoggingUtils.getEvoLogger().info("* Writing failing test cases");
+				//FailingTestSet.writeJUnitTestSuite();
+				//tests.addAll(FailingTestSet.getFailingTests());
+				FailingTestSet.writeJUnitTestSuite(suite);
+			}
+
 			String name = Properties.TARGET_CLASS.substring(Properties.TARGET_CLASS.lastIndexOf(".") + 1);
 			String testDir = Properties.TEST_DIR;
 			LoggingUtils.getEvoLogger().info("* Writing JUnit test cases to " + testDir);
@@ -429,7 +433,14 @@ public class TestSuiteGenerator {
 						}
 						// Set<Integer> killed = new HashSet<Integer>();
 						sasserter.addAssertions(test);
-						progressMonitor.updateStatus((100 * numTest++) / tests.size());
+						ClientState state = ClientState.ASSERTION_GENERATION;
+						ClientStateInformation information = new ClientStateInformation(
+						        state);
+						information.setProgress((100 * numTest++) / tests.size());
+						ClientServices.getInstance().getClientNode().changeState(state,
+						                                                         information);
+
+						// progressMonitor.updateStatus((100 * numTest++) / tests.size());
 						// tkilled.addAll(killed);
 					}
 				} else {
@@ -444,7 +455,14 @@ public class TestSuiteGenerator {
 						}
 						// Set<Integer> killed = new HashSet<Integer>();
 						masserter.addAssertions(test, tkilled);
-						progressMonitor.updateStatus((100 * numTest++) / tests.size());
+						//progressMonitor.updateStatus((100 * numTest++) / tests.size());
+						ClientState state = ClientState.ASSERTION_GENERATION;
+						ClientStateInformation information = new ClientStateInformation(
+						        state);
+						information.setProgress((100 * numTest++) / tests.size());
+						ClientServices.getInstance().getClientNode().changeState(state,
+						                                                         information);
+
 						// tkilled.addAll(killed);
 					}
 					Properties.CRITERION = oldCriterion;
@@ -480,7 +498,13 @@ public class TestSuiteGenerator {
 			Set<Integer> tkilled = new HashSet<Integer>();
 			int num = 0;
 			for (TestCase test : tests) {
-				progressMonitor.updateStatus((100 * num++) / tests.size());
+				ClientState state = ClientState.ASSERTION_GENERATION;
+				ClientStateInformation information = new ClientStateInformation(state);
+				information.setProgress((100 * num++) / tests.size());
+				ClientServices.getInstance().getClientNode().changeState(state,
+				                                                         information);
+
+				// progressMonitor.updateStatus((100 * num++) / tests.size());
 
 				// Set<Integer> killed = new HashSet<Integer>();
 				asserter.addAssertions(test, tkilled);
@@ -675,6 +699,13 @@ public class TestSuiteGenerator {
 
 		// TODO also consider time for test carving in end_time?
 		if (Properties.TEST_CARVING) {
+			/*
+			 * If the SUT is class X,
+			 * then we might get tests that call methods from Y which indirectly call X.
+			 * A unit test that only calls Y is useless
+             * but one could use the test carver to produce a test on X out of it.
+			 */
+			
 			// execute all tests to carve them
 			final List<TestCase> carvedTests = this.carveTests(best.getTests());
 

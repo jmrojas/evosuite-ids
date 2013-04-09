@@ -29,13 +29,14 @@ import java.util.Map;
 
 import org.evosuite.Properties;
 import org.evosuite.Properties.Criterion;
+import org.evosuite.TestGenerationContext;
 import org.evosuite.coverage.branch.BranchPool;
 import org.evosuite.coverage.dataflow.DefUsePool;
 import org.evosuite.coverage.lcsaj.LCSAJPool;
 import org.evosuite.coverage.mutation.MutationPool;
 import org.evosuite.coverage.path.PrimePathPool;
 import org.evosuite.graphs.cfg.CFGMethodAdapter;
-import org.evosuite.javaagent.LinePool;
+import org.evosuite.instrumentation.LinePool;
 import org.evosuite.rmi.ClientServices;
 import org.junit.Test;
 import org.junit.runners.Suite;
@@ -81,7 +82,8 @@ public class DependencyAnalysis {
 
 		logger.debug("Calculate call tree");
 		callTree = CallTreeGenerator.analyze(className);
-
+		loadCallTreeClasses();
+		
 		// TODO: Need to make sure that all classes in calltree are instrumented
 
 		logger.debug("Update call tree with calls to overridden methods");
@@ -93,6 +95,18 @@ public class DependencyAnalysis {
 		gatherStatistics();
 	}
 
+	private static void loadCallTreeClasses() {
+		for(String className : callTree.getClasses()) {
+			if(className.startsWith(Properties.TARGET_CLASS+"$")) {
+				try {
+					Class.forName(className, true, TestGenerationContext.getClassLoader());
+				} catch(ClassNotFoundException e) {
+					logger.debug("Error loading "+className+ ": "+e);
+				}
+			}
+		}
+	}
+	
 	public static CallTree getCallTree() {
 		return callTree;
 	}

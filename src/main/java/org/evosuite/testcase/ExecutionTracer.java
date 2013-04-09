@@ -22,7 +22,7 @@ import java.util.Map;
 import org.evosuite.coverage.dataflow.DefUsePool;
 import org.evosuite.coverage.dataflow.Definition;
 import org.evosuite.coverage.dataflow.Use;
-import org.evosuite.javaagent.BooleanHelper;
+import org.evosuite.instrumentation.BooleanHelper;
 import org.objectweb.asm.Opcodes;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -192,10 +192,11 @@ public class ExecutionTracer {
 			logger.info("CurrentThread has not been set!");
 			Map<Thread, StackTraceElement[]> map = Thread.getAllStackTraces();
 			for (Thread t : map.keySet()) {
-				System.err.println("Thread: " + t);
+				String msg = "Thread: " + t+"\n";
 				for (StackTraceElement e : map.get(t)) {
-					System.err.println(" -> " + e);
+					msg += " -> " + e + "\n";
 				}
+				logger.error(msg);
 			}
 			currentThread = Thread.currentThread();
 		}

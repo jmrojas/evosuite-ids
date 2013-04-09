@@ -114,7 +114,9 @@ public class Properties {
 	@Parameter(key = "static_hack", group = "Test Creation", description = "Call static constructors after each test execution")
 	public static boolean STATIC_HACK = false;
 
-	/** Constant <code>TEST_CARVING=false</code> */
+	/**
+	 * TODO: this option is off by default because still experimental and not fully tested
+	 */
 	@Parameter(key = "test_carving", group = "Test Creation", description = "Enable test carving")
 	public static boolean TEST_CARVING = false;
 
@@ -141,16 +143,25 @@ public class Properties {
 	/** Constant <code>DYNAMIC_POOL=0.5</code> */
 	@Parameter(key = "dynamic_pool", group = "Test Creation", description = "Probability to use a primitive from the dynamic pool rather than a random value")
 	@DoubleValue(min = 0.0, max = 1.0)
-	public static double DYNAMIC_POOL = 1d / 3d;
+	public static double DYNAMIC_POOL = 0.5; //1d / 3d;
 
 	/** Constant <code>DYNAMIC_POOL_SIZE=50</code> */
 	@Parameter(key = "dynamic_pool_size", group = "Test Creation", description = "Number of dynamic constants to keep")
 	public static int DYNAMIC_POOL_SIZE = 50;
+	
+	@Parameter(key = "p_special_type_call", group = "Test Creation", description = "Probability of using a non-standard call on a special case (collection/numeric)")
+	public static double P_SPECIAL_TYPE_CALL = 0.05;
 
 	/** Constant <code>OBJECT_POOL=0.0</code> */
 	@Parameter(key = "object_pool", group = "Test Creation", description = "Probability to use a predefined sequence from the pool rather than a random generator")
 	@DoubleValue(min = 0.0, max = 1.0)
 	public static double OBJECT_POOL = 0.0;
+	
+	@Parameter(key = "seed_types", group = "Test Creation", description = "Use type information gathered from casts to instantiate generics")
+	public static boolean SEED_TYPES = true;
+	
+	@Parameter(key = "max_generic_depth", group = "Test Creation", description ="Maximum level of nesting for generic types")
+	public static int MAX_GENERIC_DEPTH = 2;
 
 	/** Constant <code>STRING_LENGTH=20</code> */
 	@Parameter(key = "string_length", group = "Test Creation", description = "Maximum length of randomly generated strings")
@@ -573,6 +584,9 @@ public class Properties {
 	@Parameter(key = "junit_tests", group = "Output", description = "Create JUnit test suites")
 	public static boolean JUNIT_TESTS = true;
 
+	/**
+	 * TODO: this functionality is not implemented yet
+	 */
 	@Parameter(key = "junit_extend", group = "Output", description = "Extend existing JUnit test suite")
 	public static String JUNIT_EXTEND = "";
 
@@ -640,7 +654,7 @@ public class Properties {
 
 	/** Constant <code>ASSERTIONS=false</code> */
 	@Parameter(key = "assertions", group = "Output", description = "Create assertions")
-	public static boolean ASSERTIONS = false;
+	public static boolean ASSERTIONS = true;
 
 	public enum AssertionStrategy {
 		ALL, MUTATION, UNIT
@@ -686,7 +700,7 @@ public class Properties {
 	public static boolean NEW_STATISTICS = false;
 
 	@Parameter(key = "old_statistics", group = "Output", description = "Use the old statistics backend on the master")
-	public static boolean OLD_STATISTICS = false;
+	public static boolean OLD_STATISTICS = true;
 
 	public enum StatisticsBackend {
 		NONE, CONSOLE, CSV;
@@ -713,10 +727,9 @@ public class Properties {
 
 	// ---------------------------------------------------------------
 	// Sandbox
-	//FIXME: once we are happy with the sandbox, we should turn it on by default
 	/** Constant <code>SANDBOX=false</code> */
 	@Parameter(key = "sandbox", group = "Sandbox", description = "Execute tests in a sandbox environment")
-	public static boolean SANDBOX = false;
+	public static boolean SANDBOX = true;
 
 	public enum SandboxMode {
 		OFF, RECOMMENDED, IO
@@ -822,6 +835,9 @@ public class Properties {
 	@Parameter(key = "test_factory", description = "Which factory creates tests")
 	public static TestFactory TEST_FACTORY = TestFactory.RANDOM;
 
+	@Parameter(key = "selected_junit", description = "List of fully qualified class names (separated by ':') indicating which JUnit test suites the user has selected (e.g., for seeding)")
+	public static String SELECTED_JUNIT = null;
+	
 	/** Constant <code>JUNIT_STRICT=false</code> */
 	@Parameter(key = "junit_strict", description = "Only include test files containing the target classname")
 	public static boolean JUNIT_STRICT = false;
@@ -991,7 +1007,21 @@ public class Properties {
 	// Runtime parameters
 
 	public enum Criterion {
-		EXCEPTION, LCSAJ, DEFUSE, ALLDEFS, PATH, BRANCH, STRONGMUTATION, WEAKMUTATION, MUTATION, COMP_LCSAJ_BRANCH, STATEMENT, DATA, BEHAVIORAL, IBRANCH, REGRESSION
+		EXCEPTION,
+		LCSAJ,
+		DEFUSE,
+		ALLDEFS,
+		PATH,
+		BRANCH,
+		STRONGMUTATION,
+		WEAKMUTATION,
+		MUTATION,
+		COMP_LCSAJ_BRANCH,
+		STATEMENT,
+		DATA,
+		BEHAVIORAL,
+		IBRANCH,
+		REGRESSION
 	}
 
 	/** Cache target class */

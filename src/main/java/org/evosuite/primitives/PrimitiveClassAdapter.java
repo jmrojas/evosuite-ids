@@ -89,7 +89,7 @@ public class PrimitiveClassAdapter extends ClassVisitor {
 		                                     exceptions);
 
 		/*
-		String classNameWithDots = className.replace('/', '.');
+		String classNameWithDots = Utils.getClassNameFromResourcePath(className);
 		if (REPLACE_STRING
 		        && (classNameWithDots.equals(target_class) || (classNameWithDots.startsWith(target_class
 		                + "$")))) {

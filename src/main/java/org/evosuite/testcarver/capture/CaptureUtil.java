@@ -1,23 +1,27 @@
 package org.evosuite.testcarver.capture;
 
+import org.evosuite.utils.Utils;
 import org.objectweb.asm.Type;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 
-public final class CaptureUtil 
-{
+public final class CaptureUtil {
+	
+	private static final transient Logger logger = LoggerFactory.getLogger(CaptureUtil.class);
+	
 	private CaptureUtil(){}
 	
 	public static Class<?> loadClass(final String internalClassName)
 	{
-		final String className = internalClassName.replace('/', '.');
+		final String className = Utils.getClassNameFromResourcePath(internalClassName);
 		
 		try 
 		{
 			return Class.forName(className);
 		} 
 		catch (final ClassNotFoundException e) 
-		{
-			e.printStackTrace();
+		{			
 			throw new RuntimeException(e);
 		}
 	}
@@ -60,7 +64,7 @@ public final class CaptureUtil
 		
 		try 
 		{
-			return Class.forName(type.getInternalName().replace('/', '.'));
+			return Class.forName(Utils.getClassNameFromResourcePath(type.getInternalName()));
 		} 
 		catch (final ClassNotFoundException e) 
 		{

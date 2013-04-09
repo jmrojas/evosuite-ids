@@ -26,6 +26,10 @@ import java.util.Map;
 
 import org.evosuite.utils.GenericClass;
 import org.objectweb.asm.commons.GeneratorAdapter;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
+import com.googlecode.gentyref.GenericTypeReflector;
 
 /**
  * This class defines an reference to an array element. E.g. foo[3]
@@ -81,9 +85,11 @@ public class ArrayIndex extends VariableReferenceImpl {
 
 	private static Type getReturnType(ArrayReference array, int indicesCnt) {
 		assert indicesCnt >= 1;
-		Class<?> result = (Class<?>) array.getComponentType();
+		Type result = array.getComponentType();
+		// Class<?> result = (Class<?>) array.getComponentType();
 		for (int idx = 1; idx < indicesCnt; idx++) {
-			result = result.getComponentType();
+			result = GenericTypeReflector.getArrayComponentType(result);
+			//result = result.getComponentType();
 		}
 		return result;
 	}
@@ -342,6 +348,24 @@ public class ArrayIndex extends VariableReferenceImpl {
 				Array.setShort(arrayObject, indices.get(indices.size() - 1), (short)getIntValue(value));
 			else if (arrayObject.getClass().getComponentType().equals(byte.class))
 				Array.setByte(arrayObject, indices.get(indices.size() - 1), (byte)getIntValue(value));
+			// We also need to check if we are assigning to a wrapper type, because autoboxing 
+			// only seems to work from int -> Integer, but e.g. not from byte -> Integer 
+			else if (arrayObject.getClass().getComponentType().equals(Integer.class))
+				Array.set(arrayObject, indices.get(indices.size() - 1), getIntValue(value));
+			else if (arrayObject.getClass().getComponentType().equals(Boolean.class))
+				Array.set(arrayObject, indices.get(indices.size() - 1), (Boolean)value);
+			else if (arrayObject.getClass().getComponentType().equals(Character.class)) {
+				Array.set(arrayObject, indices.get(indices.size() - 1), getCharValue(value));
+			} else if (arrayObject.getClass().getComponentType().equals(Double.class))
+				Array.set(arrayObject, indices.get(indices.size() - 1), getDoubleValue(value));
+			else if (arrayObject.getClass().getComponentType().equals(Float.class))
+				Array.set(arrayObject, indices.get(indices.size() - 1), getFloatValue(value));
+			else if (arrayObject.getClass().getComponentType().equals(Long.class))
+				Array.set(arrayObject, indices.get(indices.size() - 1), getLongValue(value));
+			else if (arrayObject.getClass().getComponentType().equals(Short.class))
+				Array.set(arrayObject, indices.get(indices.size() - 1), (short)getIntValue(value));
+			else if (arrayObject.getClass().getComponentType().equals(Byte.class))
+				Array.set(arrayObject, indices.get(indices.size() - 1), (byte)getIntValue(value));
 			else {
 				Array.set(arrayObject, indices.get(indices.size() - 1), value);
 			}

@@ -198,7 +198,8 @@ public class TestSuiteWriter implements Opcodes {
 		int id = insertTest(test);
 		if (testComment.containsKey(id)) {
 			if (!testComment.get(id).contains(comment))
-				testComment.put(id, testComment.get(id) + "\n   //" + comment);
+				testComment.put(id, testComment.get(id) + "\n" + METHOD_SPACE + "//"
+				        + comment);
 		} else
 			testComment.put(id, comment);
 		return id;
@@ -386,8 +387,12 @@ public class TestSuiteWriter implements Opcodes {
 	 */
 	protected String getInformation(int num) {
 
-		if (testComment.containsKey(num))
-			return testComment.get(num);
+		if (testComment.containsKey(num)) {
+			String comment = testComment.get(num);
+			if (!comment.endsWith("\n"))
+				comment = comment + "\n";
+			return comment;
+		}
 
 		TestCase test = testCases.get(num);
 		Set<TestFitnessFunction> coveredGoals = test.getCoveredGoals();
@@ -419,7 +424,7 @@ public class TestSuiteWriter implements Opcodes {
 				nr++;
 			}
 
-			builder.append("\n   */");
+			builder.append("\n   */\n");
 		}
 
 		return builder.toString();
@@ -660,7 +665,7 @@ public class TestSuiteWriter implements Opcodes {
 
 		StringBuilder builder = new StringBuilder();
 		builder.append("\n");
-		if (Properties.TEST_COMMENTS) {
+		if (Properties.TEST_COMMENTS || testComment.containsKey(id)) {
 			builder.append(METHOD_SPACE);
 			builder.append("//");
 			builder.append(getInformation(id));
@@ -714,7 +719,8 @@ public class TestSuiteWriter implements Opcodes {
 			builder.append("Future<?> future = " + EXECUTOR_SERVICE
 			        + ".submit(new Runnable(){ \n");
 			builder.append(INNER_BLOCK_SPACE);
-			builder.append("@Override \n");
+			// Doesn't seem to need override?
+			// builder.append("@Override \n");
 			builder.append(INNER_BLOCK_SPACE);
 			builder.append("public void run() { \n");
 			Set<Class<?>> exceptions = test.getDeclaredExceptions();
