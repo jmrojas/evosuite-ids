@@ -37,7 +37,7 @@ import org.junit.runner.manipulation.Filter;
  */
 public class JUnitRunner
 {
-	public static boolean debug = false;
+	public static boolean debug = true;
 
 	private static HashSet<String> testNames = new HashSet<String>();
 

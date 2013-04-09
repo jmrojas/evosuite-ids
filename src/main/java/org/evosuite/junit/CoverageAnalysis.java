@@ -139,7 +139,7 @@ public class CoverageAnalysis {
 		Collections.sort(classes, new Comparator<Class<?>>() {
 			@Override
 			public int compare(Class<?> arg0, Class<?> arg1) {
-				return Integer.valueOf(arg1.getCanonicalName().length()).compareTo(arg0.getCanonicalName().length());
+				return Integer.valueOf(arg1.getName().length()).compareTo(arg0.getName().length());
 			}
 		});
 
@@ -260,6 +260,8 @@ public class CoverageAnalysis {
 			final ZipEntry ze = (ZipEntry) e.nextElement();
 			final String fileName = ze.getName();
 			if (!fileName.endsWith(".class"))
+				continue;
+			if (fileName.contains("$")) // FIXME we want to run single inner classes?!
 				continue;
 
 			PrintStream old_out = System.out;
