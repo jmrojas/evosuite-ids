@@ -848,7 +848,8 @@ public class TestCodeVisitor extends TestVisitor {
 	}
 
 	private String getParameterString(Type[] parameterTypes,
-	        List<VariableReference> parameters, boolean isGenericMethod, int startPos) {
+	        List<VariableReference> parameters, boolean isGenericMethod,
+	        boolean isOverloaded, int startPos) {
 		String parameterString = "";
 
 		for (int i = startPos; i < parameters.size(); i++) {
@@ -870,8 +871,10 @@ public class TestCodeVisitor extends TestVisitor {
 						name = name.replace("(byte)", "");
 
 				}
-			} else if (!GenericClass.isAssignable(declaredParamType, actualParamType)
-			        || name.equals("null")) {
+			} else if(name.equals("null")) {
+				parameterString += "(" + getTypeName(declaredParamType) + ") ";
+			} else if (!GenericClass.isAssignable(declaredParamType, actualParamType)) {
+				
 				if (TypeUtils.isArrayType(declaredParamType)
 				        && TypeUtils.isArrayType(actualParamType)) {
 					Class<?> componentClass = GenericTypeReflector.erase(declaredParamType).getComponentType();
@@ -889,7 +892,7 @@ public class TestCodeVisitor extends TestVisitor {
 					} else { //if (!GenericClass.isAssignable(GenericTypeReflector.getArrayComponentType(declaredParamType), GenericTypeReflector.getArrayComponentType(actualParamType))) {
 						parameterString += "(" + getTypeName(declaredParamType) + ") ";
 					}
-				} else {
+				} else if(!(actualParamType instanceof ParameterizedType)) {
 					parameterString += "(" + getTypeName(declaredParamType) + ") ";
 				}
 				if (name.contains("(short"))
@@ -907,6 +910,11 @@ public class TestCodeVisitor extends TestVisitor {
 				} else if (parameterClass.isPrimitive()
 				        && parameters.get(i).isWrapperType()) {
 					parameterString += "(" + getTypeName(declaredParamType) + ") ";
+				} else if (isOverloaded) {
+					// If there is an overloaded method, we need to cast to make sure we use the right version
+					if (!declaredParamType.equals(actualParamType)) {
+						parameterString += "(" + getTypeName(declaredParamType) + ") ";
+					}
 				}
 			}
 
@@ -953,7 +961,8 @@ public class TestCodeVisitor extends TestVisitor {
 			result += "try {\n  ";
 
 		String parameter_string = getParameterString(method.getParameterTypes(),
-		                                             parameters, isGenericMethod, 0);
+		                                             parameters, isGenericMethod,
+		                                             method.isOverloaded(parameters), 0);
 
 		String callee_str = "";
 		if (!retval.isAssignableFrom(method.getReturnType())
@@ -968,7 +977,12 @@ public class TestCodeVisitor extends TestVisitor {
 			callee_str += getClassName(method.getMethod().getDeclaringClass());
 		} else {
 			VariableReference callee = statement.getCallee();
-			callee_str += getVariableName(callee);
+			if (callee instanceof ConstantValue) {
+				callee_str += "((" + getClassName(method.getMethod().getDeclaringClass())
+				        + ")" + getVariableName(callee) + ")";
+			} else {
+				callee_str += getVariableName(callee);
+			}
 		}
 
 		if (retval.getType() == Void.TYPE) {
@@ -1029,17 +1043,22 @@ public class TestCodeVisitor extends TestVisitor {
 		GenericConstructor constructor = statement.getConstructor();
 		VariableReference retval = statement.getReturnValue();
 		Throwable exception = getException(statement);
-		boolean isGenericMethod = constructor.hasTypeParameters();
+		boolean isGenericConstructor = constructor.hasTypeParameters();
+		boolean isNonStaticMemberClass = constructor.getConstructor().getDeclaringClass().isMemberClass()
+		        && !constructor.isStatic()
+		        && !Modifier.isStatic(constructor.getConstructor().getDeclaringClass().getModifiers());
 
 		List<VariableReference> parameters = statement.getParameterReferences();
 		int startPos = 0;
-		if (constructor.getConstructor().getDeclaringClass().isMemberClass()
-		        && !Modifier.isStatic(constructor.getDeclaringClass().getModifiers())) {
+		if (isNonStaticMemberClass) {
 			startPos = 1;
 		}
-		String parameter_string = getParameterString(constructor.getParameterTypes(),
-		                                             parameters, isGenericMethod,
-		                                             startPos);
+		Type[] parameterTypes = constructor.getParameterTypes();
+		String parameterString = getParameterString(parameterTypes,
+				parameters,
+				isGenericConstructor,
+				constructor.isOverloaded(parameters),
+				startPos);
 
 		// String result = ((Class<?>) retval.getType()).getSimpleName()
 		// +" "+getVariableName(retval)+ " = null;\n";
@@ -1057,9 +1076,7 @@ public class TestCodeVisitor extends TestVisitor {
 		} else {
 			result += getClassName(retval) + " ";
 		}
-		if (constructor.getConstructor().getDeclaringClass().isMemberClass()
-		        && !constructor.isStatic()
-		        && !Modifier.isStatic(constructor.getConstructor().getDeclaringClass().getModifiers())) {
+		if (isNonStaticMemberClass) {
 
 			result += getVariableName(retval) + " = "
 			        + getVariableName(parameters.get(0))
@@ -1070,14 +1087,14 @@ public class TestCodeVisitor extends TestVisitor {
 			        // + getTypeName(constructor.getOwnerType()) + "("
 			        + getSimpleTypeName(constructor.getOwnerType()) + "("
 			        // + getClassName(constructor.getDeclaringClass()) + "("
-			        + parameter_string + ");";
+			        + parameterString + ");";
 
 		} else {
 
 			result += getVariableName(retval) + " = new "
 			        + getTypeName(constructor.getOwnerType())
 			        // + ConstructorStatement.getReturnType(constructor.getDeclaringClass())
-			        + "(" + parameter_string + ");";
+			        + "(" + parameterString + ");";
 		}
 
 		if (exception != null) {
@@ -1137,8 +1154,8 @@ public class TestCodeVisitor extends TestVisitor {
 		if (retval.getGenericClass().isGenericArray()) {
 			if (lengths.size() > 1) {
 				multiDimensions = "new int[] {" + lengths.get(0);
-				for (int dim : lengths)
-					multiDimensions += ", " + dim;
+				for (int i = 1; i < lengths.size(); i++)
+					multiDimensions += ", " + lengths.get(i);
 				multiDimensions += "}";
 			} else {
 				multiDimensions = "" + lengths.get(0);
@@ -1146,7 +1163,7 @@ public class TestCodeVisitor extends TestVisitor {
 
 			testCode += getClassName(retval) + " " + getVariableName(retval) + " = ("
 			        + getClassName(retval) + ") " + getClassName(Array.class)
-			        + ".newInstance(" + getClassName(retval.getComponentClass())
+			        + ".newInstance(" + getClassName(retval.getComponentClass()).replaceAll("\\[\\]", "")
 			        + ".class, " + multiDimensions + ");\n";
 
 		} else {
