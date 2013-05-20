@@ -30,6 +30,7 @@ import java.util.Set;
 import org.evosuite.Properties;
 import org.evosuite.runtime.EvoSuiteFile;
 import org.evosuite.utils.GenericAccessibleObject;
+import org.evosuite.utils.GenericClass;
 import org.evosuite.utils.Randomness;
 import org.objectweb.asm.commons.GeneratorAdapter;
 
@@ -48,7 +49,7 @@ public abstract class PrimitiveStatement<T> extends AbstractStatement {
 	/**
 	 * The value
 	 */
-	T value;
+	protected T value;
 
 	/**
 	 * <p>
@@ -84,6 +85,11 @@ public abstract class PrimitiveStatement<T> extends AbstractStatement {
 		this.value = value;
 	}
 
+	public PrimitiveStatement(TestCase tc, GenericClass clazz, T value) {
+		super(tc, new VariableReferenceImpl(tc, clazz));
+		this.value = value;
+	}
+
 	/**
 	 * Access the value
 	 * 
@@ -103,6 +109,14 @@ public abstract class PrimitiveStatement<T> extends AbstractStatement {
 		this.value = val;
 	}
 
+	public boolean hasMoreThanOneValue() {
+		return true;
+	}
+
+	public static PrimitiveStatement<?> getPrimitiveStatement(TestCase tc, Class<?> clazz) {
+		return getPrimitiveStatement(tc, new GenericClass(clazz));
+	}
+
 	/**
 	 * Generate a primitive statement for given type initialized with default
 	 * value (0)
@@ -114,10 +128,12 @@ public abstract class PrimitiveStatement<T> extends AbstractStatement {
 	 * @return a {@link org.evosuite.testcase.PrimitiveStatement} object.
 	 */
 	@SuppressWarnings({ "unchecked", "rawtypes" })
-	public static PrimitiveStatement<?> getPrimitiveStatement(TestCase tc, Type clazz) {
+	public static PrimitiveStatement<?> getPrimitiveStatement(TestCase tc,
+	        GenericClass genericClass) {
 		// TODO This kills the benefit of inheritance. 
 		// Let each class implement the clone method instead
 
+		Class<?> clazz = genericClass.getRawClass();
 		PrimitiveStatement<?> statement;
 
 		if (clazz == boolean.class) {
@@ -144,6 +160,14 @@ public abstract class PrimitiveStatement<T> extends AbstractStatement {
 			// TODO: Ensure that files were accessed in the first place
 			statement = new FileNamePrimitiveStatement(tc, new EvoSuiteFile(
 			        Randomness.choice(tc.getAccessedFiles())));
+		} else if (clazz.equals(Class.class)) {
+			Type typeParameter = genericClass.getParameterTypes().get(0);
+			if (typeParameter instanceof Class<?>) {
+				statement = new ClassPrimitiveStatement(tc, (Class<?>) typeParameter);
+			} else {
+				statement = new ClassPrimitiveStatement(tc);
+			}
+
 		} else {
 			throw new RuntimeException("Getting unknown type: " + clazz + " / "
 			        + clazz.getClass());
@@ -164,8 +188,8 @@ public abstract class PrimitiveStatement<T> extends AbstractStatement {
 	 *            a int.
 	 * @return a {@link org.evosuite.testcase.PrimitiveStatement} object.
 	 */
-	public static PrimitiveStatement<?> getRandomStatement(TestCase tc, Type type,
-	        int position, Type clazz) {
+	public static PrimitiveStatement<?> getRandomStatement(TestCase tc,
+	        GenericClass clazz, int position) {
 
 		PrimitiveStatement<?> statement = getPrimitiveStatement(tc, clazz);
 		statement.randomize();
@@ -178,7 +202,7 @@ public abstract class PrimitiveStatement<T> extends AbstractStatement {
 	public StatementInterface copy(TestCase newTestCase, int offset) {
 		@SuppressWarnings("unchecked")
 		PrimitiveStatement<T> clone = (PrimitiveStatement<T>) getPrimitiveStatement(newTestCase,
-		                                                                            retval.getType());
+		                                                                            retval.getGenericClass());
 		clone.setValue(value);
 		// clone.assertions = copyAssertions(newTestCase, offset);
 		return clone;
@@ -190,8 +214,6 @@ public abstract class PrimitiveStatement<T> extends AbstractStatement {
 	        throws InvocationTargetException, IllegalArgumentException,
 	        IllegalAccessException, InstantiationException {
 
-		//		assert (retval.isPrimitive() || retval.getVariableClass().isAssignableFrom(value.getClass())) : "we want an "
-		//		        + retval.getVariableClass() + " but got an "; // + value.getClass();
 		try {
 			retval.setObject(scope, value);
 		} catch (CodeUnderTestException e) {
@@ -359,10 +381,15 @@ public abstract class PrimitiveStatement<T> extends AbstractStatement {
 	/** {@inheritDoc} */
 	@Override
 	public boolean mutate(TestCase test, TestFactory factory) {
+		if (!hasMoreThanOneValue())
+			return false;
+
 		T oldVal = value;
 
 		while (value == oldVal && value != null) {
 			if (Randomness.nextDouble() <= Properties.RANDOM_PERTURBATION) {
+				// When using TT, then an integer may represent a boolean,
+				// and we would lose "negation" as a mutation 
 				if (Properties.TT && getClass().equals(IntPrimitiveStatement.class)) {
 					if (Randomness.nextDouble() <= Properties.RANDOM_PERTURBATION) {
 						// mutateTransformedBoolean(test);
@@ -386,7 +413,7 @@ public abstract class PrimitiveStatement<T> extends AbstractStatement {
 
 	/** {@inheritDoc} */
 	@Override
-	public GenericAccessibleObject getAccessibleObject() {
+	public GenericAccessibleObject<?> getAccessibleObject() {
 		return null;
 	}
 

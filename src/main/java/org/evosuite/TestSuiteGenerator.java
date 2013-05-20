@@ -18,6 +18,8 @@
 package org.evosuite;
 
 import java.io.File;
+import java.io.IOException;
+import java.nio.charset.Charset;
 import java.text.NumberFormat;
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -25,8 +27,18 @@ import java.util.Collections;
 import java.util.HashSet;
 import java.util.Iterator;
 import java.util.List;
+import java.util.Locale;
 import java.util.Set;
 
+import javax.tools.Diagnostic;
+import javax.tools.DiagnosticCollector;
+import javax.tools.JavaCompiler;
+import javax.tools.JavaCompiler.CompilationTask;
+import javax.tools.JavaFileObject;
+import javax.tools.StandardJavaFileManager;
+import javax.tools.ToolProvider;
+
+import org.apache.commons.io.FileUtils;
 import org.evosuite.Properties.AdaptiveLocalSearchTarget;
 import org.evosuite.Properties.AssertionStrategy;
 import org.evosuite.Properties.Criterion;
@@ -37,7 +49,6 @@ import org.evosuite.assertion.CompleteAssertionGenerator;
 import org.evosuite.assertion.MutationAssertionGenerator;
 import org.evosuite.assertion.StructuredAssertionGenerator;
 import org.evosuite.assertion.UnitAssertionGenerator;
-import org.evosuite.classcreation.ClassFactory;
 import org.evosuite.contracts.ContractChecker;
 import org.evosuite.contracts.FailingTestSet;
 import org.evosuite.coverage.CoverageAnalysis;
@@ -130,7 +141,6 @@ import org.evosuite.testcase.ExecutableChromosome;
 import org.evosuite.testcase.ExecutionResult;
 import org.evosuite.testcase.ExecutionTracer;
 import org.evosuite.testcase.JUnitTestCarvedChromosomeFactory;
-import org.evosuite.testcase.JUnitTestParsedChromosomeFactory;
 import org.evosuite.testcase.RandomLengthTestFactory;
 import org.evosuite.testcase.TestCase;
 import org.evosuite.testcase.TestCaseExecutor;
@@ -155,10 +165,13 @@ import org.evosuite.testsuite.TestSuiteChromosomeFactory;
 import org.evosuite.testsuite.TestSuiteFitnessFunction;
 import org.evosuite.testsuite.TestSuiteMinimizer;
 import org.evosuite.testsuite.TestSuiteReplacementFunction;
+import org.evosuite.utils.ClassPathHacker;
 import org.evosuite.utils.LoggingUtils;
 import org.evosuite.utils.Randomness;
 import org.evosuite.utils.ResourceController;
-import org.evosuite.utils.Utils;
+import org.junit.runner.JUnitCore;
+import org.junit.runner.Result;
+import org.junit.runner.notification.Failure;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -223,8 +236,6 @@ public class TestSuiteGenerator {
 		}
 
 		TestCaseExecutor.initExecutor();
-
-		Utils.addURL(ClassFactory.getStubDir() + "/classes/");
 
 		LoggingUtils.getEvoLogger().info("* Generating tests for class "
 		                                         + Properties.TARGET_CLASS);
@@ -319,6 +330,8 @@ public class TestSuiteGenerator {
 		// progressMonitor.setCurrentPhase("Writing JUnit test cases");
 		writeJUnitTests(tests);
 
+		assert verifyCompilationAndExecution(tests);
+
 		writeObjectPool(tests);
 
 		/*
@@ -328,6 +341,175 @@ public class TestSuiteGenerator {
 		 */
 
 		return tests;
+	}
+
+	/**
+	 * <p>
+	 * The output of EvoSuite is a set of test cases. For debugging and
+	 * experiment, we usually would not write any JUnit to file. But we still
+	 * want to see if test cases can compile and execute properly. As EvoSuite
+	 * is supposed to only capture the current behavior of the SUT, all
+	 * generated test cases should pass.
+	 * </p>
+	 * 
+	 * <p>
+	 * Here we compile to a tmp folder, load and execute the test cases, and
+	 * then clean up (ie delete all generated files).
+	 * </p>
+	 * 
+	 * @param tests
+	 * @return
+	 */
+	private static boolean verifyCompilationAndExecution(List<TestCase> tests) {
+
+		if (tests == null || tests.isEmpty()) {
+			//nothing to compile or run
+			return true;
+		}
+
+		TestSuiteWriter suite = new TestSuiteWriter();
+		suite.insertTests(tests);
+
+		String name = Properties.TARGET_CLASS.substring(Properties.TARGET_CLASS.lastIndexOf(".") + 1);
+		name += "Test"; //postfix
+
+		File dir = null;
+		String dirName = FileUtils.getTempDirectoryPath() + File.separator + "EvoSuite_"
+		        + System.currentTimeMillis();
+
+		try {
+			//first create a tmp folder
+			dir = new File(dirName);
+			if (!dir.mkdir()) {
+				logger.warn("Cannot create tmp dir " + dirName);
+				return false;
+			}
+
+			//now generate the JUnit test case
+			List<File> generated = suite.writeTestSuite(name, dirName);
+			for (File file : generated) {
+				if (!file.exists()) {
+					logger.error("Supposed to generate " + file
+					        + " but it does not exist");
+					return false;
+				}
+			}
+
+			//try to compile the test cases
+			JavaCompiler compiler = ToolProvider.getSystemJavaCompiler();
+			if (compiler == null) {
+				logger.error("No Java compiler is available");
+				return false;
+			}
+
+			DiagnosticCollector<JavaFileObject> diagnostics = new DiagnosticCollector<JavaFileObject>();
+			StandardJavaFileManager fileManager = compiler.getStandardFileManager(diagnostics,
+			                                                                      Locale.getDefault(),
+			                                                                      Charset.forName("UTF-8"));
+			Iterable<? extends JavaFileObject> compilationUnits = fileManager.getJavaFileObjectsFromFiles(generated);
+
+			CompilationTask task = compiler.getTask(null, fileManager, diagnostics, null,
+			                                        null, compilationUnits);
+			boolean compiled = task.call();
+			fileManager.close();
+
+			if (!compiled) {
+				logger.error("Compilation failed on compilation units: "+compilationUnits);
+				for (Diagnostic<?> diagnostic : diagnostics.getDiagnostics()) {
+					logger.error("Diagnostic: " + diagnostic.getMessage(null) + ": "
+					        + diagnostic.getLineNumber());
+				}
+				for (JavaFileObject sourceFile : compilationUnits) {
+					List<String> lines = FileUtils.readLines(new File(
+					        sourceFile.toUri().getPath()));
+					logger.error(compilationUnits.iterator().next().toString());
+					for (int i = 0; i < lines.size(); i++) {
+						logger.error((i + 1) + ": " + lines.get(i));
+					}
+				}
+				return false;
+			}
+
+			//as last step, execute the generated/compiled test cases
+
+			ClassPathHacker.addFile(dir);
+			Class<?>[] testClasses = getClassesFromFiles(generated);
+			if (testClasses == null) {
+				return false;
+			}
+
+			JUnitCore runner = new JUnitCore();
+			Result result = runner.run(testClasses);
+			if (!result.wasSuccessful()) {
+				logger.error("" + result.getFailureCount() + " test cases failed");
+				for (Failure failure : result.getFailures()) {
+					logger.error("Failure: " + failure.getMessage());
+				}
+				return false;
+			} else {
+				/*
+				 * OK, it was successful, but was there any test case at all?
+				 * 
+				 * Here we just log (and not return false), as it might be that EvoSuite is just not able to generate
+				 * any test case for this SUT
+				 */
+				if (result.getRunCount() == 0) {
+					logger.warn("There was no test to run");
+					//return false;
+				}
+			}
+
+		} catch (IOException e) {
+			logger.error("" + e, e);
+			return false;
+		} finally {
+			//let's be sure we clean up all what we wrote on disk
+			if (dir != null) {
+				try {
+					FileUtils.deleteDirectory(dir);
+				} catch (IOException e) {
+					logger.warn("Cannot delete tmp dir: " + dirName, e);
+				}
+			}
+		}
+
+		logger.debug("Successfully compiled and run test cases generated for "
+		        + Properties.TARGET_CLASS);
+		return true;
+	}
+
+	/**
+	 * Given a list of files representing .java classes, load them (it assumes
+	 * the classpath to be correctly set)
+	 * 
+	 * @param files
+	 * @return
+	 */
+	private static Class<?>[] getClassesFromFiles(List<File> files) {
+		List<Class<?>> classes = new ArrayList<Class<?>>();
+		for (File file : files) {
+
+			//String packagePrefix = Properties.TARGET_CLASS.substring(0,Properties.TARGET_CLASS.lastIndexOf(".")+1);
+			String packagePrefix = Properties.CLASS_PREFIX;
+			if (!packagePrefix.isEmpty() && !packagePrefix.endsWith(".")) {
+				packagePrefix += ".";
+			}
+
+			final String JAVA = ".java";
+			String name = file.getName();
+			name = name.substring(0, name.length() - JAVA.length());
+			String className = packagePrefix + name;
+
+			Class<?> testClass = null;
+			try {
+				testClass = Class.forName(className);
+			} catch (ClassNotFoundException e) {
+				logger.error("Failed to load test case " + className + ": " + e, e);
+				return null;
+			}
+			classes.add(testClass);
+		}
+		return classes.toArray(new Class<?>[classes.size()]);
 	}
 
 	/**
@@ -644,8 +826,8 @@ public class TestSuiteGenerator {
 		ga.setChromosomeFactory(getChromosomeFactory(fitness_function));
 		// if (Properties.SHOW_PROGRESS && !logger.isInfoEnabled())
 		ga.addListener(progressMonitor); // FIXME progressMonitor may cause
-		                                 // client hang if EvoSuite is
-		                                 // executed with -prefix!
+		// client hang if EvoSuite is
+		// executed with -prefix!
 
 		if (Properties.CRITERION == Criterion.DEFUSE
 		        || Properties.CRITERION == Criterion.ALLDEFS
@@ -703,9 +885,9 @@ public class TestSuiteGenerator {
 			 * If the SUT is class X,
 			 * then we might get tests that call methods from Y which indirectly call X.
 			 * A unit test that only calls Y is useless
-             * but one could use the test carver to produce a test on X out of it.
+			 * but one could use the test carver to produce a test on X out of it.
 			 */
-			
+
 			// execute all tests to carve them
 			final List<TestCase> carvedTests = this.carveTests(best.getTests());
 
@@ -1573,7 +1755,7 @@ public class TestSuiteGenerator {
 				        new RandomLengthTestFactory());
 			case JUNIT:
 				logger.info("Using seeding chromosome factory");
-				return new JUnitTestParsedChromosomeFactory(new RandomLengthTestFactory());
+				return new JUnitTestCarvedChromosomeFactory(new RandomLengthTestFactory());
 			default:
 				throw new RuntimeException("Unsupported test factory: "
 				        + Properties.TEST_FACTORY);

@@ -22,7 +22,6 @@ package org.evosuite;
 
 import java.io.File;
 import java.io.IOException;
-import java.io.InputStream;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashSet;
@@ -37,6 +36,7 @@ import org.apache.commons.cli.OptionBuilder;
 import org.apache.commons.cli.Options;
 import org.apache.commons.cli.ParseException;
 import org.apache.commons.io.FileUtils;
+import org.evosuite.executionmode.Continuous;
 import org.evosuite.executionmode.Help;
 import org.evosuite.executionmode.ListClasses;
 import org.evosuite.executionmode.ListParameters;
@@ -54,11 +54,6 @@ import org.objectweb.asm.tree.ClassNode;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import ch.qos.logback.classic.LoggerContext;
-import ch.qos.logback.classic.joran.JoranConfigurator;
-import ch.qos.logback.core.joran.spi.JoranException;
-import ch.qos.logback.core.util.StatusPrinter;
-
 /**
  * <p>
  * EvoSuite class.
@@ -69,26 +64,7 @@ import ch.qos.logback.core.util.StatusPrinter;
 public class EvoSuite {
 
 	static {
-		LoggingUtils.checkAndSetLogLevel();
-		LoggerContext context = (LoggerContext) LoggerFactory.getILoggerFactory();
-		// Only overrule default configurations
-		// TODO: Find better way to allow external logback configuration
-		if (context.getName().equals("default")) {
-			try {
-				JoranConfigurator configurator = new JoranConfigurator();
-				configurator.setContext(context);
-				InputStream f = EvoSuite.class.getClassLoader().getResourceAsStream("logback-evosuite.xml");
-				if (f == null) {
-					System.err.println("logback-evosuite.xml not found on classpath");
-				}
-				context.reset();
-				configurator.doConfigure(f);
-			} catch (JoranException je) {
-				// StatusPrinter will handle this
-			}
-			StatusPrinter.printInCaseOfErrorsOrWarnings(context);
-		}
-
+		LoggingUtils.loadLogbackForEvoSuite();
 	}
 
 	private static Logger logger = LoggerFactory.getLogger(EvoSuite.class);
@@ -241,6 +217,10 @@ public class EvoSuite {
 				return ListParameters.execute();
 			}
 
+			if(line.hasOption(Continuous.NAME)){
+				return Continuous.execute(options, javaOpts, line, cp);
+			}
+			
 			return TestGeneration.executeTestGeneration(options, javaOpts, line, cp);
 
 		} catch (ParseException exp) {
@@ -255,7 +235,7 @@ public class EvoSuite {
 
 	public static boolean hasLegacyTargets() {
 		File directory = new File(Properties.OUTPUT_DIR);
-		if(!directory.exists()){
+		if (!directory.exists()) {
 			return false;
 		}
 		String[] extensions = { "task" };
@@ -318,7 +298,8 @@ public class EvoSuite {
 		Option listClasses = ListClasses.getOption();
 		Option printStats = PrintStats.getOption();
 		Option listParameters = ListParameters.getOption();
-
+		Option continuous = Continuous.getOption();
+		
 		Option[] generateOptions = TestGeneration.getOptions();
 
 		Option targetClass = new Option("class", true, "target class for test generation");
@@ -353,6 +334,7 @@ public class EvoSuite {
 			options.addOption(option);
 		}
 
+		options.addOption(continuous);
 		options.addOption(listParameters);
 		options.addOption(help);
 		options.addOption(extendSuite);

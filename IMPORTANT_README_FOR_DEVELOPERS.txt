@@ -54,11 +54,14 @@ HOW TO WRITE JUNIT TEST CASES
 Until EvoSuite will not be applicable to itself, there is the need to write manual test cases.
 They should be put in the "src/test/java" folder, following the same package structure as EvoSuite code.
 A unit test suite for SUT org.evosuite.somepackage.Foo should be called org.evosuite.somepackage.FooTest.
-This is for 3 reasons:
+This is useful for several reasons:
+- Need to know what class the test case is supposed to unit test by just looking at its name
+- Should be easy to identify if a class has a test suite for it
 - If in same package, then the test suite can access package/protected fields/methods
-- Easy to identify if a class has a test suite for it
 - Having "Test" as postfix (instead of a prefix) is useful for when searching for classes by name (eg CTRL-SHIFT-t in Eclipse)
 
+If for testing there is the need to create additional, support classes used as data input for EvoSuite,
+then those will need to be put in the com.examples.with.different.packagename package.
 
 ---------------------------------------------
 AVOID TOO LONG METHODS
@@ -73,7 +76,7 @@ WRITE COMMENTS
 
 In the ideal world, each class/method/field would have nice, detailed, appropriate code comments.
 But even in such a beautiful world, everything would go to hell at the first code change, as that might
-require changing most of the code comments.
+require manually changing most of the code comments.
 
 Cannot really quantify how much comments one should write, but at least it would be good to have:
 - brief (1-2 sentences) description of what the class is useful for (just before the class declaration) 

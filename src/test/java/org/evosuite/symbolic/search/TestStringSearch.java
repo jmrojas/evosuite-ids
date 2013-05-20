@@ -17,8 +17,10 @@
  */
 package org.evosuite.symbolic.search;
 
+import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertNotNull;
+import static org.junit.Assert.assertNull;
 import static org.junit.Assert.assertTrue;
 import static org.junit.Assert.fail;
 
@@ -301,7 +303,7 @@ public class TestStringSearch {
 	@Test
 	public void testRegionMatchesICTrueConstant() {
 		List<Constraint<?>> constraints = new ArrayList<Constraint<?>>();
-		String var1 = "fotesto";
+		String var1 = "teXto";
 		String const2 = "rtestooo";
 		boolean ignore_case = true;
 		int offset1 = 0;
@@ -311,8 +313,8 @@ public class TestStringSearch {
 		StringVariable strVar = new StringVariable("test1", var1);
 		StringConstant strConst = new StringConstant(const2);
 		IntegerConstant len_expr = new IntegerConstant(len);
-		IntegerConstant offs_two = new IntegerConstant(offset2);
 		IntegerConstant offs_one = new IntegerConstant(offset1);
+		IntegerConstant offs_two = new IntegerConstant(offset2);
 		IntegerConstant ign_case = new IntegerConstant(ignore_case ? 1 : 0);
 
 		ArrayList<Expression<?>> other = new ArrayList<Expression<?>>();
@@ -380,6 +382,71 @@ public class TestStringSearch {
 		}
 	}
 
+	
+	@Test
+	public void testInversionOfRegex() {
+		List<Constraint<?>> constraints = new ArrayList<Constraint<?>>();
+		
+		String var = "a+";
+		String regex = "aaa";
+		
+		//so we need to solve it
+		assertFalse(var.matches(regex));
+		
+		String variableName = "test1";
+		
+		StringVariable strVar = new StringVariable(variableName, var);
+		StringConstant strConst = new StringConstant(regex);
+		
+		StringBinaryComparison strComp = new StringBinaryComparison(strConst,
+				Operator.PATTERNMATCHES, strVar, 0L);
+		
+		//the constraint should evaluate to true
+		constraints.add(new StringConstraint(strComp, Comparator.NE,
+				new IntegerConstant(0)));
+
+		ConstraintSolver skr = new ConstraintSolver();
+		Map<String, Object> result;
+		try {
+			result = skr.solve(constraints);
+			assertNotNull(result);
+			assertNotNull(result.get(variableName));
+			String solution = result.get(variableName).toString();
+			assertTrue(solution.matches(regex));
+			/*
+			 * as the regex defines only one possible matching string,
+			 * then the solution has to be equal to the regex 
+			 */
+			assertEquals(regex,solution);
+		} catch (ConstraintSolverTimeoutException e) {
+			fail();
+		}
+		
+		//now let's invert them
+		strVar = new StringVariable(variableName, regex);
+		strConst = new StringConstant(var);
+		
+		//the inversion should match immediately
+		assertTrue(regex.matches(var));
+		
+		//recreate the same type of constraint
+		strComp = new StringBinaryComparison(strConst,Operator.PATTERNMATCHES, strVar, 0L);
+		constraints.clear();
+		constraints.add(new StringConstraint(strComp, Comparator.NE,
+				new IntegerConstant(0)));
+		
+		try {
+			result = skr.solve(constraints);
+			/*
+			 * as "aaa" should already match "a+", then the solver
+			 * should return null
+			 */
+			assertNull(result);			
+		} catch (ConstraintSolverTimeoutException e) {
+			fail();
+		}
+	}
+	
 	@Test
 	public void testRegexMatchesTrue() {
 		List<Constraint<?>> constraints = new ArrayList<Constraint<?>>();
@@ -501,8 +568,8 @@ public class TestStringSearch {
 	@Test
 	public void testRegexMatchesFalse() {
 		List<Constraint<?>> constraints = new ArrayList<Constraint<?>>();
-		String var1 = "test";
-		String const2 = "TEST";
+		String var1 = "testsomestring";
+		String const2 = "testsomestring";
 		StringVariable strVar = new StringVariable("test1", var1);
 		StringConstant strConst = new StringConstant(const2);
 		StringBinaryComparison strComp = new StringBinaryComparison(strVar,
@@ -552,6 +619,7 @@ public class TestStringSearch {
 
 	@Test
 	public void testIndexOfC2() {
+		
 		String var1value = ":cc]#0l";
 		StringVariable var1 = new StringVariable("var0", var1value);
 
@@ -564,6 +632,10 @@ public class TestStringSearch {
 		StringBinaryToIntegerExpression index_of_numeral = new StringBinaryToIntegerExpression(
 				var1, Operator.INDEXOFC, numeral_code, -1L);
 
+		/*
+		 * Here we are trying to modify the string such that the
+		 * first '#' comes before the first ':', and both are present
+		 */
 		IntegerConstraint constr1 = new IntegerConstraint(index_of_colon,
 				Comparator.NE, minus_one);
 		IntegerConstraint constr2 = new IntegerConstraint(index_of_numeral,
@@ -577,9 +649,19 @@ public class TestStringSearch {
 		constraints.add(constr3);
 
 		ConstraintSolver solver = new ConstraintSolver();
-		Map<String, Object> solution;
+		Map<String, Object> solution = null;
 		try {
-			solution = solver.solve(constraints);
+			/*
+			 * The constraint is not trivial, as there are search plateaus.
+			 * So it is ok if sometimes it fails (tried 10 times, failed 3).
+			 */
+			final int TRIES = 20;
+			for(int i=0; i<TRIES; i++){
+				solution = solver.solve(constraints);
+				if(solution!=null){
+					break;
+				}
+			}
 			assertNotNull(solution);
 			String result = solution.get("var0").toString();
 			int colonPos = result.indexOf(':');

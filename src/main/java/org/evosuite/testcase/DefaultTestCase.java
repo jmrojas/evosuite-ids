@@ -42,6 +42,8 @@ import org.evosuite.utils.Randomness;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import com.googlecode.gentyref.GenericTypeReflector;
+
 /**
  * A test case is a list of statements
  * 
@@ -168,7 +170,20 @@ public class DefaultTestCase implements TestCase, Serializable {
 			if (value == null)
 				continue;
 			if (value instanceof ArrayReference) {
-				if (value.isAssignableTo(type)) {
+
+				// For some reason, TypeUtils/ClassUtils sometimes claims
+				// that an array is assignable to its component type
+				// TODO: Fix
+				boolean isClassUtilsBug = false;
+				if (value.isArray()) {
+					Class<?> rawClass = GenericTypeReflector.erase(type);
+					if (value.getComponentClass().equals(rawClass))
+						isClassUtilsBug = true;
+				}
+
+				if (value.isAssignableTo(type) && !isClassUtilsBug) {
+					logger.debug("Array is assignable: " + value.getType() + " to "
+					        + type);
 					variables.add(value);
 				} else if (GenericClass.isAssignable(type, value.getComponentType())) {
 					/*

@@ -79,6 +79,9 @@ public class DependencyAnalysis {
 		logger.debug("Calculate inheritance hierarchy");		
 		inheritanceTree = InheritanceTreeGenerator.analyze(classPath);
 		InheritanceTreeGenerator.gatherStatistics(inheritanceTree);
+		if(!inheritanceTree.hasClass(Properties.TARGET_CLASS)) {
+			throw new ClassNotFoundException("Target class not found in inheritance tree");
+		}
 
 		logger.debug("Calculate call tree");
 		callTree = CallTreeGenerator.analyze(className);
@@ -90,7 +93,8 @@ public class DependencyAnalysis {
 		CallTreeGenerator.update(callTree, inheritanceTree);
 
 		logger.debug("Create test cluster");
-		TestClusterGenerator.generateCluster(className, inheritanceTree, callTree);
+		TestClusterGenerator clusterGenerator = new TestClusterGenerator();
+		clusterGenerator.generateCluster(className, inheritanceTree, callTree);
 		
 		gatherStatistics();
 	}

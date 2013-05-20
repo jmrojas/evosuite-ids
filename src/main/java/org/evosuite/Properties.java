@@ -34,6 +34,7 @@ import java.util.HashSet;
 import java.util.Map;
 import java.util.Set;
 
+import org.evosuite.continuous.job.JobScheduler.AvailableSchedule;
 import org.evosuite.utils.LoggingUtils;
 import org.evosuite.utils.Utils;
 import org.slf4j.Logger;
@@ -115,7 +116,8 @@ public class Properties {
 	public static boolean STATIC_HACK = false;
 
 	/**
-	 * TODO: this option is off by default because still experimental and not fully tested
+	 * TODO: this option is off by default because still experimental and not
+	 * fully tested
 	 */
 	@Parameter(key = "test_carving", group = "Test Creation", description = "Enable test carving")
 	public static boolean TEST_CARVING = false;
@@ -148,7 +150,7 @@ public class Properties {
 	/** Constant <code>DYNAMIC_POOL_SIZE=50</code> */
 	@Parameter(key = "dynamic_pool_size", group = "Test Creation", description = "Number of dynamic constants to keep")
 	public static int DYNAMIC_POOL_SIZE = 50;
-	
+
 	@Parameter(key = "p_special_type_call", group = "Test Creation", description = "Probability of using a non-standard call on a special case (collection/numeric)")
 	public static double P_SPECIAL_TYPE_CALL = 0.05;
 
@@ -156,12 +158,12 @@ public class Properties {
 	@Parameter(key = "object_pool", group = "Test Creation", description = "Probability to use a predefined sequence from the pool rather than a random generator")
 	@DoubleValue(min = 0.0, max = 1.0)
 	public static double OBJECT_POOL = 0.0;
-	
+
 	@Parameter(key = "seed_types", group = "Test Creation", description = "Use type information gathered from casts to instantiate generics")
 	public static boolean SEED_TYPES = true;
-	
-	@Parameter(key = "max_generic_depth", group = "Test Creation", description ="Maximum level of nesting for generic types")
-	public static int MAX_GENERIC_DEPTH = 2;
+
+	@Parameter(key = "max_generic_depth", group = "Test Creation", description = "Maximum level of nesting for generic types")
+	public static int MAX_GENERIC_DEPTH = 1;
 
 	/** Constant <code>STRING_LENGTH=20</code> */
 	@Parameter(key = "string_length", group = "Test Creation", description = "Maximum length of randomly generated strings")
@@ -526,6 +528,28 @@ public class Properties {
 	@Parameter(key = "analysis_criteria", group = "Output", description = "List of criteria which should be measured on the completed test suite")
 	public static String ANALYSIS_CRITERIA = "";
 
+	
+	//----------------------------------------------------------------
+	// Continuous Test Generation
+	
+	@Parameter(key = "ctg_memory", group = "Continuous Test Generation", description = "Total Memory (in MB) that CTG will use")
+	public static int CTG_MEMORY = 1000;
+
+	@Parameter(key = "ctg_cores", group = "Continuous Test Generation", description = "Number of cores CTG will use")
+	public static int CTG_CORES = 1;
+
+	@Parameter(key = "ctg_time", group = "Continuous Test Generation", description = "How many minutes in total CTG will run")
+	public static int CTG_TIME = 2;
+
+	/*
+	 * FIXME choose best schedule for default
+	 * Note: most likely we ll use this parameter only for testing/experiments.
+	 * Maven plugin will use the default, best one
+	 */
+	@Parameter(key = "ctg_schedule", group = "Continuous Test Generation", description = "Schedule used to run jobs")
+	public static AvailableSchedule CTG_SCHEDULE = AvailableSchedule.SIMPLE; 
+
+		
 	// ---------------------------------------------------------------
 	// Single branch mode
 	/** Constant <code>RANDOM_TESTS=0</code> */
@@ -599,7 +623,7 @@ public class Properties {
 	public static boolean LOG_GOALS = false;
 
 	@Parameter(key = "log.level", group = "Output", description = "Verbosity level of logger")
-	public static String LOG_LEVEL = "warn";
+	public static String LOG_LEVEL = null;
 
 	@Parameter(key = "log.target", group = "Output", description = "Target logger - all logging if not set")
 	public static String LOG_TARGET = null;
@@ -742,10 +766,6 @@ public class Properties {
 	@Parameter(key = "filter_sandbox_tests", group = "Sandbox", description = "Drop tests that require the sandbox")
 	public static boolean FILTER_SANDBOX_TESTS = false;
 
-	/** Constant <code>MOCKS=false</code> */
-	@Parameter(key = "mocks", group = "Sandbox", description = "Usage of the mocks for the IO, Network etc")
-	public static boolean MOCKS = false;
-
 	/** Constant <code>VIRTUAL_FS=false</code> */
 	@Parameter(key = "virtual_fs", group = "Sandbox", description = "Usage of ram fs")
 	public static boolean VIRTUAL_FS = false;
@@ -754,23 +774,12 @@ public class Properties {
 	@Parameter(key = "restricted_read", group = "Sandbox", description = "Determines if the VFS shall only be allowed to read files from the sandbox read folder")
 	public static boolean READ_ONLY_FROM_SANDBOX_FOLDER = false;
 
-	/** Constant <code>MOCK_STRATEGIES="{  }"</code> */
-	@Parameter(key = "mock_strategies", group = "Sandbox", description = "Which mocking strategy should be applied")
-	public static String[] MOCK_STRATEGIES = { "" };
-
 	/** Constant <code>SANDBOX_FOLDER="evosuite-sandbox"</code> */
 	@Parameter(key = "sandbox_folder", group = "Sandbox", description = "Folder used for IO, when mocks are enabled")
 	public static String SANDBOX_FOLDER = "evosuite-sandbox";
 
-	/** Constant <code>STUBS=false</code> */
-	@Parameter(key = "stubs", group = "Sandbox", description = "Stub generation for abstract classes")
-	public static boolean STUBS = false;
-
 	// ---------------------------------------------------------------
 	// Experimental
-	/** Constant <code>CALCULATE_CLUSTER=false</code> */
-	@Parameter(key = "calculate_cluster", description = "Automatically calculate test cluster during setup")
-	public static boolean CALCULATE_CLUSTER = false;
 
 	@Parameter(key = "cluster_recursion", description = "The maximum level of recursion when calculating the dependencies in the test cluster")
 	public static int CLUSTER_RECURSION = 10;
@@ -837,7 +846,7 @@ public class Properties {
 
 	@Parameter(key = "selected_junit", description = "List of fully qualified class names (separated by ':') indicating which JUnit test suites the user has selected (e.g., for seeding)")
 	public static String SELECTED_JUNIT = null;
-	
+
 	/** Constant <code>JUNIT_STRICT=false</code> */
 	@Parameter(key = "junit_strict", description = "Only include test files containing the target classname")
 	public static boolean JUNIT_STRICT = false;
@@ -1095,7 +1104,7 @@ public class Properties {
 
 	/** Constant <code>CLIENT_ON_THREAD=false</code> */
 	@Parameter(key = "client_on_thread", group = "Runtime", description = "Run client process on same JVM of master in separate thread. To be used only for debugging purposes")
-	public static boolean CLIENT_ON_THREAD = false;
+	public static volatile boolean CLIENT_ON_THREAD = false;
 
 	// ---------------------------------------------------------------
 	// Seeding test cases
@@ -1694,6 +1703,10 @@ public class Properties {
 		reflectMap();
 		if (loadProperties)
 			loadProperties(silent);
+		setClassPrefix();
+	}
+	
+	private static void setClassPrefix() {
 		if (TARGET_CLASS != null && !TARGET_CLASS.equals("")) {
 			if (TARGET_CLASS.contains(".")) {
 				CLASS_PREFIX = TARGET_CLASS.substring(0, TARGET_CLASS.lastIndexOf('.'));
@@ -1707,7 +1720,7 @@ public class Properties {
 				// LoggingUtils.getEvoLogger().info("* Using project prefix: "
 				// + PROJECT_PREFIX);
 			}
-		}
+		}		
 	}
 
 	/**
@@ -1725,6 +1738,7 @@ public class Properties {
 		try {
 			TARGET_CLASS_INSTANCE = Class.forName(TARGET_CLASS, true,
 			                                      TestGenerationContext.getClassLoader());
+			setClassPrefix();
 
 		} catch (ClassNotFoundException e) {
 			LoggingUtils.getEvoLogger().info("* Could not find class under test: "
@@ -1853,7 +1867,4 @@ public class Properties {
 		}
 	}
 
-	static {
-		LoggingUtils.checkAndSetLogLevel();
-	}
 }

@@ -143,8 +143,9 @@ public class EnumPrimitiveStatement<T extends Enum<T>> extends PrimitiveStatemen
 	/** {@inheritDoc} */
 	@Override
 	public void delta() {
-		if (constants.length == 0)
+		if (constants.length <= 1) {
 			return;
+		}
 
 		int pos = 0;
 		for (pos = 0; pos < constants.length; pos++) {
@@ -163,7 +164,16 @@ public class EnumPrimitiveStatement<T extends Enum<T>> extends PrimitiveStatemen
 		} else if (pos < 0) {
 			pos = constants.length - 1;
 		}
+
 		value = constants[pos];
+	}
+
+	/* (non-Javadoc)
+	 * @see org.evosuite.testcase.PrimitiveStatement#hasMoreThanOneValue()
+	 */
+	@Override
+	public boolean hasMoreThanOneValue() {
+		return constants.length > 1;
 	}
 
 	/* (non-Javadoc)
@@ -216,7 +226,8 @@ public class EnumPrimitiveStatement<T extends Enum<T>> extends PrimitiveStatemen
 
 			enumClass = (Class<T>) loader.loadClass(enumClass.getName());
 			constants = enumClass.getEnumConstants();
-			value = constants[pos];
+			if(constants.length > 0)
+				value = constants[pos];
 		} catch (ClassNotFoundException e) {
 			logger.warn("Class not found - keeping old class loader ", e);
 		} catch (SecurityException e) {

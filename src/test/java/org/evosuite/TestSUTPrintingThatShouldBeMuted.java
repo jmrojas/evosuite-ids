@@ -20,6 +20,7 @@ package org.evosuite;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.io.PrintStream;
+import java.security.Permission;
 
 import org.evosuite.EvoSuite;
 import org.evosuite.Properties;
@@ -62,11 +63,13 @@ public class TestSUTPrintingThatShouldBeMuted extends SystemTest{
 		
 		Properties.TIMEOUT = 300;
 		
+		//Properties.PRINT_TO_SYSTEM = true;
+		
 		String[] command = new String[]{				
 				"-generateSuite",
 				"-class",
-				targetClass,
-				"-Dprint_to_system=true"
+				targetClass
+				,"-Dprint_to_system=true" 
 		};
 		
 		evosuite.parseCommandLine(command);
@@ -75,12 +78,13 @@ public class TestSUTPrintingThatShouldBeMuted extends SystemTest{
 		Assert.assertTrue("PRINTED:\n"+printed,printed.contains("Starting client"));
 		Assert.assertTrue("PRINTED:\n"+printed,printed.contains(msgSUT));		
 
+		//Properties.PRINT_TO_SYSTEM = false;
 		
 		command = new String[]{				
 				"-generateSuite",
 				"-class",
-				targetClass,
-				"-Dprint_to_system=false"
+				targetClass
+				, "-Dprint_to_system=false" 
 		};
 		
 		byteStream.reset();
@@ -94,7 +98,7 @@ public class TestSUTPrintingThatShouldBeMuted extends SystemTest{
 	
 	
 	@Test
-	public void testBase() throws IOException{		
+	public void testBase() throws IOException{	
 		checkIfMuted(PrintingThatShouldBeMuted.class.getCanonicalName(),"Greater");
 	}
 

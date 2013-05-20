@@ -1,13 +1,11 @@
 package com.examples.with.different.packagename.testcarver;
 
-import static org.junit.Assert.*;
 import org.junit.Assert;
-
 import org.junit.Test;
 
 public class ObjectWrapperSequenceTest {
 
-	public static class Foo{
+	public static class Foo {
 		private int x = 0;
 
 		public int getX() {
@@ -18,16 +16,16 @@ public class ObjectWrapperSequenceTest {
 			this.x = x;
 		}
 	}
-	
+
 	@Test
 	public void test() {
 		int x = 42;
 		Foo foo = new Foo();
 		foo.setX(x);
-		
+
 		ObjectWrapper wrapper = new ObjectWrapper();
 		wrapper.set(foo);
-		Assert.assertEquals(42,((Foo)wrapper.get()).getX());
+		Assert.assertEquals(42, ((Foo) wrapper.get()).getX());
 	}
 
 }

@@ -13,6 +13,7 @@ import org.evosuite.graphs.cfg.BytecodeInstructionPool;
 import org.evosuite.graphs.cfg.CFGMethodAdapter;
 import org.evosuite.instrumentation.InstrumentingClassLoader;
 import org.evosuite.primitives.ConstantPoolManager;
+import org.evosuite.setup.CastClassManager;
 import org.evosuite.setup.DependencyAnalysis;
 import org.evosuite.setup.TestCluster;
 import org.evosuite.setup.TestClusterGenerator;
@@ -66,6 +67,7 @@ public class TestGenerationContext {
 
 		// TODO: Clear only pool of current classloader?
 		GraphPool.clearAll();
+		DefUsePool.clear();
 
 		// TODO: This is not nice
 		CFGMethodAdapter.methods.clear();
@@ -75,6 +77,7 @@ public class TestGenerationContext {
 
 		// TODO: After this, the test cluster is empty until DependencyAnalysis.analyse is called
 		TestCluster.reset();
+		CastClassManager.getInstance().clear();
 
 		// This counts the current level of recursion during test generation
 		org.evosuite.testcase.TestFactory.getInstance().reset();
@@ -91,11 +94,11 @@ public class TestGenerationContext {
 		ConstantPoolManager.getInstance().reset();
 
 		if (Properties.CRITERION == Properties.Criterion.DEFUSE) {
-			DefUsePool.clear();
 			try {
-				TestClusterGenerator.generateCluster(Properties.TARGET_CLASS,
-				                                     DependencyAnalysis.getInheritanceTree(),
-				                                     DependencyAnalysis.getCallTree());
+				TestClusterGenerator clusterGenerator = new TestClusterGenerator();
+				clusterGenerator.generateCluster(Properties.TARGET_CLASS,
+						DependencyAnalysis.getInheritanceTree(),
+						DependencyAnalysis.getCallTree());
 			} catch (RuntimeException e) {
 				// TODO Auto-generated catch block
 				e.printStackTrace();

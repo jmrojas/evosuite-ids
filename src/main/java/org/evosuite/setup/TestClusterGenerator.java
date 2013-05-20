@@ -34,18 +34,16 @@ import java.util.LinkedHashSet;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
+import java.util.Map.Entry;
 import java.util.Queue;
 import java.util.Set;
 import java.util.TreeMap;
-import java.util.Map.Entry;
 
 import org.evosuite.Properties;
 import org.evosuite.Properties.Criterion;
 import org.evosuite.TestGenerationContext;
-import org.evosuite.coverage.branch.BranchPool;
-import org.evosuite.graphs.cfg.BytecodeInstructionPool;
-import org.evosuite.graphs.cfg.CFGMethodAdapter;
 import org.evosuite.instrumentation.BooleanTestabilityTransformation;
+import org.evosuite.primitives.ConstantPoolManager;
 import org.evosuite.rmi.ClientServices;
 import org.evosuite.runtime.FileSystem;
 import org.evosuite.utils.GenericAccessibleObject;
@@ -53,7 +51,6 @@ import org.evosuite.utils.GenericClass;
 import org.evosuite.utils.GenericConstructor;
 import org.evosuite.utils.GenericField;
 import org.evosuite.utils.GenericMethod;
-import org.evosuite.utils.LoggingUtils;
 import org.evosuite.utils.Utils;
 import org.junit.Test;
 import org.objectweb.asm.Type;
@@ -80,7 +77,7 @@ public class TestClusterGenerator {
 	 *            a {@link java.lang.String} object.
 	 * @return a boolean.
 	 */
-	public static boolean checkIfCanUse(String className) {
+	public boolean checkIfCanUse(String className) {
 		for (String s : classExceptions) {
 			if (className.startsWith(s)) {
 				return false;
@@ -89,28 +86,18 @@ public class TestClusterGenerator {
 		return true;
 	}
 
-	public static void resetCluster() throws RuntimeException, ClassNotFoundException {
-		BytecodeInstructionPool.clearAll();
-		BranchPool.clear();
-		CFGMethodAdapter.methods.clear();
-		TestCluster.reset();
-		generateCluster(Properties.TARGET_CLASS, TestCluster.getInheritanceTree(),
-		                DependencyAnalysis.getCallTree());
-	}
+	private final Set<GenericAccessibleObject<?>> dependencyCache = new LinkedHashSet<GenericAccessibleObject<?>>();
 
-	private static Set<GenericAccessibleObject> dependencyCache = new LinkedHashSet<GenericAccessibleObject>();
+	private final Set<GenericClass> genericCastClasses = new LinkedHashSet<GenericClass>();
 
-	private static Set<GenericClass> genericCastClasses = new LinkedHashSet<GenericClass>();
+	private final Set<Class<?>> concreteCastClasses = new LinkedHashSet<Class<?>>();
 
-	private static Set<Class<?>> concreteCastClasses = new LinkedHashSet<Class<?>>();
+	private final Set<Class<?>> containerClasses = new LinkedHashSet<Class<?>>();
 
-	private static Set<Class<?>> containerClasses = new LinkedHashSet<Class<?>>();
-	
-	public static void generateCluster(String targetClass,
-	        InheritanceTree inheritanceTree, CallTree callTree) throws RuntimeException,
-	        ClassNotFoundException {
+	public void generateCluster(String targetClass, InheritanceTree inheritanceTree,
+	        CallTree callTree) throws RuntimeException, ClassNotFoundException {
 
-		TestClusterGenerator.inheritanceTree = inheritanceTree;
+		this.inheritanceTree = inheritanceTree;
 		TestCluster.setInheritanceTree(inheritanceTree);
 
 		if (Properties.INSTRUMENT_CONTEXT || Properties.CRITERION == Criterion.DEFUSE) {
@@ -134,7 +121,7 @@ public class TestClusterGenerator {
 		 * to load it again (which would result in extra unnecessary logging)
 		 */
 		Set<String> blackList = new LinkedHashSet<String>();
-		initBlackListWithPrimitives(blackList);
+		initBlackListWithEvoSuitePrimitives(blackList);
 
 		logger.info("Handling cast classes");
 		handleCastClasses();
@@ -152,31 +139,41 @@ public class TestClusterGenerator {
 		gatherStatistics();
 	}
 
-	private static void handleCastClasses() {
+	private void handleCastClasses() {
 		// If we include type seeding, then we analyze classes to find types in instanceof and cast instructions
-		if(Properties.SEED_TYPES) {
-			Set<String> blackList = new LinkedHashSet<String>();		
+		if (Properties.SEED_TYPES) {
+			Set<String> blackList = new LinkedHashSet<String>();
 			initBlackListWithPrimitives(blackList);
 
 			Set<String> classNames = new LinkedHashSet<String>();
-			classNames.add("java.lang.Object");
-			classNames.add("java.lang.String");
+			//classNames.add("java.lang.Object");
+			//classNames.add("java.lang.String");
+			//classNames.add("java.lang.Integer");
 
-			for(Entry<Type, Integer> castEntry : CallTreeGenerator.castClassMap.entrySet()) {
-				CastClassManager.getInstance().addCastClass(castEntry.getKey().getClassName(), castEntry.getValue());
-				classNames.add(castEntry.getKey().getClassName());
+			CastClassAnalyzer analyzer = new CastClassAnalyzer();
+			Map<Type, Integer> castMap = analyzer.analyze(Properties.TARGET_CLASS);
+
+			for (Entry<Type, Integer> castEntry : castMap.entrySet()) {
+				String className = castEntry.getKey().getClassName();
+				if (blackList.contains(className))
+					continue;
+
+				if (addCastClassDependencyIfAccessible(className, blackList)) {
+					CastClassManager.getInstance().addCastClass(className,
+					                                            castEntry.getValue());
+					classNames.add(castEntry.getKey().getClassName());
+				}
 			}
 
 			// If SEED_TYPES is false, only Object is a cast class
-			logger.info("Handling cast classes");
-			addCastClasses(classNames, blackList);
-		
+			// logger.info("Handling cast classes");
+			// addCastClasses(classNames, blackList);
+			logger.debug("Cast classes used: "+classNames);
 		}
 
 	}
-	
-	
-	private static void gatherStatistics() {
+
+	private void gatherStatistics() {
 		ClientServices.getInstance().getClientNode().trackOutputVariable("analyzed_classes",
 		                                                                 analyzedClasses.size());
 		ClientServices.getInstance().getClientNode().trackOutputVariable("generators",
@@ -185,7 +182,7 @@ public class TestClusterGenerator {
 		                                                                 TestCluster.getInstance().getModifiers().size());
 	}
 
-	private static void initBlackListWithPrimitives(Set<String> blackList)
+	private void initBlackListWithEvoSuitePrimitives(Set<String> blackList)
 	        throws NullPointerException {
 		blackList.add("int");
 		blackList.add("short");
@@ -197,41 +194,61 @@ public class TestClusterGenerator {
 		blackList.add("long");
 		blackList.add("java.lang.Enum");
 		blackList.add("java.lang.String");
+		blackList.add("java.lang.Class");
 	}
 
-	private static void addCastClasses(Set<String> castClasses, Set<String> blackList) {
-		logger.info("Cast classes: " + castClasses);
-		for (String className : castClasses) {
-			if (blackList.contains(className) && !className.equals("java.lang.String")) {
-				logger.info("Cast class in blacklist: " + className);
-				continue;
-			}
-			try {
-				Class<?> clazz = TestGenerationContext.getClassLoader().loadClass(className);
-				boolean added = addDependencyClass(new GenericClass(clazz), 1);
-				genericCastClasses.add(new GenericClass(clazz));
-				concreteCastClasses.add(clazz);
-				if (!added) {
-					blackList.add(className);
-				}
-			} catch (ClassNotFoundException e) {
-				logger.error("Problem for " + Properties.TARGET_CLASS
-				        + ". Class not found", e);
-				blackList.add(className);
-			}
+	private void initBlackListWithPrimitives(Set<String> blackList)
+	        throws NullPointerException {
+		blackList.add("int");
+		blackList.add("short");
+		blackList.add("float");
+		blackList.add("double");
+		blackList.add("byte");
+		blackList.add("char");
+		blackList.add("boolean");
+		blackList.add("long");
+	}
+
+	private boolean addCastClassDependencyIfAccessible(String className,
+	        Set<String> blackList) {
+		if(className.equals("java.lang.String"))
+			return true;
+		
+		if (blackList.contains(className)) {
+			logger.info("Cast class in blacklist: " + className);
+			return false;
 		}
-		logger.info("Generic cast classes: " + genericCastClasses);
-
+		try {
+			Class<?> clazz = TestGenerationContext.getClassLoader().loadClass(className);
+			if (!canUse(clazz)) {
+				logger.debug("Cannot use cast class: "+className);
+				return false;
+			}
+			// boolean added = 
+			addDependency(new GenericClass(clazz), 1);
+			genericCastClasses.add(new GenericClass(clazz));
+			concreteCastClasses.add(clazz);
+			//if (!added) {
+			blackList.add(className);
+			return true;
+			//}
+		} catch (ClassNotFoundException e) {
+			logger.error("Problem for " + Properties.TARGET_CLASS + ". Class not found",
+			             e);
+			blackList.add(className);
+			return false;
+		}
 	}
-	
+
 	/**
-	 * Update 
+	 * Update
+	 * 
 	 * @param clazz
 	 */
-	public static void addCastClassForContainer(Class<?> clazz) {
-		if(concreteCastClasses.contains(clazz))
-			return ;
-		
+	public void addCastClassForContainer(Class<?> clazz) {
+		if (concreteCastClasses.contains(clazz))
+			return;
+
 		concreteCastClasses.add(clazz);
 		// TODO: What if this is generic again?
 		genericCastClasses.add(new GenericClass(clazz));
@@ -243,7 +260,7 @@ public class TestClusterGenerator {
 	/**
 	 * Continue adding generators for classes that are needed
 	 */
-	private static void resolveDependencies(Set<String> blackList) {
+	private void resolveDependencies(Set<String> blackList) {
 		while (!dependencies.isEmpty()) {
 			logger.debug("Dependencies left: " + dependencies.size());
 
@@ -272,8 +289,8 @@ public class TestClusterGenerator {
 				}
 			} else
 			*/
-				added = addDependencyClass(dependency.getDependencyClass(),
-				                           dependency.getRecursion());
+			added = addDependencyClass(dependency.getDependencyClass(),
+			                           dependency.getRecursion());
 			if (!added) {
 				blackList.add(className);
 			}
@@ -282,7 +299,7 @@ public class TestClusterGenerator {
 
 	}
 
-	public static List<List<GenericClass>> getAssignableTypes(GenericClass clazz) {
+	public List<List<GenericClass>> getAssignableTypes(GenericClass clazz) {
 		List<List<GenericClass>> tuples = new ArrayList<List<GenericClass>>();
 		//logger.info("Parameters of " + clazz.getSimpleName() + ": "
 		//        + clazz.getNumParameters());
@@ -311,7 +328,7 @@ public class TestClusterGenerator {
 		return tuples;
 	}
 
-	private static List<GenericClass> getAssignableTypes(java.lang.reflect.Type type) {
+	private List<GenericClass> getAssignableTypes(java.lang.reflect.Type type) {
 		List<GenericClass> types = new ArrayList<GenericClass>();
 		for (GenericClass clazz : genericCastClasses) {
 			if (clazz.isAssignableTo(type)) {
@@ -330,7 +347,7 @@ public class TestClusterGenerator {
 	 * @param targetClass
 	 */
 	@SuppressWarnings("unchecked")
-	private static void initializeTargetMethods() throws RuntimeException,
+	private void initializeTargetMethods() throws RuntimeException,
 	        ClassNotFoundException {
 		if (Properties.VIRTUAL_FS) {
 			/*
@@ -361,7 +378,7 @@ public class TestClusterGenerator {
 		}
 		if (Modifier.isAbstract(targetClass.getModifiers())) {
 			logger.info("SUT is an abstract class");
-			Set<Class<?>> subclasses = getConcreteClasses(targetClass);
+			Set<Class<?>> subclasses = getConcreteClasses(targetClass, inheritanceTree);
 			logger.info("Found " + subclasses.size() + " concrete subclasses");
 			targetClasses.addAll(subclasses);
 		}
@@ -377,7 +394,13 @@ public class TestClusterGenerator {
 				        + "," + icn.outerName);
 				String innerClassName = Utils.getClassNameFromResourcePath(icn.name);
 				Class<?> innerClass = TestGenerationContext.getClassLoader().loadClass(innerClassName);
-				if (!targetClasses.contains(innerClass)) {
+				if (!canUse(innerClass))
+					continue;
+
+				// Sometimes strange things appear such as Map$Entry
+				if (!targetClasses.contains(innerClass)
+				        && innerClassName.matches(".*\\$\\d+$")) {
+
 					logger.info("Adding inner class " + innerClassName);
 					targetClasses.add(innerClass);
 					ClassNode innerClassNode = DependencyAnalysis.getClassNode(innerClassName);
@@ -393,6 +416,11 @@ public class TestClusterGenerator {
 
 		for (Class<?> clazz : targetClasses) {
 			logger.info("Current SUT class: " + clazz);
+
+			if (!canUse(clazz)) {
+				logger.info("Cannot access SUT class: " + clazz);
+				continue;
+			}
 
 			// Add all constructors
 			for (Constructor<?> constructor : getConstructors(clazz)) {
@@ -415,7 +443,8 @@ public class TestClusterGenerator {
 					        constructor, clazz);
 					cluster.addTestCall(genericConstructor);
 					// TODO: Add types!
-					cluster.addGenerator(new GenericClass(clazz), genericConstructor);
+					cluster.addGenerator(new GenericClass(clazz).getWithWildcardTypes(),
+					                     genericConstructor);
 					addDependencies(genericConstructor, 1);
 					logger.debug("Keeping track of "
 					        + constructor.getDeclaringClass().getName()
@@ -450,13 +479,15 @@ public class TestClusterGenerator {
 
 					GenericMethod genericMethod = new GenericMethod(method, clazz);
 					cluster.addTestCall(genericMethod);
-					cluster.addModifier(new GenericClass(clazz), genericMethod);
+					cluster.addModifier(new GenericClass(clazz).getWithWildcardTypes(),
+					                    genericMethod);
 					addDependencies(genericMethod, 1);
 					GenericClass retClass = new GenericClass(method.getReturnType());
 
 					if (!retClass.isPrimitive() && !retClass.isVoid()
 					        && !retClass.isObject())
-						cluster.addGenerator(retClass, genericMethod);
+						cluster.addGenerator(retClass.getWithWildcardTypes(),
+						                     genericMethod);
 				} else {
 					logger.debug("Method cannot be used: " + method);
 				}
@@ -468,7 +499,7 @@ public class TestClusterGenerator {
 				if (canUse(field)) {
 					GenericField genericField = new GenericField(field, clazz);
 					addDependencies(genericField, 1);
-					cluster.addGenerator(new GenericClass(field.getGenericType()),
+					cluster.addGenerator(new GenericClass(field.getGenericType()).getWithWildcardTypes(),
 					                     genericField);
 					if (!Modifier.isFinal(field.getModifiers())) {
 						cluster.addTestCall(new GenericField(field, clazz));
@@ -643,7 +674,7 @@ public class TestClusterGenerator {
 		if (Modifier.isPublic(c.getModifiers())) {
 			return true;
 		}
-
+		logger.debug("Not public");
 		return false;
 	}
 
@@ -688,7 +719,7 @@ public class TestClusterGenerator {
 	}
 
 	private static boolean canUse(Method m) {
-		
+
 		if (m.isBridge()) {
 			logger.debug("Excluding bridge method: " + m.toString());
 			return false;
@@ -766,7 +797,7 @@ public class TestClusterGenerator {
 			return false;
 		}
 		*/
-		
+
 		// If default or
 		if (Modifier.isPublic(m.getModifiers()))
 			return true;
@@ -813,7 +844,7 @@ public class TestClusterGenerator {
 		return false;
 	}
 
-	private static Set<Class<?>> analyzedClasses = new LinkedHashSet<Class<?>>();
+	private final Set<Class<?>> analyzedClasses = new LinkedHashSet<Class<?>>();
 
 	private static class Pair {
 		private final int recursion;
@@ -834,11 +865,11 @@ public class TestClusterGenerator {
 
 	};
 
-	private static Set<Pair> dependencies = new LinkedHashSet<Pair>();
+	private final Set<Pair> dependencies = new LinkedHashSet<Pair>();
 
-	private static InheritanceTree inheritanceTree = null;
+	private InheritanceTree inheritanceTree = null;
 
-	private static void addDependencies(GenericConstructor constructor, int recursionLevel) {
+	private void addDependencies(GenericConstructor constructor, int recursionLevel) {
 		if (recursionLevel > Properties.CLUSTER_RECURSION) {
 			logger.debug("Maximum recursion level reached, not adding dependencies of {}",
 			             constructor);
@@ -859,7 +890,7 @@ public class TestClusterGenerator {
 
 	}
 
-	private static void addDependencies(GenericMethod method, int recursionLevel) {
+	private void addDependencies(GenericMethod method, int recursionLevel) {
 		if (recursionLevel > Properties.CLUSTER_RECURSION) {
 			logger.debug("Maximum recursion level reached, not adding dependencies of {}",
 			             method);
@@ -885,7 +916,7 @@ public class TestClusterGenerator {
 
 	}
 
-	private static void addDependencies(GenericField field, int recursionLevel) {
+	private void addDependencies(GenericField field, int recursionLevel) {
 		if (recursionLevel > Properties.CLUSTER_RECURSION) {
 			logger.debug("Maximum recursion level reached, not adding dependencies of {}",
 			             field);
@@ -908,10 +939,10 @@ public class TestClusterGenerator {
 
 	}
 
-	private static void addDependency(GenericClass clazz, int recursionLevel) {
-		
+	private void addDependency(GenericClass clazz, int recursionLevel) {
+
 		clazz = clazz.getRawGenericClass();
-		
+
 		if (analyzedClasses.contains(clazz.getRawClass()))
 			return;
 
@@ -942,37 +973,39 @@ public class TestClusterGenerator {
 		}
 
 		logger.debug("Getting concrete classes for " + clazz.getClassName());
-		List<Class<?>> actualClasses = new ArrayList<Class<?>>(getConcreteClasses(clazz.getRawClass()));
+		ConstantPoolManager.getInstance().addNonSUTConstant(Type.getType(clazz.getRawClass()));
+		List<Class<?>> actualClasses = new ArrayList<Class<?>>(
+		        getConcreteClasses(clazz.getRawClass(), inheritanceTree));
 		// Randomness.shuffle(actualClasses);
 		logger.debug("Concrete classes for " + clazz.getClassName() + ": "
 		        + actualClasses.size());
 		//dependencies.add(new Pair(recursionLevel, Randomness.choice(actualClasses)));
-		
+
 		for (Class<?> targetClass : actualClasses) {
-			logger.debug("Adding concrete class: "+targetClass);
+			logger.debug("Adding concrete class: " + targetClass);
 			dependencies.add(new Pair(recursionLevel, targetClass));
 			//if(++num >= Properties.NUM_CONCRETE_SUBTYPES)
 			//	break;
 		}
 	}
 
-	private static boolean addDependencyClass(GenericClass clazz, int recursionLevel) {
+	private boolean addDependencyClass(GenericClass clazz, int recursionLevel) {
 		if (recursionLevel > Properties.CLUSTER_RECURSION) {
 			logger.debug("Maximum recursion level reached, not adding dependency {}",
 			             clazz.getClassName());
 			return false;
 		}
-		
+
 		clazz = clazz.getRawGenericClass();
-		
+
 		if (analyzedClasses.contains(clazz.getRawClass())) {
 			return true;
 		}
 		analyzedClasses.add(clazz.getRawClass());
 
 		// We keep track of generic containers in case we find other concrete generic components during runtime
-		if(clazz.isAssignableTo(Collection.class) || clazz.isAssignableTo(Map.class)) {
-			if(clazz.getNumParameters() > 0) {
+		if (clazz.isAssignableTo(Collection.class) || clazz.isAssignableTo(Map.class)) {
+			if (clazz.getNumParameters() > 0) {
 				containerClasses.add(clazz.getRawClass());
 			}
 		}
@@ -987,7 +1020,7 @@ public class TestClusterGenerator {
 				logger.info("*** Cannot use class: " + clazz.getClassName());
 				return false;
 			}
-			
+
 			// Add all constructors
 			for (Constructor<?> constructor : getConstructors(clazz.getRawClass())) {
 				String name = "<init>"
@@ -1006,7 +1039,7 @@ public class TestClusterGenerator {
 				if (canUse(constructor)) {
 					GenericConstructor genericConstructor = new GenericConstructor(
 					        constructor, clazz);
-					cluster.addGenerator(clazz, genericConstructor);
+					cluster.addGenerator(clazz.getWithWildcardTypes(), genericConstructor);
 					addDependencies(genericConstructor, recursionLevel + 1);
 					logger.debug("Keeping track of "
 					        + constructor.getDeclaringClass().getName()
@@ -1043,16 +1076,17 @@ public class TestClusterGenerator {
 						continue;
 					}
 					GenericMethod genericMethod = new GenericMethod(method, clazz);
-					
+
 					addDependencies(genericMethod, recursionLevel + 1);
-					cluster.addModifier(clazz, genericMethod);
-//					GenericClass retClass = new GenericClass(
-//					        genericMethod.getReturnType(), method.getReturnType());
+					cluster.addModifier(clazz.getWithWildcardTypes(), genericMethod);
+					//					GenericClass retClass = new GenericClass(
+					//					        genericMethod.getReturnType(), method.getReturnType());
 					GenericClass retClass = new GenericClass(method.getReturnType());
 
 					if (!retClass.isPrimitive() && !retClass.isVoid()
 					        && !retClass.isObject()) {
-						cluster.addGenerator(retClass, genericMethod);
+						cluster.addGenerator(retClass.getWithWildcardTypes(),
+						                     genericMethod);
 					}
 				} else {
 					logger.debug("Method cannot be used: " + method);
@@ -1065,10 +1099,10 @@ public class TestClusterGenerator {
 					// logger.info("Adding field " + classname + "." +
 					// field.getName());
 					GenericField genericField = new GenericField(field, clazz);
-					cluster.addGenerator(new GenericClass(field.getGenericType()),
+					cluster.addGenerator(new GenericClass(field.getGenericType()).getWithWildcardTypes(),
 					                     genericField);
 					if (!Modifier.isFinal(field.getModifiers())) {
-						cluster.addModifier(clazz, genericField);
+						cluster.addModifier(clazz.getWithWildcardTypes(), genericField);
 						addDependencies(genericField, recursionLevel + 1);
 					}
 				}
@@ -1091,30 +1125,31 @@ public class TestClusterGenerator {
 		return true;
 	}
 
-	private static Set<Class<?>> getConcreteClasses(Class<?> clazz) {
+	public static Set<Class<?>> getConcreteClasses(Class<?> clazz,
+	        InheritanceTree inheritanceTree) {
 
 		// Some special cases
-		if(clazz.equals(java.util.Map.class))
+		if (clazz.equals(java.util.Map.class))
 			return getConcreteClassesMap();
-		else if(clazz.equals(java.util.List.class))
+		else if (clazz.equals(java.util.List.class))
 			return getConcreteClassesList();
-		else if(clazz.equals(java.util.Collection.class))
+		else if (clazz.equals(java.util.Collection.class))
 			return getConcreteClassesList();
-		else if(clazz.equals(java.util.Iterator.class))
+		else if (clazz.equals(java.util.Iterator.class))
 			// We don't want to explicitly create iterators
 			// This would only pull in java.util.Scanner, the only
 			// concrete subclass
 			return new LinkedHashSet<Class<?>>();
-		else if(clazz.equals(java.util.ListIterator.class))
+		else if (clazz.equals(java.util.ListIterator.class))
 			// We don't want to explicitly create iterators
 			return new LinkedHashSet<Class<?>>();
-		else if(clazz.equals(java.io.Serializable.class))
+		else if (clazz.equals(java.io.Serializable.class))
 			return new LinkedHashSet<Class<?>>();
-		else if(clazz.equals(java.lang.Comparable.class))
+		else if (clazz.equals(java.lang.Comparable.class))
+			return getConcreteClassesComparable();
+		else if (clazz.equals(java.util.Comparator.class))
 			return new LinkedHashSet<Class<?>>();
-		else if(clazz.equals(java.util.Comparator.class))
-			return new LinkedHashSet<Class<?>>();
-		
+
 		Set<Class<?>> actualClasses = new LinkedHashSet<Class<?>>();
 		if (Modifier.isAbstract(clazz.getModifiers())
 		        || Modifier.isInterface(clazz.getModifiers())) {
@@ -1165,14 +1200,13 @@ public class TestClusterGenerator {
 		logger.debug("Subclasses of " + clazz.getName() + ": " + actualClasses);
 		return actualClasses;
 	}
-	
+
 	private static Set<Class<?>> getConcreteClassesMap() {
 		Set<Class<?>> mapClasses = new LinkedHashSet<Class<?>>();
 		Class<?> mapClazz;
 		try {
-			mapClazz = Class.forName("java.util.HashMap",
-			        false,
-			        TestGenerationContext.getClassLoader());
+			mapClazz = Class.forName("java.util.HashMap", false,
+			                         TestGenerationContext.getClassLoader());
 			mapClasses.add(mapClazz);
 		} catch (ClassNotFoundException e) {
 			// TODO Auto-generated catch block
@@ -1185,15 +1219,28 @@ public class TestClusterGenerator {
 		Set<Class<?>> mapClasses = new LinkedHashSet<Class<?>>();
 		Class<?> mapClazz;
 		try {
-			mapClazz = Class.forName("java.util.LinkedList",
-			        false,
-			        TestGenerationContext.getClassLoader());
+			mapClazz = Class.forName("java.util.LinkedList", false,
+			                         TestGenerationContext.getClassLoader());
 			mapClasses.add(mapClazz);
 		} catch (ClassNotFoundException e) {
 			// TODO Auto-generated catch block
 			e.printStackTrace();
 		}
 		return mapClasses;
+	}
+
+	private static Set<Class<?>> getConcreteClassesComparable() {
+		Set<Class<?>> comparableClasses = new LinkedHashSet<Class<?>>();
+		Class<?> comparableClazz;
+		try {
+			comparableClazz = Class.forName("java.lang.Integer", false,
+			                                TestGenerationContext.getClassLoader());
+			comparableClasses.add(comparableClazz);
+		} catch (ClassNotFoundException e) {
+			// TODO Auto-generated catch block
+			e.printStackTrace();
+		}
+		return comparableClasses;
 	}
 
 	/**

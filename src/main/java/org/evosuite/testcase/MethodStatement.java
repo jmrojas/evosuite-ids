@@ -28,7 +28,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
-import org.evosuite.utils.GenericAccessibleObject;
 import org.evosuite.utils.GenericClass;
 import org.evosuite.utils.GenericMethod;
 import org.objectweb.asm.Label;
@@ -63,16 +62,15 @@ public class MethodStatement extends AbstractStatement {
 	 *            a {@link java.util.List} object.
 	 */
 	public MethodStatement(TestCase tc, GenericMethod method, VariableReference callee,
-	        List<VariableReference> parameters) throws IllegalArgumentException{
+	        List<VariableReference> parameters) throws IllegalArgumentException {
 		super(tc, method.getReturnType());
-		
+
 		init(method, callee, parameters);
 	}
 
-
-	
 	public MethodStatement(TestCase tc, GenericMethod method, VariableReference callee,
-	        List<VariableReference> parameters, VariableReference retVal) throws IllegalArgumentException{
+	        List<VariableReference> parameters, VariableReference retVal)
+	        throws IllegalArgumentException {
 		this(tc, method, callee, parameters);
 		this.retval = retVal;
 	}
@@ -97,33 +95,38 @@ public class MethodStatement extends AbstractStatement {
 	public MethodStatement(TestCase tc, GenericMethod method, VariableReference callee,
 	        VariableReference retvar, List<VariableReference> parameters) {
 		super(tc, retvar);
-		
-		if(retvar.getStPosition() >= tc.size()){
+
+		if (retvar.getStPosition() >= tc.size()) {
 			//as an old statement should be replaced by this statement
-			throw new IllegalArgumentException("Cannot replace in position "+retvar.getStPosition()+" when the test case has only "+tc.size()+" elements");
+			throw new IllegalArgumentException("Cannot replace in position "
+			        + retvar.getStPosition() + " when the test case has only "
+			        + tc.size() + " elements");
 		}
-		
+
 		init(method, callee, parameters);
 	}
 
-	
 	private void init(GenericMethod method, VariableReference callee,
-			List<VariableReference> parameters) throws IllegalArgumentException {
-		if(callee==null && !method.isStatic()){
-			throw new IllegalArgumentException("A null callee cannot call a non-static method");
+	        List<VariableReference> parameters) throws IllegalArgumentException {
+		if (callee == null && !method.isStatic()) {
+			throw new IllegalArgumentException(
+			        "A null callee cannot call a non-static method");
 		}
-		if(parameters == null){
+		if (parameters == null) {
 			throw new IllegalArgumentException("Parameter list cannot be null");
 		}
-		for(VariableReference var : parameters){
-			if(var==null){
+		for (VariableReference var : parameters) {
+			if (var == null) {
 				//recall that 'null' would be mapped to a NullReference
-				throw new IllegalArgumentException("Parameter list cannot have null parameters (this is different from a NullReference)");
+				throw new IllegalArgumentException(
+				        "Parameter list cannot have null parameters (this is different from a NullReference)");
 			}
 		}
-		if(method.getParameterTypes().length != parameters.size()){
-			throw new IllegalArgumentException("Parameters list mismatch from the types declared in the method: " + 
-					method.getParameterTypes().length + " != " + parameters.size());
+		if (method.getParameterTypes().length != parameters.size()) {
+			throw new IllegalArgumentException(
+			        "Parameters list mismatch from the types declared in the method: "
+			                + method.getParameterTypes().length + " != "
+			                + parameters.size());
 		}
 
 		this.method = method;
@@ -132,18 +135,6 @@ public class MethodStatement extends AbstractStatement {
 		else
 			this.callee = callee;
 		this.parameters = parameters;
-	}
-	
-	
-	/**
-	 * <p>
-	 * Getter for the field <code>parameters</code>.
-	 * </p>
-	 * 
-	 * @return a {@link java.util.List} object.
-	 */
-	public List<VariableReference> getParameters() {
-		return this.parameters;
 	}
 
 	/**
@@ -166,7 +157,6 @@ public class MethodStatement extends AbstractStatement {
 	 *            a {@link java.lang.reflect.Method} object.
 	 */
 	public void setMethod(GenericMethod method) {
-		assert (method.getReturnType().equals(this.method.getReturnType()));
 		this.method = method;
 	}
 
@@ -268,13 +258,23 @@ public class MethodStatement extends AbstractStatement {
 					}
 
 					Object ret = method.getMethod().invoke(callee_object, inputs);
+					// Try exact return type
+					/*
+					 * TODO: Sometimes we do want to cast an Object to String etc...
+					 * 
+					if (ret != null && !retval.isAssignableFrom(method.getReturnType())) {
+						throw new CodeUnderTestException(new UncompilableCodeException(
+						        "Cannot assign " + method.getReturnType()
+						                + " to variable of type " + retval.getType()));
+					}
+					*/
 
 					try {
 						retval.setObject(scope, ret);
 					} catch (CodeUnderTestException e) {
 						throw e;
 						// throw CodeUnderTestException.throwException(e);
-					} catch (Throwable e) {						
+					} catch (Throwable e) {
 						throw new EvosuiteError(e);
 					}
 				}
@@ -679,7 +679,7 @@ public class MethodStatement extends AbstractStatement {
 
 	/** {@inheritDoc} */
 	@Override
-	public GenericAccessibleObject getAccessibleObject() {
+	public GenericMethod getAccessibleObject() {
 		return method;
 	}
 

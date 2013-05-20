@@ -19,7 +19,6 @@ package org.evosuite.testcase;
 
 import java.io.ByteArrayOutputStream;
 import java.io.PrintStream;
-import java.lang.reflect.Method;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Map;
@@ -29,8 +28,6 @@ import java.util.concurrent.TimeoutException;
 import org.evosuite.Properties;
 import org.evosuite.runtime.Runtime;
 import org.evosuite.runtime.System.SystemExitException;
-import org.evosuite.sandbox.EvosuiteFile;
-import org.evosuite.sandbox.Sandbox;
 import org.evosuite.utils.LoggingUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -258,7 +255,6 @@ public class TestRunnable implements InterfaceTestRunnable {
 
 		runFinished = false;
 		ExecutionResult result = new ExecutionResult(test, null);
-		Sandbox.setUpMocks();
 		Runtime.resetRuntime();
 		ExecutionTracer.enable();
 
@@ -419,21 +415,6 @@ public class TestRunnable implements InterfaceTestRunnable {
 
 		// FIXME: what is this for? - 17.10.12: JavaDoc added by Daniel
 		Runtime.handleRuntimeAccesses(test);
-
-		if (Sandbox.canUseFileContentGeneration()) {
-			try {
-				logger.debug("Enabling file handling");
-				Method m = Sandbox.class.getMethod("generateFileContent",
-				                                   EvosuiteFile.class, String.class);
-				// TODO: Re-insert!
-				// if (!TestCluster.getInstance().test_methods.contains(m))
-				// TestCluster.getInstance().test_methods.add(m);
-			} catch (SecurityException e) {
-				logger.error(e.getMessage(), e);
-			} catch (NoSuchMethodException e) {
-				logger.error(e.getMessage(), e);
-			}
-		}
 
 		return result;
 	}

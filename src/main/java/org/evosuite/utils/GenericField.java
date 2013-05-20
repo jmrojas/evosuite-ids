@@ -19,7 +19,7 @@ import com.googlecode.gentyref.GenericTypeReflector;
  * @author Gordon Fraser
  * 
  */
-public class GenericField extends GenericAccessibleObject {
+public class GenericField extends GenericAccessibleObject<GenericField> {
 
 	private static final long serialVersionUID = -2344346234923642901L;
 
@@ -41,22 +41,32 @@ public class GenericField extends GenericAccessibleObject {
 	}
 
 	@Override
-	public GenericAccessibleObject copyWithNewOwner(GenericClass newOwner) {
-		return new GenericField(field, newOwner);
-	}
-	
-	@Override
-	public GenericAccessibleObject copyWithOwnerFromReturnType(
-			ParameterizedType returnType) {
-		GenericClass newOwner = new GenericClass(getTypeFromExactReturnType(returnType, (ParameterizedType)getOwnerType()));
+	public GenericField copyWithNewOwner(GenericClass newOwner) {
 		return new GenericField(field, newOwner);
 	}
 
 	@Override
-	public GenericAccessibleObject copy() {
+	public GenericField copyWithOwnerFromReturnType(GenericClass returnType) {
+		if (returnType.isParameterizedType()) {
+			GenericClass newOwner = new GenericClass(
+			        getTypeFromExactReturnType((ParameterizedType) returnType.getType(),
+			                                   (ParameterizedType) getOwnerType()));
+			return new GenericField(field, newOwner);
+		} else if (returnType.isArray()) {
+			GenericClass newOwner = new GenericClass(
+			        getTypeFromExactReturnType((ParameterizedType) returnType.getComponentType(),
+			                                   (ParameterizedType) getOwnerType()));
+			return new GenericField(field, newOwner);
+		} else {
+			throw new RuntimeException("Invalid type: " + returnType.getClass());
+		}
+	}
+
+	@Override
+	public GenericField copy() {
 		return new GenericField(field, new GenericClass(owner));
 	}
-	
+
 	public Field getField() {
 		return field;
 	}
@@ -69,6 +79,21 @@ public class GenericField extends GenericAccessibleObject {
 		return field.getDeclaringClass();
 	}
 
+	@Override
+	public Type getGeneratedType() {
+		return getFieldType();
+	}
+
+	@Override
+	public Class<?> getRawGeneratedType() {
+		return field.getType();
+	}
+
+	@Override
+	public Type getGenericGeneratedType() {
+		return field.getGenericType();
+	}
+
 	public Type getFieldType() {
 		return GenericTypeReflector.getExactFieldType(field, owner.getType());
 		// 		try {
@@ -78,7 +103,7 @@ public class GenericField extends GenericAccessibleObject {
 		// fieldType = field.getType();
 		// }
 	}
-	
+
 	public Type getGenericFieldType() {
 		return field.getGenericType();
 	}

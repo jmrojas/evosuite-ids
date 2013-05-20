@@ -247,9 +247,15 @@ public class TestGeneration {
 		cmdLine.add("-Dprocess_communication_port=" + port);
 		cmdLine.add("-Dinline=true");
 		cmdLine.add("-Djava.awt.headless=true");
-		cmdLine.add("-Dlogback.configurationFile=logback-evosuite.xml");
-		cmdLine.add("-Dlog.level=" + Properties.LOG_LEVEL);
-		cmdLine.add("-Dlog.target=" + Properties.LOG_TARGET);
+		cmdLine.add("-Dlogback.configurationFile="+LoggingUtils.getLogbackFileName());
+		
+		if(Properties.LOG_LEVEL!=null){
+			cmdLine.add("-Dlog.level=" + Properties.LOG_LEVEL);
+		}
+		if(Properties.LOG_TARGET!=null){
+			cmdLine.add("-Dlog.target=" + Properties.LOG_TARGET);
+		}
+		
 		cmdLine.add("-Djava.library.path=lib");
 		// cmdLine.add("-Dminimize_values=true");
 
@@ -405,7 +411,8 @@ public class TestGeneration {
 			} catch (InterruptedException e) {
 			}
 			if (clients == null) {
-				logger.error("Not possible to access to clients");
+				logger.error("Not possible to access to clients. Clients' state: "+handler.getProcessState() + 
+						". Master registry port: "+MasterServices.getInstance().getRegistryPort());											
 			} else {
 				/*
 				 * The clients have started, and connected back to Master.
@@ -426,6 +433,11 @@ public class TestGeneration {
 				} catch (InterruptedException e) {
 				}
 			}
+			
+			if (Properties.CLIENT_ON_THREAD) {
+				handler.stopAndWaitForClientOnThread(10000);
+			}
+			
 			handler.killProcess();
 		} else {
 			LoggingUtils.getEvoLogger().info("* Could not connect to client process");
@@ -438,9 +450,8 @@ public class TestGeneration {
 			 * FIXME: this is done only to avoid current problems with serialization
 			 */
 			result = ClientProcess.geneticAlgorithmStatus;
-		}
-
-		if (!Properties.CLIENT_ON_THREAD) {
+			handler.stopAndWaitForClientOnThread(10000);
+		} else {
 			try {
 				Thread.sleep(100);
 			} catch (InterruptedException e) {

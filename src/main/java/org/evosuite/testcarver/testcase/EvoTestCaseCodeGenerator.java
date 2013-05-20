@@ -1,7 +1,5 @@
 package org.evosuite.testcarver.testcase;
 
-import gnu.trove.map.hash.TIntObjectHashMap;
-
 import java.lang.reflect.Constructor;
 import java.lang.reflect.Field;
 import java.lang.reflect.Method;
@@ -12,6 +10,7 @@ import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
+import java.util.Map;
 import java.util.Queue;
 import java.util.Set;
 
@@ -42,27 +41,28 @@ public final class EvoTestCaseCodeGenerator implements ICodeGenerator<TestCase> 
 	private TestCase testCase;
 	private VariableReference xStreamRef;
 
-	private final TIntObjectHashMap<VariableReference> oidToVarRefMap;
+	private final Map<Integer, VariableReference> oidToVarRefMap;
 
 	public EvoTestCaseCodeGenerator() {
-		this.oidToVarRefMap = new TIntObjectHashMap<VariableReference>();
+		this.oidToVarRefMap = new HashMap<Integer, VariableReference>();
 	}
 
 	@Override
 	public void createMethodCallStmt(CaptureLog log, int logRecNo) {
-		// assumption: all necessary statements are created and there is one variable for reach referenced object
+		// assumption: all necessary statements are created and there is one variable for each referenced object
 		final int oid = log.objectIds.get(logRecNo);
 		final Object[] methodArgs = log.params.get(logRecNo);
 		final String methodName = log.methodNames.get(logRecNo);
 
 		final Class<?>[] methodParamTypeClasses = getMethodParamTypeClasses(log, logRecNo);
-		final ArrayList<VariableReference> args = getArguments(methodArgs, methodParamTypeClasses);
-		
+		final ArrayList<VariableReference> args = getArguments(methodArgs,
+		                                                       methodParamTypeClasses);
+
 		final String typeName = log.getTypeName(oid);
 		Class<?> type;
 		try {
 			type = getClassForName(typeName);
-			
+
 			if (CaptureLog.OBSERVED_INIT.equals(methodName)) {
 				// Person var0 = new Person();
 
@@ -73,30 +73,29 @@ public final class EvoTestCaseCodeGenerator implements ICodeGenerator<TestCase> 
 				        args);
 
 				this.oidToVarRefMap.put(oid, testCase.addStatement(constStmt));
-			} else  {
+			} else {
 				//------------------ handling for ordinary method calls e.g. var1 = var0.doSth();
 				final Object returnValue = log.returnValues.get(logRecNo);
-				
+
 				if (CaptureLog.RETURN_TYPE_VOID.equals(returnValue)) {
-					
-					GenericMethod geneticMethod = new GenericMethod(this.getDeclaredMethod(type, methodName,methodParamTypeClasses),type);
-					
-					MethodStatement m = new MethodStatement(
-					        testCase,
-					        geneticMethod,
-					        this.oidToVarRefMap.get(oid),
-					        args);
-					
+
+					GenericMethod geneticMethod = new GenericMethod(
+					        this.getDeclaredMethod(type, methodName,
+					                               methodParamTypeClasses), type);
+
+					MethodStatement m = new MethodStatement(testCase, geneticMethod,
+					        this.oidToVarRefMap.get(oid), args);
+
 					testCase.addStatement(m);
 				} else {
 					// final org.objectweb.asm.Type returnType = org.objectweb.asm.Type.getReturnType(methodDesc);
 
 					// Person var0 = var.getPerson();
-					final MethodStatement m = new MethodStatement(testCase,
+					final MethodStatement m = new MethodStatement(
+					        testCase,
 					        new GenericMethod(
 					                this.getDeclaredMethod(type, methodName,
-					                                       methodParamTypeClasses),
-					                type),
+					                                       methodParamTypeClasses), type),
 					        this.oidToVarRefMap.get(oid), args);
 
 					final Integer returnValueOID = (Integer) returnValue;
@@ -119,21 +118,21 @@ public final class EvoTestCaseCodeGenerator implements ICodeGenerator<TestCase> 
 		return methodParamTypeClasses;
 	}
 
-	
-	private ArrayList<VariableReference> getArguments(
-			final Object[] methodArgs, final Class<?>[] methodParamTypeClasses) throws IllegalArgumentException{
-		
+	private ArrayList<VariableReference> getArguments(final Object[] methodArgs,
+	        final Class<?>[] methodParamTypeClasses) throws IllegalArgumentException {
+
 		ArrayList<VariableReference> args = new ArrayList<VariableReference>();
 
 		Integer argOID; // is either an oid or null
 		for (int i = 0; i < methodArgs.length; i++) {
 			argOID = (Integer) methodArgs[i];
 			if (argOID == null) {
-				args.add(testCase.addStatement(new NullStatement(testCase, methodParamTypeClasses[i])));
+				args.add(testCase.addStatement(new NullStatement(testCase,
+				        methodParamTypeClasses[i])));
 			} else {
 				VariableReference ref = this.oidToVarRefMap.get(argOID);
-				if(ref == null){
-					
+				if (ref == null) {
+
 				}
 				args.add(ref);
 			}
@@ -173,13 +172,10 @@ public final class EvoTestCaseCodeGenerator implements ICodeGenerator<TestCase> 
 		// NOTE: PLAIN INIT: has always one non-null param
 		// TODO: use primitives
 		final int oid = log.objectIds.get(logRecNo);
-		final String type = log.getTypeName(oid);
 
 		try {
 
 			final Class<?> xStreamType = getClassForName("com.thoughtworks.xstream.XStream");//Class.forName("com.thoughtworks.xstream.XStream", true, StaticTestCluster.classLoader);
-
-			final Class<?> typeClass = getClassForName(type);//Class.forName(type, true, StaticTestCluster.classLoader);
 
 			final Object value = log.params.get(logRecNo)[0];
 
@@ -200,8 +196,9 @@ public final class EvoTestCaseCodeGenerator implements ICodeGenerator<TestCase> 
 			final VariableReference stringRepRef = testCase.addStatement(stringRep);
 
 			final MethodStatement m = new MethodStatement(testCase, new GenericMethod(
-			        xStreamType.getMethod("fromXML", stringType), xStreamType), xStreamRef,
-//			        xStreamType.getMethod("fromXML", stringType), typeClass), xStreamRef,
+			        xStreamType.getMethod("fromXML", stringType), xStreamType),
+			        xStreamRef,
+			        //			        xStreamType.getMethod("fromXML", stringType), typeClass), xStreamRef,
 			        Arrays.asList(stringRepRef));
 
 			this.oidToVarRefMap.put(oid, testCase.addStatement(m));
@@ -212,7 +209,7 @@ public final class EvoTestCaseCodeGenerator implements ICodeGenerator<TestCase> 
 
 	@Override
 	public void createFieldWriteAccessStmt(CaptureLog log, int logRecNo) {
-		// assumption: all necessary statements are created and there is one variable for reach referenced object
+		// assumption: all necessary statements are created and there is one variable for each referenced object
 
 		final Object[] methodArgs = log.params.get(logRecNo);
 		final int oid = log.objectIds.get(logRecNo);
@@ -471,17 +468,6 @@ public final class EvoTestCaseCodeGenerator implements ICodeGenerator<TestCase> 
 		return false;
 	}
 
-	private Class<?> getTypeFromArrayElements(final Object[] params) {
-		for (Object o : params) {
-			if (o != null) {
-				return o.getClass();
-			}
-		}
-
-		return Object.class;
-	}
-
-	@SuppressWarnings("unchecked")
 	@Override
 	public void createCollectionInitStmt(final CaptureLog log, final int logRecNo) {
 		try {
@@ -517,11 +503,10 @@ public final class EvoTestCaseCodeGenerator implements ICodeGenerator<TestCase> 
 
 			// --- fill collection
 
-			final Class<?>[] methodParamTypeClasses = getMethodParamTypeClasses(
-					log, logRecNo);
+			final Class<?>[] methodParamTypeClasses = getMethodParamTypeClasses(log,
+			                                                                    logRecNo);
 
 			MethodStatement methodStmt;
-			VariableReference valueRef;
 			Integer argOID; // is either an oid or null
 			ArrayList<VariableReference> paramList;
 			Method method;
@@ -571,8 +556,8 @@ public final class EvoTestCaseCodeGenerator implements ICodeGenerator<TestCase> 
 
 			// --- fill collection
 
-			final Class<?>[] methodParamTypeClasses = getMethodParamTypeClasses(
-					log, logRecNo);
+			final Class<?>[] methodParamTypeClasses = getMethodParamTypeClasses(log,
+			                                                                    logRecNo);
 
 			MethodStatement methodStmt;
 			Integer argOID; // is either an oid or null

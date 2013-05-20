@@ -13,7 +13,7 @@ import org.evosuite.symbolic.expr.bv.StringMultipleComparison;
 import org.evosuite.symbolic.expr.str.StringValue;
 import org.evosuite.symbolic.expr.token.HasMoreTokensExpr;
 import org.evosuite.symbolic.expr.token.TokenizerExpr;
-import org.evosuite.symbolic.search.RegexDistance;
+import org.evosuite.utils.RegexDistanceUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -146,9 +146,11 @@ public final class StringConstraint extends Constraint<String> {
 			case CONTAINS:
 				return StrContains(first, second);
 			case PATTERNMATCHES:
-				return RegexMatches(second, first);
+				return RegexMatches(second, first); 
+													
 			case APACHE_ORO_PATTERN_MATCHES:
 				return RegexMatches(second, first);
+													
 
 			default:
 				log.warn("StringComparison: unimplemented operator!"
@@ -246,8 +248,9 @@ public final class StringConstraint extends Constraint<String> {
 			s2 = s2.toLowerCase();
 		}
 
-		return StrEquals(s1.substring(thisStart, length + thisStart),
-				s2.substring(start, length + start));
+		String substring1 = s1.substring(thisStart, thisStart + length);
+		String substring2 = s2.substring(start, start + length);
+		return StrEquals(substring1, substring2);
 	}
 
 	private static double StrEqualsIgnoreCase(String first, String second) {
@@ -270,7 +273,7 @@ public final class StringConstraint extends Constraint<String> {
 	}
 
 	private static double RegexMatches(String val, String regex) {
-		return RegexDistance.getDistance(val, regex);
+		return RegexDistanceUtils.getDistanceTailoredForStringAVM(val, regex);
 	}
 
 }
