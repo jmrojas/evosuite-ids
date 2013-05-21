@@ -17,6 +17,8 @@ examples/mine/
 examples/plot/
 examples/indi_plot/
 src/main/resources/log4j.properties
+.idea
+*.iml
 
 syntax: regexp
 ^lib/evosuite\.jar$
