@@ -63,6 +63,8 @@ import org.evosuite.coverage.dataflow.DefUseCoverageFactory;
 import org.evosuite.coverage.dataflow.DefUseCoverageSuiteFitness;
 import org.evosuite.coverage.dataflow.DefUseCoverageTestFitness;
 import org.evosuite.coverage.dataflow.DefUseFitnessCalculator;
+import org.evosuite.coverage.entropy.EntropyCoverageFactory;
+import org.evosuite.coverage.entropy.EntropyCoverageSuiteFitness;
 import org.evosuite.coverage.exception.ExceptionCoverageSuiteFitness;
 import org.evosuite.coverage.ibranch.IBranchFitnessFactory;
 import org.evosuite.coverage.ibranch.IBranchSuiteFitness;
@@ -78,8 +80,6 @@ import org.evosuite.coverage.mutation.StrongMutationSuiteFitness;
 import org.evosuite.coverage.mutation.WeakMutationSuiteFitness;
 import org.evosuite.coverage.path.PrimePathCoverageFactory;
 import org.evosuite.coverage.path.PrimePathSuiteFitness;
-import org.evosuite.coverage.statement.StatementCoverageFactory;
-import org.evosuite.coverage.statement.StatementCoverageSuiteFitness;
 import org.evosuite.ga.Chromosome;
 import org.evosuite.ga.ChromosomeFactory;
 import org.evosuite.ga.CrossOverFunction;
@@ -915,7 +915,7 @@ public class TestSuiteGenerator {
 			assert (fitness >= best.getFitness());
 		}
 		// progressMonitor.updateStatus(66);
-
+		Properties.MINIMIZE = false; // FIXME
 		if (Properties.MINIMIZE) {
 			ClientServices.getInstance().getClientNode().changeState(ClientState.MINIMIZATION);
 			LoggingUtils.getEvoLogger().info("* Minimizing result");
@@ -927,7 +927,7 @@ public class TestSuiteGenerator {
 		/*
 		 * FIXME: why was it as an "else" of previous condition???
 		 */
-
+		Properties.COVERAGE = false; // FIXME
 		if (Properties.COVERAGE) {
 			CoverageAnalysis.analyzeCoverage(best, Properties.CRITERION);
 		}
@@ -1059,7 +1059,8 @@ public class TestSuiteGenerator {
 		case IBRANCH:
 			return new IBranchSuiteFitness();
 		case STATEMENT:
-			return new StatementCoverageSuiteFitness();
+			//return new StatementCoverageSuiteFitness(); //FIXME
+			return new EntropyCoverageSuiteFitness();
 		case ALLDEFS:
 			return new AllDefsCoverageSuiteFitness();
 		case EXCEPTION:
@@ -1112,7 +1113,8 @@ public class TestSuiteGenerator {
 		case IBRANCH:
 			return new IBranchFitnessFactory();
 		case STATEMENT:
-			return new StatementCoverageFactory();
+			//return new StatementCoverageFactory(); // FIXME
+			return new EntropyCoverageFactory();
 		case ALLDEFS:
 			return new AllDefsCoverageFactory();
 		case EXCEPTION:
