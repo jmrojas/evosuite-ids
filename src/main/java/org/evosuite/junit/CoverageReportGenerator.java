@@ -18,11 +18,9 @@
 package org.evosuite.junit;
 
 import java.io.File;
-import java.util.HashMap;
 import java.util.List;
 
 import org.evosuite.Properties;
-import org.evosuite.Properties.Criterion;
 import org.evosuite.ga.Chromosome;
 import org.evosuite.ga.GeneticAlgorithm;
 import org.evosuite.testcase.ExecutionResult;
@@ -54,8 +52,6 @@ public class CoverageReportGenerator extends ReportGenerator
 	{
 		if (!Properties.COVERAGE_MATRIX)
 			return ;
-		if (Properties.CRITERION == Criterion.STATEMENT)
-			this.writeStatementsCoverage();
 		else
 		{
 			StringBuilder suite = new StringBuilder();
@@ -83,73 +79,6 @@ public class CoverageReportGenerator extends ReportGenerator
 
 			Utils.writeFile(suite.toString(), new File(getReportDir().getAbsolutePath() + "/data/" + Properties.TARGET_CLASS + ".matrix"));
 		}
-	}
-
-	private void writeStatementsCoverage()
-	{
-		if (!Properties.COVERAGE_MATRIX)
-			return ;
-
-		HashMap<String, Integer> linesID = new HashMap<String, Integer>();
-		int index = 0;
-		for (TestFitnessFunction goal : this.goals) {
-			String[] splits = goal.toString().split(" ");
-			if (!linesID.containsKey(splits[splits.length - 1])) {
-				linesID.put(splits[splits.length - 1], index++);
-			}
-		}
-
-		boolean[][] matrix = new boolean[this.testResults.size()][linesID.size() + 1];
-
-		int test_index = 0;
-		for (TestResult tR : this.testResults)
-		{
-			TestChromosome dummy = new TestChromosome();
-			ExecutionResult executionResult = new ExecutionResult(dummy.getTestCase());
-			executionResult.setTrace(tR.getExecutionTrace());
-			dummy.setLastExecutionResult(executionResult);
-			dummy.setChanged(false);
-
-			StringBuilder test = new StringBuilder();
-			for (TestFitnessFunction goal : this.goals)
-			{
-				if (goal.isCovered(dummy))
-				{
-					test.append("1 ");
-
-					String[] splits = goal.toString().split(" ");
-					matrix[test_index][linesID.get(splits[splits.length - 1])] = true;
-				}
-				else
-					test.append("0 ");
-			}
-
-			if (test.toString().contains("1")) {
-				matrix[test_index][linesID.size()] = tR.wasSuccessful() ? false : true;
-			}
-
-			test_index++;
-		}
-
-		StringBuilder suite = new StringBuilder();
-		for (int i = 0; i < matrix.length; i++)
-		{
-			StringBuilder test = new StringBuilder();
-			for (int j = 0; j < matrix[0].length - 1; j++)
-			{
-				if (matrix[i][j] == true)
-					test.append("1 ");
-				else
-					test.append("0 ");
-			}
-
-			if (test.toString().contains("1")) {
-				test.append(matrix[i][linesID.size()] ? "-\n" : "+\n");
-				suite.append(test);
-			}
-		}
-
-		Utils.writeFile(suite.toString(), new File(getReportDir().getAbsolutePath() + "/data/" + Properties.TARGET_CLASS + ".matrix"));
 	}
 
 	@Override

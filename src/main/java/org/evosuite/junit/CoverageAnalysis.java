@@ -56,11 +56,11 @@ public class CoverageAnalysis {
 	public static void analyzeCoverage() {
 		TestCluster.getInstance();
 
-		List<Class<?>> junitTests = getClasses();
+		List<Class<?>> junitTests = getTestClasses();
 		LoggingUtils.getEvoLogger().info("* Found " + junitTests.size()
 		                                         + " test classes");
 		if (junitTests.isEmpty())
-			return;
+			return ;
 
 		Class<?>[] classes = new Class<?>[junitTests.size()];
 		junitTests.toArray(classes);
@@ -68,22 +68,6 @@ public class CoverageAnalysis {
 		long startTime = System.currentTimeMillis();
 		List<TestResult> testResults = executeTests(classes);
 		printReport(testResults, junitTests, startTime);
-	}
-
-	public static double getCoverage() {
-		TestCluster.getInstance();
-
-		List<Class<?>> junitTests = getClasses();
-		LoggingUtils.getEvoLogger().info("* Found " + junitTests.size()
-		                                         + " test classes");
-		if (junitTests.isEmpty())
-			return 0.0;
-
-		Class<?>[] classes = new Class<?>[junitTests.size()];
-		junitTests.toArray(classes);
-		LoggingUtils.getEvoLogger().info("* Executing tests");
-		List<TestResult> testResults = executeTests(classes);
-		return getCoverage(testResults);
 	}
 
 	private static List<Class<?>> getClassesFromClasspath() {
@@ -112,7 +96,7 @@ public class CoverageAnalysis {
 		return classes;
 	}
 
-	private static List<Class<?>> getClasses() {
+	private static List<Class<?>> getTestClasses() {
 		List<Class<?>> classes = new ArrayList<Class<?>>();
 		// If the target name is a path analyze it
 		File path = new File(Properties.JUNIT_PREFIX);
@@ -316,33 +300,6 @@ public class CoverageAnalysis {
 
 	}
 
-	private static double getCoverage(List<TestResult> testResults)
-	{
-		LoggingUtils.getEvoLogger().info("* Executed " + testResults.size() + " unit tests");
-
-		List<? extends TestFitnessFunction> goals = TestSuiteGenerator.getFitnessFactory().getCoverageGoals();
-
-		TestChromosome dummy = new TestChromosome();
-		ExecutionResult executionResult = new ExecutionResult(dummy.getTestCase());
-
-		HashSet<Integer> covered = new HashSet<Integer>();
-
-		for (TestResult tR : testResults) {
-			executionResult.setTrace(tR.getExecutionTrace());
-			dummy.setLastExecutionResult(executionResult);
-			dummy.setChanged(false);
-
-			int index = 0;
-			for (TestFitnessFunction goal : goals) {
-				if (goal.isCovered(dummy))
-					covered.add(index);
-				index++;
-			}
-		}
-
-		return (double) covered.size() / (double) goals.size();
-	}
-
 	private static void printReport(List<TestResult> testResults, List<Class<?>> classes, long startTime)
 	{
 		LoggingUtils.getEvoLogger().info("* Executed " + testResults.size() + " unit tests");
@@ -448,44 +405,4 @@ public class CoverageAnalysis {
 
 		util.informSearchIsFinished(null);
 	}
-
-	/**
-	 * <p>
-	 * main
-	 * </p>
-	 * 
-	 * @param args
-	 *            an array of {@link java.lang.String} objects.
-	 */
-	@Deprecated
-	public static void main(String[] args) {
-		LoggingUtils.getEvoLogger().error("Cannot start CoverageAnalysis directly");
-		return;
-		/*
-		try {
-			LoggingUtils.getEvoLogger().info("* Starting client");
-			CoverageAnalysis process = new CoverageAnalysis();
-			process.run();
-			if (!Properties.CLIENT_ON_THREAD) {
-				System.exit(0);
-			}
-		} catch (Throwable t) {
-			LoggingUtils.getEvoLogger().error("Error when analyzing coveragetests for: "
-			                                          + Properties.TARGET_CLASS
-			                                          + " with seed "
-			                                          + Randomness.getSeed(), t);
-
-			//sleep 1 sec to be more sure that the above log is recorded
-			try {
-				Thread.sleep(100);
-			} catch (InterruptedException e) {
-			}
-
-			if (!Properties.CLIENT_ON_THREAD) {
-				System.exit(1);
-			}
-		}
-		*/
-	}
-
 }
