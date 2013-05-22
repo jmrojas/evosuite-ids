@@ -53,17 +53,16 @@ public class EntropyCoverageTestFitness extends
 	@Override
 	public double getFitness(TestChromosome individual, ExecutionResult result)
 	{
-		double number_of_ones = 0.0;
+		double touch = 0.0;
 
 		for (TestFitnessFunction goal : branchFitnesses)
 			if (goal.isCovered(result)) {
-				number_of_ones += 1.0;
-		}
+				touch = 1.0;
+				break ;
+			}
 
-		individual.setNumOfCoveredGoals((int)number_of_ones);
-		updateIndividual(individual, number_of_ones);
-
-		return number_of_ones;
+		updateIndividual(individual, touch);
+		return touch;
 	}
 
 	/** {@inheritDoc} */

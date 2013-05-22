@@ -938,8 +938,8 @@ public class TestSuiteGenerator {
 			SearchStatistics.getInstance().mutationScore(best.getCoverage());
 		}
 
-		statistics.iteration(ga);
-		statistics.minimized(best);
+		//statistics.iteration(ga); // FIXME ZeCarlos
+		//statistics.minimized(best); // FIXME ZeCarlos
 		LoggingUtils.getEvoLogger().info("* Generated " + best.size()
 		                                         + " tests with total length "
 		                                         + best.totalLengthOfTestCases());
