@@ -12,11 +12,11 @@ import java.io.PrintStream;
 import java.lang.reflect.Method;
 import java.text.NumberFormat;
 import java.util.ArrayList;
+import java.util.BitSet;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.Comparator;
 import java.util.Enumeration;
-import java.util.HashSet;
 import java.util.List;
 import java.util.regex.Pattern;
 import java.util.zip.ZipEntry;
@@ -24,6 +24,7 @@ import java.util.zip.ZipException;
 import java.util.zip.ZipFile;
 
 import org.evosuite.Properties;
+import org.evosuite.Properties.Criterion;
 import org.evosuite.TestGenerationContext;
 import org.evosuite.TestSuiteGenerator;
 import org.evosuite.setup.TestCluster;
@@ -305,40 +306,67 @@ public class CoverageAnalysis {
 		LoggingUtils.getEvoLogger().info("* Executed " + testResults.size() + " unit tests");
 
 		List<? extends TestFitnessFunction> goals = TestSuiteGenerator.getFitnessFactory().getCoverageGoals();
+		/*for (TestFitnessFunction goal : goals) {
+			LoggingUtils.getEvoLogger().info(goal.toString());
+		}*/
 
 		TestChromosome dummy = new TestChromosome();
 		ExecutionResult executionResult = new ExecutionResult(dummy.getTestCase());
 
-		HashSet<Integer> covered = new HashSet<Integer>();
+		boolean[][] coverage = new boolean[testResults.size()][goals.size() + 1];
+		int index_test = 0;
+		BitSet total_covered = new BitSet();
 
-		for (TestResult tR : testResults) {
+		for (TestResult tR : testResults)
+		{
 			executionResult.setTrace(tR.getExecutionTrace());
 			dummy.setLastExecutionResult(executionResult);
 			dummy.setChanged(false);
 
-			int index = 0;
-			for (TestFitnessFunction goal : goals) {
-				if (goal.isCovered(dummy))
-					covered.add(index);
-				index++;
+			int bitIndex = 0;
+			int index_component = 0;
+
+			for (TestFitnessFunction goal : goals)
+			{
+				boolean isCovered = goal.isCovered(dummy);
+
+				/*
+				 * FIXME When we have STATEMENT criterion, why we need to negate the returned variable of isCovered function ?! 
+				 */
+				if (Properties.CRITERION == Criterion.STATEMENT) {
+					if (!goal.isCovered(dummy)) {
+						coverage[index_test][index_component] = !isCovered;
+						total_covered.set(bitIndex);
+					}
+				}
+				else {
+					if (goal.isCovered(dummy)) {
+						coverage[index_test][index_component] = isCovered;
+						total_covered.set(bitIndex);
+					}
+				}
+				index_component++;
+				bitIndex++;
 			}
+
+			coverage[index_test++][index_component] = tR.wasSuccessful();
 		}
 
 		LoggingUtils.getEvoLogger().info("* Covered "
-		                                         + covered.size()
+		                                         + total_covered.cardinality()
 		                                         + "/"
 		                                         + goals.size()
 		                                         + " coverage goals: "
-		                                         + NumberFormat.getPercentInstance().format((double) covered.size()
+		                                         + NumberFormat.getPercentInstance().format((double) total_covered.cardinality()
 		                                                                                            / (double) goals.size()));
 
-		JUnitReportGenerator reportGenerator = new JUnitReportGenerator(covered.size(),
+		JUnitReportGenerator reportGenerator = new JUnitReportGenerator(total_covered.cardinality(),
 		        goals.size(),
 		        executionResult.getTrace().getCoveredLines(Properties.TARGET_CLASS),
 		        classes, startTime);
 		reportGenerator.writeReport();
 
-		CoverageReportGenerator coverageReport = new CoverageReportGenerator(testResults, goals);
+		CoverageReportGenerator coverageReport = new CoverageReportGenerator(coverage);
 		coverageReport.writeCoverage();
 	}
 

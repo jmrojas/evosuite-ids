@@ -8,7 +8,6 @@ import org.evosuite.testcase.TestChromosome;
 import org.evosuite.testcase.TestFitnessFunction;
 import org.evosuite.testsuite.AbstractTestSuiteChromosome;
 import org.evosuite.testsuite.TestSuiteFitnessFunction;
-import org.evosuite.utils.LoggingUtils;
 
 /**
  * 
@@ -29,21 +28,7 @@ public class EntropyCoverageSuiteFitness extends
 		List<? extends TestFitnessFunction> totalGoals = EntropyCoverageFactory.retrieveCoverageGoals();
 		double rho = 0.0;
 
-		/*for (TestFitnessFunction goal : totalGoals)
-		{
-			double num_ones = 0.0;
-			for (ExecutionResult result : results)
-			{
-				TestChromosome tc = new TestChromosome();
-				tc.setTestCase(result.test);
-
-				num_ones += goal.getFitness(tc, result);
-			}
-
-			rho += num_ones;
-		}*/
-		for (ExecutionResult result : results)
-		{
+		for (ExecutionResult result : results) {
 			TestChromosome tc = new TestChromosome();
 			tc.setTestCase(result.test);
 
@@ -55,11 +40,17 @@ public class EntropyCoverageSuiteFitness extends
 			rho += num_ones;
 		}
 
-		fitness = Math.abs(0.5 - (rho / EntropyCoverageFactory.getNumGoals() / (EntropyCoverageFactory.getNumTests() + suite.size())));
-		LoggingUtils.getEvoLogger().info("Fitness = " + fitness);
+		//fitness = Math.abs(0.5 - (rho / EntropyCoverageFactory.getNumGoals() / (EntropyCoverageFactory.getNumTests() + suite.size())));
+		fitness = Math.abs(0.5 - (rho / EntropyCoverageFactory.getNumGoals() / suite.size()));
 
 		updateIndividual(suite, fitness);
 
 		return fitness;
+	}
+
+	/** {@inheritDoc} */
+	@Override
+	public boolean isMaximizationFunction() {
+		return false;
 	}
 }

@@ -915,7 +915,7 @@ public class TestSuiteGenerator {
 			assert (fitness >= best.getFitness());
 		}
 		// progressMonitor.updateStatus(66);
-		Properties.MINIMIZE = false; // FIXME
+		Properties.MINIMIZE = false; // FIXME ZeCarlos
 		if (Properties.MINIMIZE) {
 			ClientServices.getInstance().getClientNode().changeState(ClientState.MINIMIZATION);
 			LoggingUtils.getEvoLogger().info("* Minimizing result");
@@ -927,7 +927,7 @@ public class TestSuiteGenerator {
 		/*
 		 * FIXME: why was it as an "else" of previous condition???
 		 */
-		Properties.COVERAGE = false; // FIXME
+		Properties.COVERAGE = false; // FIXME ZeCarlos
 		if (Properties.COVERAGE) {
 			CoverageAnalysis.analyzeCoverage(best, Properties.CRITERION);
 		}
@@ -943,6 +943,7 @@ public class TestSuiteGenerator {
 		LoggingUtils.getEvoLogger().info("* Generated " + best.size()
 		                                         + " tests with total length "
 		                                         + best.totalLengthOfTestCases());
+		/* FIXME ZeCarlos
 		// TODO: In the end we will only need one analysis technique
 		if (!Properties.ANALYSIS_CRITERIA.isEmpty()) {
 			SearchStatistics.getInstance().addCoverage(Properties.CRITERION.toString(),
@@ -980,7 +981,7 @@ public class TestSuiteGenerator {
 					}
 				}
 			}
-		}
+		}*/
 
 		return best.getTests();
 	}

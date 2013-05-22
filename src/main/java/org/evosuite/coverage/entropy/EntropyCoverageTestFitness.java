@@ -48,8 +48,6 @@ public class EntropyCoverageTestFitness extends
 		if (branchFitnesses.isEmpty())
 			throw new IllegalStateException(
 			        "an instruction is at least on the root branch of it's method");
-
-		//LoggingUtils.getEvoLogger().info("--- " + branchFitnesses.size() + " ---");
 	}
 
 	@Override

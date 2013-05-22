@@ -18,14 +18,10 @@
 package org.evosuite.junit;
 
 import java.io.File;
-import java.util.List;
 
 import org.evosuite.Properties;
 import org.evosuite.ga.Chromosome;
 import org.evosuite.ga.GeneticAlgorithm;
-import org.evosuite.testcase.ExecutionResult;
-import org.evosuite.testcase.TestChromosome;
-import org.evosuite.testcase.TestFitnessFunction;
 import org.evosuite.utils.ReportGenerator;
 import org.evosuite.utils.Utils;
 
@@ -40,12 +36,10 @@ public class CoverageReportGenerator extends ReportGenerator
 {
 	private static final long serialVersionUID = -1722842583357963373L;
 
-	private List<TestResult> testResults;
-	private List<? extends TestFitnessFunction> goals;
+	private boolean[][] coverage;
 
-	public CoverageReportGenerator(List<TestResult> tRS, List<? extends TestFitnessFunction> gs) {
-		this.testResults = tRS;
-		this.goals = gs;
+	public CoverageReportGenerator(boolean[][] cov) {
+		this.coverage = cov;
 	}
 
 	public void writeCoverage()
@@ -55,26 +49,23 @@ public class CoverageReportGenerator extends ReportGenerator
 		else
 		{
 			StringBuilder suite = new StringBuilder();
-			for (TestResult tR : this.testResults)
+			for (int i = 0; i < this.coverage.length; i++)
 			{
-				TestChromosome dummy = new TestChromosome();
-				ExecutionResult executionResult = new ExecutionResult(dummy.getTestCase());
-				executionResult.setTrace(tR.getExecutionTrace());
-				dummy.setLastExecutionResult(executionResult);
-				dummy.setChanged(false);
-
 				StringBuilder test = new StringBuilder();
-				for (TestFitnessFunction goal : this.goals) {
-					if (goal.isCovered(dummy))
+				for (int j = 0; j < this.coverage[i].length - 1; j++)
+				{
+					if (this.coverage[i][j])
 						test.append("1 ");
 					else
 						test.append("0 ");
 				}
 
-				if (test.toString().contains("1")) {
-					test.append(tR.wasSuccessful() ? "+\n" : "-\n");					
-					suite.append(test);
-				}
+				if (this.coverage[i][this.coverage[i].length - 1])
+					test.append("+\n");
+				else
+					test.append("-\n");
+
+				suite.append(test);
 			}
 
 			Utils.writeFile(suite.toString(), new File(getReportDir().getAbsolutePath() + "/data/" + Properties.TARGET_CLASS + ".matrix"));
