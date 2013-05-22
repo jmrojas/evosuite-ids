@@ -32,17 +32,19 @@ public class EntropyCoverageSuiteFitness extends
 			TestChromosome tc = new TestChromosome();
 			tc.setTestCase(result.test);
 
-			double num_ones = 0.0;
+			double total_number_of_ones = 0.0;
 			for (TestFitnessFunction goal : totalGoals){
-				num_ones += goal.getFitness(tc, result);
+				total_number_of_ones += goal.getFitness(tc, result);
 			}
 
-			rho += num_ones;
+			rho += total_number_of_ones;
 		}
 
-		//fitness = Math.abs(0.5 - (rho / EntropyCoverageFactory.getNumGoals() / (EntropyCoverageFactory.getNumTests() + suite.size())));
-		fitness = Math.abs(0.5 - (rho / EntropyCoverageFactory.getNumGoals() / suite.size()));
+		rho /= EntropyCoverageFactory.getNumGoals();
+		// double bar_rho = rho / (EntropyCoverageFactory.getNumTests() + suite.size());
+		double bar_rho = rho / suite.size();
 
+		fitness = Math.abs(0.5 - bar_rho);
 		updateIndividual(suite, fitness);
 
 		return fitness;
