@@ -237,6 +237,18 @@ public abstract class AbstractTestSuiteChromosome<T extends ExecutableChromosome
 		return tests.size();
 	}
 
+	/**
+	 * Return the number of solution tests
+	 * @return
+	 */
+	public int numberOfTests() {
+		int size = 0;
+		for (T t : tests)
+			if (t.isSolution())
+				size++;
+		return size;
+	}
+
 	/** {@inheritDoc} */
 	@Override
 	public abstract void localSearch(LocalSearchObjective<? extends Chromosome> objective);

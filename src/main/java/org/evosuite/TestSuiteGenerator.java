@@ -525,10 +525,10 @@ public class TestSuiteGenerator {
 			ClientServices.getInstance().getClientNode().changeState(ClientState.WRITING_TESTS);
 
 			TestSuiteWriter suite = new TestSuiteWriter();
-			if (Properties.STRUCTURED_TESTS)
+			//if (Properties.STRUCTURED_TESTS) // FIXME ZeCarlos
 				suite.insertAllTests(tests);
-			else
-				suite.insertTests(tests);
+			//else
+			//	suite.insertTests(tests);
 
 			if (Properties.CHECK_CONTRACTS) {
 				LoggingUtils.getEvoLogger().info("* Writing failing test cases");
@@ -927,7 +927,6 @@ public class TestSuiteGenerator {
 		/*
 		 * FIXME: why was it as an "else" of previous condition???
 		 */
-		Properties.COVERAGE = false; // FIXME ZeCarlos
 		if (Properties.COVERAGE) {
 			CoverageAnalysis.analyzeCoverage(best, Properties.CRITERION);
 		}
@@ -938,12 +937,12 @@ public class TestSuiteGenerator {
 			SearchStatistics.getInstance().mutationScore(best.getCoverage());
 		}
 
-		//statistics.iteration(ga); // FIXME ZeCarlos
-		//statistics.minimized(best); // FIXME ZeCarlos
-		LoggingUtils.getEvoLogger().info("* Generated " + best.size()
+		statistics.iteration(ga);
+		statistics.minimized(best);
+		LoggingUtils.getEvoLogger().info("* Generated " + best.numberOfTests()
 		                                         + " tests with total length "
 		                                         + best.totalLengthOfTestCases());
-		/* FIXME ZeCarlos
+
 		// TODO: In the end we will only need one analysis technique
 		if (!Properties.ANALYSIS_CRITERIA.isEmpty()) {
 			SearchStatistics.getInstance().addCoverage(Properties.CRITERION.toString(),
@@ -981,7 +980,7 @@ public class TestSuiteGenerator {
 					}
 				}
 			}
-		}*/
+		}
 
 		return best.getTests();
 	}
@@ -1060,7 +1059,7 @@ public class TestSuiteGenerator {
 		case IBRANCH:
 			return new IBranchSuiteFitness();
 		case STATEMENT:
-			//return new StatementCoverageSuiteFitness(); //FIXME
+			//return new StatementCoverageSuiteFitness(); //FIXME ZeCarlos
 			return new EntropyCoverageSuiteFitness();
 		case ALLDEFS:
 			return new AllDefsCoverageSuiteFitness();
@@ -1114,7 +1113,7 @@ public class TestSuiteGenerator {
 		case IBRANCH:
 			return new IBranchFitnessFactory();
 		case STATEMENT:
-			//return new StatementCoverageFactory(); // FIXME
+			//return new StatementCoverageFactory(); // FIXME ZeCarlos
 			return new EntropyCoverageFactory();
 		case ALLDEFS:
 			return new AllDefsCoverageFactory();
