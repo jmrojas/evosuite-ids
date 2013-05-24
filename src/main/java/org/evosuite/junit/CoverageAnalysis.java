@@ -92,7 +92,6 @@ public class CoverageAnalysis {
 					// Ignore?
 				}
 			}
-
 		}
 		return classes;
 	}
@@ -323,9 +322,7 @@ public class CoverageAnalysis {
 			dummy.setLastExecutionResult(executionResult);
 			dummy.setChanged(false);
 
-			int bitIndex = 0;
 			int index_component = 0;
-
 			for (TestFitnessFunction goal : goals)
 			{
 				boolean isCovered = goal.isCovered(dummy);
@@ -336,17 +333,16 @@ public class CoverageAnalysis {
 				if (Properties.CRITERION == Criterion.STATEMENT) {
 					if (!goal.isCovered(dummy)) {
 						coverage[index_test][index_component] = !isCovered;
-						total_covered.set(bitIndex);
+						total_covered.set(index_component);
 					}
 				}
 				else {
 					if (goal.isCovered(dummy)) {
 						coverage[index_test][index_component] = isCovered;
-						total_covered.set(bitIndex);
+						total_covered.set(index_component);
 					}
 				}
 				index_component++;
-				bitIndex++;
 			}
 
 			coverage[index_test++][index_component] = tR.wasSuccessful();
