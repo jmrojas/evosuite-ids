@@ -18,21 +18,21 @@ public class EntropyCoverageSuiteFitness extends
 {
 	private static final long serialVersionUID = -878646285915396403L;
 
-	private boolean[][]	matrix;
-	private int			test;
+	private boolean[][]	generated_matrix;
+	private int			number_of_tests;
 
 	/** {@inheritDoc} */
 	@Override
 	public double getFitness(
 			AbstractTestSuiteChromosome<? extends ExecutableChromosome> suite)
 	{
-		this.test = 0;
+		this.number_of_tests = 0;
 
 		List<ExecutionResult> results = runTestSuite(suite);
 		double fitness = 0.0;
 
 		List<? extends TestFitnessFunction> totalGoals = EntropyCoverageFactory.retrieveCoverageGoals();
-		this.initMatrix(suite.size(), totalGoals.size());
+		this.initGeneratedMatrix(suite.size(), totalGoals.size());
 		double rho = 0.0;
 
 		int test_index = 0;
@@ -40,6 +40,7 @@ public class EntropyCoverageSuiteFitness extends
 
 		for (ExecutionResult result : results)
 		{
+			EntropyCoverageTestFitness.enableSaveCoverage();
 			EntropyCoverageTestFitness.init(totalGoals.size());
 
 			TestChromosome tc = new TestChromosome();
@@ -55,7 +56,7 @@ public class EntropyCoverageSuiteFitness extends
 			/*
 			 * This TestChromosome already exists? or Doesn't cover any component?
 			 */
-			if ( this.testExist(test_coverage) || (total_number_of_ones == 0.0) ) {
+			if ( this.testExists(test_coverage) || (total_number_of_ones == 0.0) ) {
 				testC.setSolution(false);
 				number_of_invalid_solutions++;
 			}
@@ -63,15 +64,16 @@ public class EntropyCoverageSuiteFitness extends
 				rho += total_number_of_ones;
 
 				testC.setSolution(true);
-				this.addCoverage(test_coverage);
+				this.addTest(test_coverage);
 			}
 
 			EntropyCoverageTestFitness.disableSaveCoverage();
 		}
 
-		rho /= EntropyCoverageFactory.getNumGoals();
-		// double bar_rho = rho / (EntropyCoverageFactory.getNumTests() + suite.size());
-		double bar_rho = rho / (suite.size() - number_of_invalid_solutions); // FIXME check if number_of_invalid_solutions isn't zero!!!
+		rho += EntropyCoverageFactory.getNumberOfOnes();
+		rho /= EntropyCoverageFactory.getNumberOfGoals();
+
+		double bar_rho = rho / ((suite.size() - number_of_invalid_solutions) + EntropyCoverageFactory.getNumberOfTests()); // FIXME check if number_of_invalid_solutions isn't zero!!!
 
 		fitness = Math.abs(0.5 - bar_rho);
 		updateIndividual(suite, fitness);
@@ -85,20 +87,18 @@ public class EntropyCoverageSuiteFitness extends
 		return false;
 	}
 
-	public void initMatrix(int nT, int nG) {
-		this.matrix = new boolean[nT][nG];
+	private void initGeneratedMatrix(int nT, int nG) {
+		this.generated_matrix = new boolean[nT][nG];
 	}
-	public void addCoverage(boolean[] b) {
-		this.matrix[this.test++] = b;
-	}
-	public boolean[][] getMatrix() {
-		return this.matrix;
+	private void addTest(boolean[] coverage) {
+		this.generated_matrix[this.number_of_tests++] = coverage;
 	}
 
-	public boolean testExist(boolean b[]) {
-		for (int i = 0; i < this.test; i++)
-			if (Arrays.equals(this.matrix[i], b))
+	private boolean testExists(boolean coverage[])
+	{
+		for (int i = 0; i < this.number_of_tests; i++)
+			if (Arrays.equals(this.generated_matrix[i], coverage))
 				return true;
-		return false;
+		return EntropyCoverageFactory.testExists(coverage);
 	}
 }

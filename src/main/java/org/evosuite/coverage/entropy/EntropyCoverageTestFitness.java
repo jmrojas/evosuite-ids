@@ -105,7 +105,6 @@ public class EntropyCoverageTestFitness extends
 	}
 
 	public static void init(int nG) {
-		enableSaveCoverage();
 		test_coverage = new boolean[nG];
 		component_index = 0;
 	}
