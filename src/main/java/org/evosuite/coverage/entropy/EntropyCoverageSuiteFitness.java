@@ -16,10 +16,10 @@ import org.evosuite.testsuite.TestSuiteFitnessFunction;
 public class EntropyCoverageSuiteFitness extends
 		TestSuiteFitnessFunction
 {
-	private static final long serialVersionUID = -878646285915396403L;
+	private static final long	serialVersionUID = -878646285915396403L;
 
-	private boolean[][]	generated_matrix;
-	private int			number_of_tests;
+	private boolean[][]			generated_matrix;
+	private int					number_of_tests;
 
 	/** {@inheritDoc} */
 	@Override

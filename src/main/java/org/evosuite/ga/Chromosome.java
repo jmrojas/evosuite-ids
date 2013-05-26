@@ -50,7 +50,7 @@ public abstract class Chromosome implements Comparable<Chromosome>, Serializable
 	private double lastFitness = 0.0;
 
 	/** True if this is a solution */
-	protected boolean solution = false;
+	protected boolean solution = true;
 
 	/** Has this chromosome changed since its fitness was last evaluated? */
 	private boolean changed = true;

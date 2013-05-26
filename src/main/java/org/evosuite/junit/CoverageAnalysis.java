@@ -17,6 +17,8 @@ import java.util.Collection;
 import java.util.Collections;
 import java.util.Comparator;
 import java.util.Enumeration;
+import java.util.HashMap;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.regex.Pattern;
 import java.util.zip.ZipEntry;
@@ -296,17 +298,41 @@ public class CoverageAnalysis {
 		} catch (final IOException e1) {
 			throw new Error(e1);
 		}
-		return classes;
 
+		return classes;
 	}
 
 	private static void printReport(List<TestResult> testResults, List<Class<?>> classes, long startTime)
 	{
 		LoggingUtils.getEvoLogger().info("* Executed " + testResults.size() + " unit tests");
 
-		List<? extends TestFitnessFunction> goals = TestSuiteGenerator.getFitnessFactory().getCoverageGoals();
-		/*for (TestFitnessFunction goal : goals) {
-			LoggingUtils.getEvoLogger().info(goal.toString());
+		HashMap<String, List<TestFitnessFunction>> goals = new LinkedHashMap<String, List<TestFitnessFunction>>();
+		for (TestFitnessFunction goal : TestSuiteGenerator.getFitnessFactory().getCoverageGoals())
+		{
+			if (Properties.CRITERION != Criterion.STATEMENT)
+			{
+				List<TestFitnessFunction> _goals = new ArrayList<TestFitnessFunction>();
+				_goals.add(goal);
+				goals.put(goal.toString(), _goals);
+			}
+			else
+			{
+				String[] splits = goal.toString().split(" ");
+
+				if (goals.containsKey(splits[splits.length - 1])) {
+					(goals.get(splits[splits.length - 1])).add(goal);
+				}
+				else {
+					List<TestFitnessFunction> _goals = new ArrayList<TestFitnessFunction>();
+					_goals.add(goal);
+					goals.put(splits[splits.length - 1], _goals);
+				}
+			}
+		}
+		/*for (String s : goalIDs.keySet()) {
+			LoggingUtils.getEvoLogger().info(s);
+			for (TestFitnessFunction goal : goalIDs.get(s))
+				LoggingUtils.getEvoLogger().info("\t" + goal);
 		}*/
 
 		TestChromosome dummy = new TestChromosome();
@@ -323,25 +349,28 @@ public class CoverageAnalysis {
 			dummy.setChanged(false);
 
 			int index_component = 0;
-			for (TestFitnessFunction goal : goals)
+			for (String id : goals.keySet())
 			{
-				boolean isCovered = goal.isCovered(dummy);
+				boolean isCovered = false;
 
-				/*
-				 * FIXME When we have STATEMENT criterion, why we need to negate the returned variable of isCovered function ?! 
-				 */
-				if (Properties.CRITERION == Criterion.STATEMENT) {
-					if (!goal.isCovered(dummy)) {
-						coverage[index_test][index_component] = !isCovered;
+				for (TestFitnessFunction goal : goals.get(id))
+				{
+					/*
+					 * FIXME When we have STATEMENT criterion, why we need to negate the returned variable of isCovered function ?! 
+					 */
+					if (Properties.CRITERION == Criterion.STATEMENT) {
+						isCovered = !goal.isCovered(dummy);
+					}
+					else
+						isCovered = goal.isCovered(dummy);
+
+					if (isCovered == true) {
 						total_covered.set(index_component);
+						break ;
 					}
 				}
-				else {
-					if (goal.isCovered(dummy)) {
-						coverage[index_test][index_component] = isCovered;
-						total_covered.set(index_component);
-					}
-				}
+
+				coverage[index_test][index_component] = isCovered;
 				index_component++;
 			}
 
