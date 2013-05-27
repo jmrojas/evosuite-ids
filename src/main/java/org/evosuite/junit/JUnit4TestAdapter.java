@@ -43,8 +43,9 @@ public class JUnit4TestAdapter implements UnitTestAdapter {
 	public String getImports() {
 		//		return "import org.junit.Before;\n" + "import org.junit.Ignore;\n"
 		//		        + "import org.junit.Test;\n" + "import static org.junit.Assert.*;\n";
-		return "import org.junit.Test;\nimport org.junit.runner.RunWith;\nimport org.evosuite.junit.EvoSuiteRunner;\n"
-		        + "import static org.junit.Assert.*;\n";
+		//return "import org.junit.Test;\nimport org.junit.runner.RunWith;\nimport org.evosuite.junit.EvoSuiteRunner;\n"
+		//        + "import static org.junit.Assert.*;\n";
+		return "import org.junit.Test;\nimport static org.junit.Assert.*;\n";
 	}
 
 	/* (non-Javadoc)
@@ -53,7 +54,8 @@ public class JUnit4TestAdapter implements UnitTestAdapter {
 	/** {@inheritDoc} */
 	@Override
 	public String getClassDefinition(String testName) {
-		return "@RunWith(EvoSuiteRunner.class)\npublic class " + testName;
+		//return "@RunWith(EvoSuiteRunner.class)\npublic class " + testName;
+		return "public class " + testName;
 	}
 
 	/* (non-Javadoc)
@@ -72,7 +74,7 @@ public class JUnit4TestAdapter implements UnitTestAdapter {
 	@Override
 	public String getSuite(List<String> suites) {
 		StringBuilder builder = new StringBuilder();
-		builder.append("import org.junit.runner.RunWith;\n");
+		//builder.append("import org.junit.runner.RunWith;\n");
 		builder.append("import org.junit.runners.Suite;\n\n");
 
 		for (String suite : suites) {
@@ -84,7 +86,7 @@ public class JUnit4TestAdapter implements UnitTestAdapter {
 		}
 		builder.append("\n");
 
-		builder.append("@RunWith(Suite.class)\n");
+		//builder.append("@RunWith(Suite.class)\n");
 		builder.append("@Suite.SuiteClasses({\n");
 		boolean first = true;
 		for (String suite : suites) {

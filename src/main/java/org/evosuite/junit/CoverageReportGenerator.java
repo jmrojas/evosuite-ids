@@ -36,25 +36,19 @@ public class CoverageReportGenerator extends ReportGenerator
 {
 	private static final long serialVersionUID = -1722842583357963373L;
 
-	private boolean[][] coverage;
-
-	public CoverageReportGenerator(boolean[][] cov) {
-		this.coverage = cov;
-	}
-
-	public void writeCoverage()
+	public static void writeCoverage(boolean[][] coverage)
 	{
 		if (!Properties.COVERAGE_MATRIX)
 			return ;
 		else
 		{
 			StringBuilder suite = new StringBuilder();
-			for (int i = 0; i < this.coverage.length; i++)
+			for (int i = 0; i < coverage.length; i++)
 			{
 				StringBuilder test = new StringBuilder();
-				for (int j = 0; j < this.coverage[i].length - 1; j++)
+				for (int j = 0; j < coverage[i].length - 1; j++)
 				{
-					if (this.coverage[i][j])
+					if (coverage[i][j])
 						test.append("1 ");
 					else
 						test.append("0 ");
@@ -63,7 +57,7 @@ public class CoverageReportGenerator extends ReportGenerator
 				if (!test.toString().contains("1")) // if a test coverage does not contains an "1", means that this test does not touch anything
 					continue ;
 
-				if (this.coverage[i][this.coverage[i].length - 1])
+				if (coverage[i][coverage[i].length - 1])
 					test.append("+\n");
 				else
 					test.append("-\n");

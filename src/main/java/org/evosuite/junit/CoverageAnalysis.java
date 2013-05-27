@@ -358,8 +358,7 @@ public class CoverageAnalysis {
 		        classes, startTime);
 		reportGenerator.writeReport();
 
-		CoverageReportGenerator coverageReport = new CoverageReportGenerator(coverage);
-		coverageReport.writeCoverage();
+		CoverageReportGenerator.writeCoverage(coverage);
 	}
 
 	private static List<TestResult> executeTests(Class<?>... junitClasses)
