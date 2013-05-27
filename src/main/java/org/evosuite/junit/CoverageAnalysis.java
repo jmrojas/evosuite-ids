@@ -17,8 +17,6 @@ import java.util.Collection;
 import java.util.Collections;
 import java.util.Comparator;
 import java.util.Enumeration;
-import java.util.HashMap;
-import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.regex.Pattern;
 import java.util.zip.ZipEntry;
@@ -306,34 +304,7 @@ public class CoverageAnalysis {
 	{
 		LoggingUtils.getEvoLogger().info("* Executed " + testResults.size() + " unit tests");
 
-		HashMap<String, List<TestFitnessFunction>> goals = new LinkedHashMap<String, List<TestFitnessFunction>>();
-		for (TestFitnessFunction goal : TestSuiteGenerator.getFitnessFactory().getCoverageGoals())
-		{
-			if (Properties.CRITERION != Criterion.STATEMENT)
-			{
-				List<TestFitnessFunction> _goals = new ArrayList<TestFitnessFunction>();
-				_goals.add(goal);
-				goals.put(goal.toString(), _goals);
-			}
-			else
-			{
-				String[] splits = goal.toString().split(" ");
-
-				if (goals.containsKey(splits[splits.length - 1])) {
-					(goals.get(splits[splits.length - 1])).add(goal);
-				}
-				else {
-					List<TestFitnessFunction> _goals = new ArrayList<TestFitnessFunction>();
-					_goals.add(goal);
-					goals.put(splits[splits.length - 1], _goals);
-				}
-			}
-		}
-		/*for (String s : goalIDs.keySet()) {
-			LoggingUtils.getEvoLogger().info(s);
-			for (TestFitnessFunction goal : goalIDs.get(s))
-				LoggingUtils.getEvoLogger().info("\t" + goal);
-		}*/
+		List<? extends TestFitnessFunction> goals = TestSuiteGenerator.getFitnessFactory().getCoverageGoals();
 
 		TestChromosome dummy = new TestChromosome();
 		ExecutionResult executionResult = new ExecutionResult(dummy.getTestCase());
@@ -349,32 +320,29 @@ public class CoverageAnalysis {
 			dummy.setChanged(false);
 
 			int index_component = 0;
-			for (String id : goals.keySet())
+			boolean isCovered = false;
+
+			for (TestFitnessFunction goal : goals)
 			{
-				boolean isCovered = false;
+				/*
+				 * FIXME When we have STATEMENT criterion, why we need to negate the returned variable of isCovered function ?! 
+				 */
+				if (Properties.CRITERION == Criterion.STATEMENT) {
+					isCovered = !goal.isCovered(dummy);
+				}
+				else
+					isCovered = goal.isCovered(dummy);
 
-				for (TestFitnessFunction goal : goals.get(id))
-				{
-					/*
-					 * FIXME When we have STATEMENT criterion, why we need to negate the returned variable of isCovered function ?! 
-					 */
-					if (Properties.CRITERION == Criterion.STATEMENT) {
-						isCovered = !goal.isCovered(dummy);
-					}
-					else
-						isCovered = goal.isCovered(dummy);
-
-					if (isCovered == true) {
-						total_covered.set(index_component);
-						break ;
-					}
+				if (isCovered == true) {
+					total_covered.set(index_component);
+					coverage[index_test][index_component] = isCovered;
+					break ;
 				}
 
-				coverage[index_test][index_component] = isCovered;
 				index_component++;
 			}
 
-			coverage[index_test++][index_component] = tR.wasSuccessful();
+			coverage[index_test++][goals.size()] = tR.wasSuccessful();
 		}
 
 		LoggingUtils.getEvoLogger().info("* Covered "

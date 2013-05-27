@@ -60,6 +60,9 @@ public class CoverageReportGenerator extends ReportGenerator
 						test.append("0 ");
 				}
 
+				if (!test.toString().contains("1")) // if a test coverage does not contains an "1", means that this test does not touch anything
+					continue ;
+
 				if (this.coverage[i][this.coverage[i].length - 1])
 					test.append("+\n");
 				else
