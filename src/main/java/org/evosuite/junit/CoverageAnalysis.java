@@ -325,9 +325,9 @@ public class CoverageAnalysis {
 			for (TestFitnessFunction goal : goals)
 			{
 				/*
-				 * FIXME When we have STATEMENT criterion, why we need to negate the returned variable of isCovered function ?! 
+				 * FIXME When we have ENTROPY criterion, why we need to negate the returned variable of isCovered function ?! 
 				 */
-				if (Properties.CRITERION == Criterion.STATEMENT) {
+				if (Properties.CRITERION == Criterion.ENTROPY) {
 					isCovered = !goal.isCovered(dummy);
 				}
 				else
@@ -336,7 +336,6 @@ public class CoverageAnalysis {
 				if (isCovered == true) {
 					total_covered.set(index_component);
 					coverage[index_test][index_component] = isCovered;
-					break ;
 				}
 
 				index_component++;

@@ -80,6 +80,8 @@ import org.evosuite.coverage.mutation.StrongMutationSuiteFitness;
 import org.evosuite.coverage.mutation.WeakMutationSuiteFitness;
 import org.evosuite.coverage.path.PrimePathCoverageFactory;
 import org.evosuite.coverage.path.PrimePathSuiteFitness;
+import org.evosuite.coverage.statement.StatementCoverageFactory;
+import org.evosuite.coverage.statement.StatementCoverageSuiteFitness;
 import org.evosuite.ga.Chromosome;
 import org.evosuite.ga.ChromosomeFactory;
 import org.evosuite.ga.CrossOverFunction;
@@ -525,10 +527,11 @@ public class TestSuiteGenerator {
 			ClientServices.getInstance().getClientNode().changeState(ClientState.WRITING_TESTS);
 
 			TestSuiteWriter suite = new TestSuiteWriter();
-			//if (Properties.STRUCTURED_TESTS) // FIXME ZeCarlos
+			if (Properties.STRUCTURED_TESTS
+					|| Properties.CRITERION == Criterion.ENTROPY)
 				suite.insertAllTests(tests);
-			//else
-			//	suite.insertTests(tests);
+			else
+				suite.insertTests(tests);
 
 			if (Properties.CHECK_CONTRACTS) {
 				LoggingUtils.getEvoLogger().info("* Writing failing test cases");
@@ -831,7 +834,8 @@ public class TestSuiteGenerator {
 
 		if (Properties.CRITERION == Criterion.DEFUSE
 		        || Properties.CRITERION == Criterion.ALLDEFS
-		        || Properties.CRITERION == Criterion.STATEMENT)
+		        || Properties.CRITERION == Criterion.STATEMENT
+		        || Properties.CRITERION == Criterion.ENTROPY)
 			ExecutionTracer.enableTraceCalls();
 
 		// TODO: why it was only if "analyzing"???
@@ -915,7 +919,7 @@ public class TestSuiteGenerator {
 			assert (fitness >= best.getFitness());
 		}
 		// progressMonitor.updateStatus(66);
-		Properties.MINIMIZE = false; // FIXME ZeCarlos
+
 		if (Properties.MINIMIZE) {
 			ClientServices.getInstance().getClientNode().changeState(ClientState.MINIMIZATION);
 			LoggingUtils.getEvoLogger().info("* Minimizing result");
@@ -1006,6 +1010,9 @@ public class TestSuiteGenerator {
 		case STATEMENT:
 			LoggingUtils.getEvoLogger().info("* Test Criterion: Statement Coverage");
 			break;
+		case ENTROPY:
+			LoggingUtils.getEvoLogger().info("* Test Criterion: Entropy Coverage");
+			break;
 		case ALLDEFS:
 			LoggingUtils.getEvoLogger().info("* Test Criterion: All Definitions");
 			break;
@@ -1059,7 +1066,8 @@ public class TestSuiteGenerator {
 		case IBRANCH:
 			return new IBranchSuiteFitness();
 		case STATEMENT:
-			//return new StatementCoverageSuiteFitness(); //FIXME ZeCarlos
+			return new StatementCoverageSuiteFitness();
+		case ENTROPY:
 			return new EntropyCoverageSuiteFitness();
 		case ALLDEFS:
 			return new AllDefsCoverageSuiteFitness();
@@ -1113,7 +1121,8 @@ public class TestSuiteGenerator {
 		case IBRANCH:
 			return new IBranchFitnessFactory();
 		case STATEMENT:
-			//return new StatementCoverageFactory(); // FIXME ZeCarlos
+			return new StatementCoverageFactory();
+		case ENTROPY:
 			return new EntropyCoverageFactory();
 		case ALLDEFS:
 			return new AllDefsCoverageFactory();

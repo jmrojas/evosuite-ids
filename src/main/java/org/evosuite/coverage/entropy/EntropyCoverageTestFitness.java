@@ -19,8 +19,8 @@ public class EntropyCoverageTestFitness extends
 	private static boolean[]	test_coverage;
 	private static int			component_index;
 
-	protected BytecodeInstruction goalInstruction;
-	protected BranchCoverageTestFitness branchFitnesses;
+	protected BytecodeInstruction		goalInstruction;
+	protected BranchCoverageTestFitness	branchFitnesses;
 
 	public EntropyCoverageTestFitness(BytecodeInstruction goalInstruction) {
 		if (goalInstruction == null)

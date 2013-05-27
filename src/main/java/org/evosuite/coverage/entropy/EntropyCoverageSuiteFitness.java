@@ -73,7 +73,7 @@ public class EntropyCoverageSuiteFitness extends
 		rho += EntropyCoverageFactory.getNumberOfOnes();
 		rho /= EntropyCoverageFactory.getNumberOfGoals();
 
-		double bar_rho = rho / ((suite.size() - number_of_invalid_solutions) + EntropyCoverageFactory.getNumberOfTests()); // FIXME check if number_of_invalid_solutions isn't zero!!!
+		double bar_rho = rho / ((suite.size() - number_of_invalid_solutions) + EntropyCoverageFactory.getNumberOfTests()); // FIXME check if denominator isn't zero!!!
 
 		fitness = Math.abs(0.5 - bar_rho);
 		updateIndividual(suite, fitness);

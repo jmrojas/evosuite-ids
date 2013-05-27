@@ -1027,6 +1027,7 @@ public class Properties {
 		MUTATION,
 		COMP_LCSAJ_BRANCH,
 		STATEMENT,
+		ENTROPY,
 		DATA,
 		BEHAVIORAL,
 		IBRANCH,
