@@ -54,6 +54,8 @@ import org.evosuite.contracts.FailingTestSet;
 import org.evosuite.coverage.CoverageAnalysis;
 import org.evosuite.coverage.FitnessLogger;
 import org.evosuite.coverage.TestFitnessFactory;
+import org.evosuite.coverage.ambiguity.AmbiguityFactory;
+import org.evosuite.coverage.ambiguity.AmbiguitySuiteFitness;
 import org.evosuite.coverage.branch.BranchCoverageFactory;
 import org.evosuite.coverage.branch.BranchCoverageSuiteFitness;
 import org.evosuite.coverage.branch.BranchPool;
@@ -528,7 +530,8 @@ public class TestSuiteGenerator {
 
 			TestSuiteWriter suite = new TestSuiteWriter();
 			if (Properties.STRUCTURED_TESTS
-					|| Properties.CRITERION == Criterion.ENTROPY)
+					|| Properties.CRITERION == Criterion.ENTROPY
+					|| Properties.CRITERION == Criterion.AMBIGUITY)
 				suite.insertAllTests(tests);
 			else
 				suite.insertTests(tests);
@@ -835,7 +838,8 @@ public class TestSuiteGenerator {
 		if (Properties.CRITERION == Criterion.DEFUSE
 		        || Properties.CRITERION == Criterion.ALLDEFS
 		        || Properties.CRITERION == Criterion.STATEMENT
-		        || Properties.CRITERION == Criterion.ENTROPY)
+		        || Properties.CRITERION == Criterion.ENTROPY
+				|| Properties.CRITERION == Criterion.AMBIGUITY)
 			ExecutionTracer.enableTraceCalls();
 
 		// TODO: why it was only if "analyzing"???
@@ -1013,6 +1017,9 @@ public class TestSuiteGenerator {
 		case ENTROPY:
 			LoggingUtils.getEvoLogger().info("* Test Criterion: Entropy Coverage");
 			break;
+		case AMBIGUITY:
+			LoggingUtils.getEvoLogger().info("* Test Criterion: Ambiguity Coverage");
+			break;
 		case ALLDEFS:
 			LoggingUtils.getEvoLogger().info("* Test Criterion: All Definitions");
 			break;
@@ -1069,6 +1076,8 @@ public class TestSuiteGenerator {
 			return new StatementCoverageSuiteFitness();
 		case ENTROPY:
 			return new EntropyCoverageSuiteFitness();
+		case AMBIGUITY:
+			return new AmbiguitySuiteFitness();
 		case ALLDEFS:
 			return new AllDefsCoverageSuiteFitness();
 		case EXCEPTION:
@@ -1124,6 +1133,8 @@ public class TestSuiteGenerator {
 			return new StatementCoverageFactory();
 		case ENTROPY:
 			return new EntropyCoverageFactory();
+		case AMBIGUITY:
+			return new AmbiguityFactory();
 		case ALLDEFS:
 			return new AllDefsCoverageFactory();
 		case EXCEPTION:

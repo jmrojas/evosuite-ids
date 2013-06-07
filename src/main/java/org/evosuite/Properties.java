@@ -1028,6 +1028,7 @@ public class Properties {
 		COMP_LCSAJ_BRANCH,
 		STATEMENT,
 		ENTROPY,
+		AMBIGUITY,
 		DATA,
 		BEHAVIORAL,
 		IBRANCH,
