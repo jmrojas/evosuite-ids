@@ -70,10 +70,17 @@ public class EntropyCoverageSuiteFitness extends
 			EntropyCoverageTestFitness.disableSaveCoverage();
 		}
 
-		rho += EntropyCoverageFactory.getNumberOfOnes();
-		rho /= EntropyCoverageFactory.getNumberOfGoals();
-
-		double bar_rho = rho / ((suite.size() - number_of_invalid_solutions) + EntropyCoverageFactory.getNumberOfTests()); // FIXME check if denominator isn't zero!!!
+		double bar_rho = 0.0;
+		if (suite.size() == number_of_invalid_solutions) {
+			bar_rho = 1.0;
+			suite.setSolution(false);
+		}
+		else {
+			rho += EntropyCoverageFactory.getNumberOfOnes();
+			rho /= EntropyCoverageFactory.getNumberOfGoals();
+	
+			bar_rho = rho / ((suite.size() - number_of_invalid_solutions) + EntropyCoverageFactory.getNumberOfTests());
+		}
 
 		fitness = Math.abs(0.5 - bar_rho);
 		updateIndividual(suite, fitness);

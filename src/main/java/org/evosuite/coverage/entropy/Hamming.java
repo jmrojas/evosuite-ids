@@ -18,8 +18,10 @@ public class Hamming
 			if (one[i] != two[i])
 				counter++;
 
-		if ( (counter >= 0) && (counter <= (numberGoals*0.25)) )
+		if (counter == 0)
 			return true;
+		/*if (counter <= (0.25 * numberGoals))
+			return true;*/
 		else
 			return false;
 	}
