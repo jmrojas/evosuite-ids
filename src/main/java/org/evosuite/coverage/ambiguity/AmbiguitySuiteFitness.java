@@ -24,17 +24,14 @@ public class AmbiguitySuiteFitness extends
 	public double getFitness(
 			AbstractTestSuiteChromosome<? extends ExecutableChromosome> suite)
 	{
-		MaxGroupID = 1;
+		MaxGroupID = AmbiguityFactory.MaxGroupID;
 
 		List<ExecutionResult> results = runTestSuite(suite);
 
 		List<? extends TestFitnessFunction> totalGoals = AmbiguityFactory.retrieveCoverageGoals();
-		double fitness = ((totalGoals.size() - 1.0) / 2.0);
+		double fitness = AmbiguityFactory.fitness;
 
-		HashMap<Integer, Integer> table = new HashMap<Integer, Integer>();
-		for (int i = 0; i < totalGoals.size(); i++) {
-			table.put(i,  MaxGroupID);
-		}
+		HashMap<Integer, Integer> table = new HashMap<Integer, Integer>(AmbiguityFactory.table);
 
 		int test_index = 0;
 		int number_of_invalid_solutions = 0;
@@ -92,7 +89,7 @@ public class AmbiguitySuiteFitness extends
 		return fitness;
 	}
 
-	public static void updateAmbiguityGroups(HashMap<Integer, Integer> table, List<Integer> covered)
+	private static void updateAmbiguityGroups(HashMap<Integer, Integer> table, List<Integer> covered)
 	{
 		HashMap<Integer, Integer> _tmp = new HashMap<Integer, Integer>();
 		for (Integer i : covered)
