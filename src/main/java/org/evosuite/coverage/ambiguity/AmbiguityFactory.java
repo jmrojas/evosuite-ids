@@ -112,6 +112,7 @@ public class AmbiguityFactory extends
 			for (Integer i : groups.values()) {
 				fitness += (i / ((double)goals.size())) * ((i - 1.0) / 2.0);
 			}
+			LoggingUtils.getEvoLogger().info("* Original fitness: " + fitness);
 		}
 		catch (IOException e) {
 			// the coverage matrix file does not exist, ok no problem... we will generate new test cases from scratch
