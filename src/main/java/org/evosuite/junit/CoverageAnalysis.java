@@ -10,6 +10,7 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.io.PrintStream;
 import java.lang.reflect.Method;
+import java.lang.reflect.Modifier;
 import java.text.NumberFormat;
 import java.util.ArrayList;
 import java.util.BitSet;
@@ -22,6 +23,9 @@ import java.util.regex.Pattern;
 import java.util.zip.ZipEntry;
 import java.util.zip.ZipException;
 import java.util.zip.ZipFile;
+
+import junit.framework.TestCase;
+import junit.framework.TestSuite;
 
 import org.evosuite.Properties;
 import org.evosuite.Properties.Criterion;
@@ -258,7 +262,9 @@ public class CoverageAnalysis {
 				                                                                      "."),
 				                               true,
 				                               TestGenerationContext.getClassLoader());
-				classes.add(clazz);
+
+				if (isTest(clazz))
+					classes.add(clazz);				
 			} catch (IllegalAccessError ex) {
 				System.setOut(old_out);
 				System.setErr(old_err);
@@ -296,6 +302,14 @@ public class CoverageAnalysis {
 		} catch (final IOException e1) {
 			throw new Error(e1);
 		}
+
+		// re-order classes
+		Collections.sort(classes, new Comparator<Class<?>>() {
+			@Override
+			public int compare(Class<?> arg0, Class<?> arg1) {
+				return Integer.valueOf(arg1.getName().length()).compareTo(arg0.getName().length());
+			}
+		});
 
 		return classes;
 	}
@@ -381,12 +395,20 @@ public class CoverageAnalysis {
 	 * @return
 	 */
 	private static boolean isTest(Class<?> clazz) {
+
+		if (Modifier.isAbstract(clazz.getModifiers()))
+			return false;
+
 		Class<?> superClazz = clazz.getSuperclass();
 		while (superClazz != null && !superClazz.equals(Object.class)
 		        && !superClazz.equals(clazz)) {
 			if (superClazz.equals(Suite.class))
 				return true;
+			if (superClazz.equals(TestSuite.class))
+				return true;
 			if (superClazz.equals(Test.class))
+				return true;
+			if (superClazz.equals(TestCase.class))
 				return true;
 
 			if (superClazz.equals(clazz.getSuperclass()))
