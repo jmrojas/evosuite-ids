@@ -18,6 +18,7 @@ import java.util.Collection;
 import java.util.Collections;
 import java.util.Comparator;
 import java.util.Enumeration;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.regex.Pattern;
 import java.util.zip.ZipEntry;
@@ -319,15 +320,38 @@ public class CoverageAnalysis {
 		LoggingUtils.getEvoLogger().info("* Executed " + testResults.size() + " unit tests");
 
 		List<? extends TestFitnessFunction> goals = TestSuiteGenerator.getFitnessFactory().getCoverageGoals();
+		LinkedHashMap<String, List<TestFitnessFunction>> goalsMap = new LinkedHashMap<String, List<TestFitnessFunction>>();
+		for (TestFitnessFunction goal : goals)
+		{
+			//LoggingUtils.getEvoLogger().info("\t" + goal);
+
+			String[] split = goal.toString().split(" ");
+			if (goalsMap.containsKey(split[split.length - 1])) {
+				goalsMap.get(split[split.length - 1]).add(goal);
+			}
+			else {
+				List<TestFitnessFunction> _new = new ArrayList<TestFitnessFunction>();
+				_new.add(goal);
+				goalsMap.put(split[split.length - 1], _new);
+			}
+		}
+		/*LoggingUtils.getEvoLogger().info("-------------------------------------------------");
+		for (String key : goalsMap.keySet()) {
+			LoggingUtils.getEvoLogger().info("\t" + key);
+			for (TestFitnessFunction goal : goalsMap.get(key)) {
+				LoggingUtils.getEvoLogger().info("\t\t" + goal);
+			}
+		}*/
 
 		TestChromosome dummy = new TestChromosome();
 		ExecutionResult executionResult = new ExecutionResult(dummy.getTestCase());
 
-		boolean[][] coverage = new boolean[testResults.size()][goals.size() + 1];
+		//boolean[][] coverage = new boolean[testResults.size()][goals.size() + 1];
+		boolean[][] coverage = new boolean[testResults.size()][goalsMap.size() + 1];
 		int index_test = 0;
 		BitSet total_covered = new BitSet();
 
-		for (TestResult tR : testResults)
+		/*for (TestResult tR : testResults)
 		{
 			executionResult.setTrace(tR.getExecutionTrace());
 			dummy.setLastExecutionResult(executionResult);
@@ -338,9 +362,9 @@ public class CoverageAnalysis {
 
 			for (TestFitnessFunction goal : goals)
 			{
-				/*
-				 * FIXME When we have ENTROPY criterion, why we need to negate the returned variable of isCovered function ?! 
-				 */
+				//
+				 / FIXME When we have ENTROPY criterion, why we need to negate the returned variable of isCovered function ?! 
+				 //
 				if (Properties.CRITERION == Criterion.ENTROPY) {
 					isCovered = !goal.isCovered(dummy);
 				}
@@ -356,15 +380,72 @@ public class CoverageAnalysis {
 			}
 
 			coverage[index_test++][goals.size()] = tR.wasSuccessful();
+		}*/
+		for (TestResult tR : testResults)
+		{
+			executionResult.setTrace(tR.getExecutionTrace());
+			dummy.setLastExecutionResult(executionResult);
+			dummy.setChanged(false);
+
+			int index_component = 0;
+
+			for (String key : goalsMap.keySet())
+			{
+				boolean isCovered = false;
+
+				for (TestFitnessFunction goal : goalsMap.get(key))
+				{
+					/*
+					 * FIXME When we have ENTROPY criterion, why we need to negate the returned variable of isCovered function ?! 
+					 */
+					if ((Properties.CRITERION == Criterion.ENTROPY) ||
+							(Properties.CRITERION == Criterion.AMBIGUITY)) {
+						isCovered = !goal.isCovered(dummy);
+					}
+					else
+						isCovered = goal.isCovered(dummy);
+
+					if (isCovered == true)
+						break ;
+				}
+
+				if (isCovered == true) {
+					total_covered.set(index_component);
+					coverage[index_test][index_component] = isCovered;
+				}
+
+				index_component++;
+			}
+
+			coverage[index_test++][goalsMap.size()] = tR.wasSuccessful();
 		}
+
+		/*StringBuilder str = new StringBuilder();
+		for (int i = 0; i < coverage.length; i++)
+		{
+			int j;
+			for (j = 0; j < coverage[i].length - 1; j++)
+			{
+				if (coverage[i][j] == true)
+					str.append("1 ");
+				else
+					str.append("0 ");
+			}
+
+			if (coverage[i][j] == true)
+				str.append("+\n");
+			else
+				str.append("-\n");
+		}
+		LoggingUtils.getEvoLogger().info(str.toString());*/
 
 		LoggingUtils.getEvoLogger().info("* Covered "
 		                                         + total_covered.cardinality()
 		                                         + "/"
-		                                         + goals.size()
+		                                         + goalsMap.size()
 		                                         + " coverage goals: "
 		                                         + NumberFormat.getPercentInstance().format((double) total_covered.cardinality()
-		                                                                                            / (double) goals.size()));
+		                                                                                            / (double) goalsMap.size()));
 
 		JUnitReportGenerator reportGenerator = new JUnitReportGenerator(total_covered.cardinality(),
 		        goals.size(),

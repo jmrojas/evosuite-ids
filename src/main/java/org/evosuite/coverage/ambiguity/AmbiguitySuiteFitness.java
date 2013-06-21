@@ -2,6 +2,7 @@ package org.evosuite.coverage.ambiguity;
 
 import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.LinkedHashMap;
 import java.util.List;
 
 import org.evosuite.testcase.ExecutableChromosome;
@@ -28,7 +29,8 @@ public class AmbiguitySuiteFitness extends
 
 		List<ExecutionResult> results = runTestSuite(suite);
 
-		List<? extends TestFitnessFunction> totalGoals = AmbiguityFactory.retrieveCoverageGoals();
+		//List<? extends TestFitnessFunction> totalGoals = AmbiguityFactory.retrieveCoverageGoals();
+		LinkedHashMap<String, List<TestFitnessFunction>> totalGoals = AmbiguityFactory.retrieveCoverageGoals();
 		double fitness = AmbiguityFactory.fitness;
 
 		HashMap<Integer, Integer> table = new HashMap<Integer, Integer>(AmbiguityFactory.table);
@@ -46,8 +48,19 @@ public class AmbiguitySuiteFitness extends
 			List<Integer> covered = new ArrayList<Integer>();
 			int index_component = 0;
 
-			for (TestFitnessFunction goal : totalGoals) {
-				if (goal.getFitness(tc, result) == 1.0)
+			for (String key : totalGoals.keySet())
+			{
+				boolean isCovered = false;
+
+				for (TestFitnessFunction goal : totalGoals.get(key))
+				{
+					if (goal.getFitness(tc, result) >= 1.0) {
+						isCovered = true;
+						break ;
+					}
+				}
+
+				if (isCovered)
 					covered.add(index_component);
 				index_component++;
 			}
@@ -84,6 +97,8 @@ public class AmbiguitySuiteFitness extends
 			fitness = 100.0;
 			suite.setSolution(false);
 		}
+
+		LoggingUtils.getEvoLogger().info("--- Suite.size(): " + suite.size() + " ---");
 
 		updateIndividual(suite, fitness);
 		return fitness;

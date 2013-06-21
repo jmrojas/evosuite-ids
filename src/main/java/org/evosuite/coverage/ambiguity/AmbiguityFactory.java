@@ -6,12 +6,14 @@ import java.io.FileReader;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.LinkedHashMap;
 import java.util.List;
 
 import org.evosuite.Properties;
 import org.evosuite.TestGenerationContext;
 import org.evosuite.graphs.cfg.BytecodeInstruction;
 import org.evosuite.graphs.cfg.BytecodeInstructionPool;
+import org.evosuite.testcase.TestFitnessFunction;
 import org.evosuite.testsuite.AbstractFitnessFactory;
 import org.evosuite.utils.LoggingUtils;
 
@@ -20,6 +22,7 @@ public class AmbiguityFactory extends
 {
 	private static boolean called = false;
 	private static List<AmbiguityTestFitness> goals = new ArrayList<AmbiguityTestFitness>();
+	private static LinkedHashMap<String, List<TestFitnessFunction>> goalsMap = new LinkedHashMap<String, List<TestFitnessFunction>>();
 
 	public static int MaxGroupID = 1;
 	public static double fitness;
@@ -52,17 +55,37 @@ public class AmbiguityFactory extends
 			}
 		}
 		long end = System.currentTimeMillis();
+
+		for (TestFitnessFunction goal : goals)
+		{
+			//LoggingUtils.getEvoLogger().info("\t" + goal);
+
+			String[] split = goal.toString().split(" ");
+			if (goalsMap.containsKey(split[split.length - 1])) {
+				goalsMap.get(split[split.length - 1]).add(goal);
+			}
+			else {
+				List<TestFitnessFunction> _new = new ArrayList<TestFitnessFunction>();
+				_new.add(goal);
+				goalsMap.put(split[split.length - 1], _new);
+			}
+		}
+		
+		for (String key : goalsMap.keySet()) {
+			LoggingUtils.getEvoLogger().info(key);
+		}
+
 		LoggingUtils.getEvoLogger().info("* Total number of coverage goals: "
-		                                         + goals.size() + " took "
+		                                         + goalsMap.size() + " took "
 		                                         + (end - start) + "ms");
 		called = true;
 		//for (AmbiguityTestFitness e : goals)
 		//	LoggingUtils.getEvoLogger().info(e.toString());
 
 		// Maximum fitness
-		fitness = ((goals.size() - 1.0) / 2.0);
+		fitness = ((goalsMap.size() - 1.0) / 2.0);
 
-		for (int i = 0; i < goals.size(); i++) {
+		for (int i = 0; i < goalsMap.size(); i++) {
 			table.put(i, MaxGroupID);
 		}
 
@@ -70,7 +93,8 @@ public class AmbiguityFactory extends
 	}
 
 	private static boolean isUsable(BytecodeInstruction ins) {
-		return ins.isLineNumber();
+		return !ins.isLabel() && !ins.isLineNumber();
+		//return ins.isLineNumber();
 	}
 
 	private static void loadOriginalMatrix()
@@ -110,7 +134,7 @@ public class AmbiguityFactory extends
 
 			fitness = 0.0;
 			for (Integer i : groups.values()) {
-				fitness += (i / ((double)goals.size())) * ((i - 1.0) / 2.0);
+				fitness += (i / ((double)goalsMap.size())) * ((i - 1.0) / 2.0);
 			}
 			LoggingUtils.getEvoLogger().info("* Original fitness: " + fitness);
 		}
@@ -151,9 +175,14 @@ public class AmbiguityFactory extends
 			computeGoals();
 		return goals;
 	}
-	public static List<AmbiguityTestFitness> retrieveCoverageGoals() {
+	/*public static List<AmbiguityTestFitness> retrieveCoverageGoals() {
 		if (!called)
 			computeGoals();
 		return goals;
+	}*/
+	public static LinkedHashMap<String, List<TestFitnessFunction>> retrieveCoverageGoals() {
+		if (!called)
+			computeGoals();
+		return goalsMap;
 	}
 }
