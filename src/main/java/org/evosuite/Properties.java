@@ -105,7 +105,7 @@ public class Properties {
 
 	/** Constant <code>MAKE_ACCESSIBLE=true</code> */
 	@Parameter(key = "make_accessible", group = "TestCreation", description = "Change default package rights to public package rights (?)")
-	public static boolean MAKE_ACCESSIBLE = true;
+	public static boolean MAKE_ACCESSIBLE = false;
 
 	/** Constant <code>STRING_REPLACEMENT=true</code> */
 	@Parameter(key = "string_replacement", group = "Test Creation", description = "Replace string.equals with levenshtein distance")
@@ -376,9 +376,9 @@ public class Properties {
 	@Parameter(key = "p_statement_insertion", group = "Search Algorithm", description = "Initial probability of inserting a new statement in a test case")
 	public static double P_STATEMENT_INSERTION = 0.5;
 
-	/** Constant <code>P_CHANGE_PARAMETER=0.2</code> */
+	/** Constant <code>P_CHANGE_PARAMETER=0.1</code> */
 	@Parameter(key = "p_change_parameter", group = "Search Algorithm", description = "Initial probability of inserting a new statement in a test case")
-	public static double P_CHANGE_PARAMETER = 0.2;
+	public static double P_CHANGE_PARAMETER = 0.1;
 
 	/** Constant <code>P_TEST_DELETE=1d / 3d</code> */
 	@Parameter(key = "p_test_delete", group = "Search Algorithm", description = "Probability of deleting statements during mutation")
@@ -999,6 +999,9 @@ public class Properties {
 	/** Constant <code>DEFUSE_DEBUG_MODE=false</code> */
 	@Parameter(key = "defuse_debug_mode", description = "")
 	public static boolean DEFUSE_DEBUG_MODE = false;
+	
+	@Parameter(key = "defuse_aliases", description = "")
+	public static boolean DEFUSE_ALIASES = true;
 
 	/** Constant <code>RANDOMIZE_DIFFICULTY=true</code> */
 	@Parameter(key = "randomize_difficulty", description = "")
