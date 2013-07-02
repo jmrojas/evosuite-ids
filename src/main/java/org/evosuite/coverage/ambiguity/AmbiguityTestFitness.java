@@ -20,13 +20,6 @@ public class AmbiguityTestFitness extends
 	protected BytecodeInstruction				goalInstruction;
 	protected List<BranchCoverageTestFitness>	branchFitnesses = new ArrayList<BranchCoverageTestFitness>();
 
-	/*public AmbiguityTestFitness(BytecodeInstruction goalInstruction) {
-		if (goalInstruction == null)
-			throw new IllegalArgumentException("null given");
-
-		this.goalInstruction = goalInstruction;
-		branchFitnesses = BranchCoverageFactory.createRootBranchTestFitness(this.goalInstruction);
-	}*/
 	public AmbiguityTestFitness(BytecodeInstruction goalInstruction) {
 		if (goalInstruction == null)
 			throw new IllegalArgumentException("null given");

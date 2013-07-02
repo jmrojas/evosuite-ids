@@ -18,6 +18,7 @@
 package org.evosuite.junit;
 
 import java.util.ArrayList;
+import java.util.Comparator;
 import java.util.HashSet;
 import java.util.List;
 
@@ -53,6 +54,16 @@ public class JUnitRunner
 			LoggingUtils.getEvoLogger().info("Run JUnit Test: " + junitClass.getCanonicalName());
 
 		Request request = Request.aClass(junitClass);
+		request = request.sortWith(new Comparator<Description>() {
+			@Override
+			public int compare(Description desc1, Description desc2) {
+				if (desc1.getMethodName().length() > desc2.getMethodName().length())
+					return 1;
+				else if (desc1.getMethodName().length() < desc2.getMethodName().length())
+					return -1;
+				return desc1.getMethodName().compareTo(desc2.getMethodName());
+			}
+		});
 		request = request.filterWith(new Filter()
 		{	
 			@Override
