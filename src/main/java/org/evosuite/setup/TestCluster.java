@@ -33,14 +33,13 @@ import java.util.Collection;
 import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
-import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
 import java.util.Set;
-import java.util.Stack;
 import java.util.regex.Pattern;
 
+import org.apache.commons.lang3.reflect.TypeUtils;
 import org.evosuite.Properties;
 import org.evosuite.TestGenerationContext;
 import org.evosuite.ga.ConstructionFailedException;
@@ -731,12 +730,25 @@ public class TestCluster {
 			return selectedClass;
 		} else if (!clazz.isParameterizedType())
 			return clazz;
+		// else if(clazz.isClass())
+		//	return clazz;
 
 		List<Type> parameterTypes = new ArrayList<Type>();
+		List<TypeVariable<?>> typeParameters = clazz.getTypeVariables();
+		int numParam = 0;
 		for (java.lang.reflect.Type parameterType : clazz.getParameterTypes()) {
 			logger.debug("Parameter type " + parameterType + " of class "
 			        + parameterType.getClass());
 			if (parameterType instanceof WildcardType) {
+				if(((WildcardType) parameterType).getLowerBounds().length == 0) {
+					Type[] bounds = ((WildcardType) parameterType).getUpperBounds();
+					if(bounds.length == 1 && bounds[0] == Object.class) {
+						logger.info("Using typevariable instead of wildcard because there are no bounds on wildcard");
+						parameterTypes.add(getRandomCastClass(typeParameters.get(numParam), recursionLevel).getType());
+						numParam++;
+						continue;
+					}
+				}
 				parameterTypes.add(getRandomCastClass(parameterType, recursionLevel).getType());
 			} else if (parameterType instanceof TypeVariable) {
 				if (typeMap.containsKey(parameterType)) {
@@ -752,6 +764,7 @@ public class TestCluster {
 			} else {
 				parameterTypes.add(parameterType);
 			}
+			numParam++;
 		}
 
 		if (clazz.hasOwnerType()) {

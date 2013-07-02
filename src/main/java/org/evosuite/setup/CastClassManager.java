@@ -1,5 +1,6 @@
 package org.evosuite.setup;
 
+import java.lang.reflect.ParameterizedType;
 import java.lang.reflect.Type;
 import java.lang.reflect.TypeVariable;
 import java.lang.reflect.WildcardType;
@@ -7,6 +8,7 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.Comparator;
+import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
@@ -148,6 +150,44 @@ public class CastClassManager {
 			classMap.put(castClass, 10);
 			sortClassMap();
 			return true;
+		} else {
+			InheritanceTree inheritanceTree = DependencyAnalysis.getInheritanceTree();
+			Set<Class<?>> boundCandidates = new LinkedHashSet<Class<?>>();
+			for (Type bound : typeVariable.getBounds()) {
+				Class<?> rawBound = GenericTypeReflector.erase(bound);
+				boundCandidates.add(rawBound);
+				boundCandidates.addAll(TestClusterGenerator.getConcreteClasses(rawBound, inheritanceTree));
+			}
+			for (Class<?> clazz : boundCandidates) {
+				boolean isAssignable = true;
+				for (Type bound : typeVariable.getBounds()) {
+					if (!GenericClass.isAssignable(bound, clazz)) {
+						isAssignable = false;
+						logger.debug("Not assignable: " + clazz + " to bound " + bound);
+						break;
+					}
+					if(bound instanceof ParameterizedType) {
+						if(Arrays.asList(((ParameterizedType)bound).getActualTypeArguments()).contains(typeVariable)) {
+							isAssignable = false;
+							break;
+						}
+					}
+				}
+				if (isAssignable) {
+					assignableClasses.add(clazz);
+				}
+			}
+			logger.debug("After adding bounds, found assignable classes for type variable " + typeVariable + ": "
+			        + assignableClasses.size());
+			if (!assignableClasses.isEmpty()) {
+				Class<?> clazz = Randomness.choice(assignableClasses);
+				GenericClass castClass = new GenericClass(clazz);
+				logger.debug("Adding cast class " + castClass);
+				classMap.put(castClass, 10);
+				sortClassMap();
+				return true;
+			}
+
 		}
 
 		return false;
