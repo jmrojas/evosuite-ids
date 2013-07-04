@@ -101,18 +101,11 @@ public class EntropyCoverageSuiteFitness extends
 		this.generated_matrix[this.number_of_tests++] = coverage;
 	}
 
-	/*private boolean testExists(boolean coverage[])
-	{
-		for (int i = 0; i < this.number_of_tests; i++)
-			if (Arrays.equals(this.generated_matrix[i], coverage))
-				return true;
-		return EntropyCoverageFactory.testExists(coverage);
-	}*/
 	private boolean testExists(boolean coverage[], int numberGoals)
 	{
 		for (int i = 0; i < this.number_of_tests; i++)
-			//if (Arrays.equals(this.generated_matrix[i], coverage))
-			if (Hamming.isSimilar(this.generated_matrix[i], coverage, numberGoals))
+			if (Arrays.equals(this.generated_matrix[i], coverage))
+			//if (Hamming.isSimilar(this.generated_matrix[i], coverage, numberGoals))
 				return true;
 
 		return EntropyCoverageFactory.testExists(coverage);
