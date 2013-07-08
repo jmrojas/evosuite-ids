@@ -57,6 +57,8 @@ public class JUnitRunner
 		request = request.sortWith(new Comparator<Description>() {
 			@Override
 			public int compare(Description desc1, Description desc2) {
+				if ((desc1.getMethodName() == null) && (desc2.getMethodName() == null))
+					return 0;
 				if (desc1.getMethodName().length() > desc2.getMethodName().length())
 					return 1;
 				else if (desc1.getMethodName().length() < desc2.getMethodName().length())
