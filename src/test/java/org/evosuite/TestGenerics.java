@@ -8,6 +8,8 @@ import org.evosuite.testsuite.TestSuiteChromosome;
 import org.junit.Assert;
 import org.junit.Test;
 
+import com.examples.with.different.packagename.generic.AbstractGenericClass;
+import com.examples.with.different.packagename.generic.AbstractGuavaExample;
 import com.examples.with.different.packagename.generic.GenericArray;
 import com.examples.with.different.packagename.generic.GenericArrayWithGenericType;
 import com.examples.with.different.packagename.generic.GenericArrayWithGenericTypeVariable;
@@ -18,6 +20,7 @@ import com.examples.with.different.packagename.generic.GenericGenericParameter;
 import com.examples.with.different.packagename.generic.GenericMemberclass;
 import com.examples.with.different.packagename.generic.GenericMethod;
 import com.examples.with.different.packagename.generic.GenericMethodAlternativeBounds;
+import com.examples.with.different.packagename.generic.GenericMethodReturningTypeVariable;
 import com.examples.with.different.packagename.generic.GenericMethodWithBounds;
 import com.examples.with.different.packagename.generic.GenericOnlyInMemberclass;
 import com.examples.with.different.packagename.generic.GenericParameterExtendingGenericBounds;
@@ -36,8 +39,16 @@ import com.examples.with.different.packagename.generic.GenericSUTString;
 import com.examples.with.different.packagename.generic.GenericSUTTwoParameters;
 import com.examples.with.different.packagename.generic.GenericStaticMemberclass;
 import com.examples.with.different.packagename.generic.GenericSuperclassOmittingTypeParameters;
+import com.examples.with.different.packagename.generic.GenericTripleParameter;
 import com.examples.with.different.packagename.generic.GenericTwoDimensionalArray;
+import com.examples.with.different.packagename.generic.GenericVarArgMethod;
 import com.examples.with.different.packagename.generic.GenericWildcardParameter;
+import com.examples.with.different.packagename.generic.GenericWithPartialParameters;
+import com.examples.with.different.packagename.generic.GenericWithWildcardParameter;
+import com.examples.with.different.packagename.generic.GuavaExample;
+import com.examples.with.different.packagename.generic.GuavaExample2;
+import com.examples.with.different.packagename.generic.GuavaExample3;
+import com.examples.with.different.packagename.generic.GuavaExample5;
 import com.examples.with.different.packagename.generic.ReallyCaselessMap;
 
 /**
@@ -539,7 +550,7 @@ public class TestGenerics extends SystemTest {
 		String targetClass = GenericParameterWithBound.class.getCanonicalName();
 
 		Properties.TARGET_CLASS = targetClass;
-		Properties.SEARCH_BUDGET = 20000;
+		Properties.SEARCH_BUDGET = 50000;
 
 		String[] command = new String[] { "-generateSuite", "-class", targetClass };
 
@@ -565,6 +576,7 @@ public class TestGenerics extends SystemTest {
 		String targetClass = GenericParameterWithGenericBound.class.getCanonicalName();
 
 		Properties.TARGET_CLASS = targetClass;
+		Properties.SEARCH_BUDGET = 20000;
 
 		String[] command = new String[] { "-generateSuite", "-class", targetClass };
 
@@ -822,6 +834,291 @@ public class TestGenerics extends SystemTest {
 
 		Properties.TARGET_CLASS = targetClass;
 		// Properties.SEARCH_BUDGET = 50000;
+
+		String[] command = new String[] { "-generateSuite", "-class", targetClass };
+
+		Object result = evosuite.parseCommandLine(command);
+
+		Assert.assertTrue(result != null);
+		Assert.assertTrue("Invalid result type :" + result.getClass(),
+		                  result instanceof GeneticAlgorithm);
+
+		GeneticAlgorithm<?> ga = (GeneticAlgorithm<?>) result;
+		TestSuiteChromosome best = (TestSuiteChromosome) ga.getBestIndividual();
+		System.out.println("EvolvedTestSuite:\n" + best);
+
+		// int goals = TestSuiteGenerator.getFitnessFactory().getCoverageGoals().size();
+		// Assert.assertEquals("Wrong number of goals: ", 3, goals);
+		Assert.assertEquals("Non-optimal coverage: ", 1d, best.getCoverage(), 0.001);
+	}
+
+	@Test
+	public void testGenericClassWithThreeParameters() {
+		EvoSuite evosuite = new EvoSuite();
+
+		String targetClass = GenericTripleParameter.class.getCanonicalName();
+
+		Properties.TARGET_CLASS = targetClass;
+		// Properties.SEARCH_BUDGET = 50000;
+
+		String[] command = new String[] { "-generateSuite", "-class", targetClass };
+
+		Object result = evosuite.parseCommandLine(command);
+
+		Assert.assertTrue(result != null);
+		Assert.assertTrue("Invalid result type :" + result.getClass(),
+		                  result instanceof GeneticAlgorithm);
+
+		GeneticAlgorithm<?> ga = (GeneticAlgorithm<?>) result;
+		TestSuiteChromosome best = (TestSuiteChromosome) ga.getBestIndividual();
+		System.out.println("EvolvedTestSuite:\n" + best);
+
+		// int goals = TestSuiteGenerator.getFitnessFactory().getCoverageGoals().size();
+		// Assert.assertEquals("Wrong number of goals: ", 3, goals);
+		Assert.assertEquals("Non-optimal coverage: ", 1d, best.getCoverage(), 0.001);
+	}
+
+	@Test
+	public void testGenericClassWithWildcardParameter() {
+		EvoSuite evosuite = new EvoSuite();
+
+		String targetClass = GenericWithWildcardParameter.class.getCanonicalName();
+
+		Properties.TARGET_CLASS = targetClass;
+		// Properties.SEARCH_BUDGET = 50000;
+
+		String[] command = new String[] { "-generateSuite", "-class", targetClass };
+
+		Object result = evosuite.parseCommandLine(command);
+
+		Assert.assertTrue(result != null);
+		Assert.assertTrue("Invalid result type :" + result.getClass(),
+		                  result instanceof GeneticAlgorithm);
+
+		GeneticAlgorithm<?> ga = (GeneticAlgorithm<?>) result;
+		TestSuiteChromosome best = (TestSuiteChromosome) ga.getBestIndividual();
+		System.out.println("EvolvedTestSuite:\n" + best);
+
+		// int goals = TestSuiteGenerator.getFitnessFactory().getCoverageGoals().size();
+		// Assert.assertEquals("Wrong number of goals: ", 3, goals);
+		Assert.assertEquals("Non-optimal coverage: ", 1d, best.getCoverage(), 0.001);
+	}
+
+	@Test
+	public void testGenericGuavaExample() {
+		EvoSuite evosuite = new EvoSuite();
+
+		String targetClass = GuavaExample.class.getCanonicalName();
+
+		Properties.TARGET_CLASS = targetClass;
+		// Properties.SEARCH_BUDGET = 50000;
+
+		String[] command = new String[] { "-generateSuite", "-class", targetClass };
+
+		Object result = evosuite.parseCommandLine(command);
+
+		Assert.assertTrue(result != null);
+		Assert.assertTrue("Invalid result type :" + result.getClass(),
+		                  result instanceof GeneticAlgorithm);
+
+		GeneticAlgorithm<?> ga = (GeneticAlgorithm<?>) result;
+		TestSuiteChromosome best = (TestSuiteChromosome) ga.getBestIndividual();
+		System.out.println("EvolvedTestSuite:\n" + best);
+
+		// int goals = TestSuiteGenerator.getFitnessFactory().getCoverageGoals().size();
+		// Assert.assertEquals("Wrong number of goals: ", 3, goals);
+		Assert.assertEquals("Non-optimal coverage: ", 1d, best.getCoverage(), 0.001);
+	}
+
+	@Test
+	public void testGenericGuavaExample2() {
+		EvoSuite evosuite = new EvoSuite();
+
+		String targetClass = GuavaExample2.class.getCanonicalName();
+
+		Properties.TARGET_CLASS = targetClass;
+		// Properties.SEARCH_BUDGET = 50000;
+
+		String[] command = new String[] { "-generateSuite", "-class", targetClass };
+
+		Object result = evosuite.parseCommandLine(command);
+
+		Assert.assertTrue(result != null);
+		Assert.assertTrue("Invalid result type :" + result.getClass(),
+		                  result instanceof GeneticAlgorithm);
+
+		GeneticAlgorithm<?> ga = (GeneticAlgorithm<?>) result;
+		TestSuiteChromosome best = (TestSuiteChromosome) ga.getBestIndividual();
+		System.out.println("EvolvedTestSuite:\n" + best);
+
+		// int goals = TestSuiteGenerator.getFitnessFactory().getCoverageGoals().size();
+		// Assert.assertEquals("Wrong number of goals: ", 3, goals);
+		Assert.assertEquals("Non-optimal coverage: ", 1d, best.getCoverage(), 0.001);
+	}
+
+	@Test
+	public void testGenericGuavaExample3() {
+		EvoSuite evosuite = new EvoSuite();
+
+		String targetClass = GuavaExample3.class.getCanonicalName();
+
+		Properties.TARGET_CLASS = targetClass;
+		// Properties.SEARCH_BUDGET = 50000;
+
+		String[] command = new String[] { "-generateSuite", "-class", targetClass };
+
+		Object result = evosuite.parseCommandLine(command);
+
+		Assert.assertTrue(result != null);
+		Assert.assertTrue("Invalid result type :" + result.getClass(),
+		                  result instanceof GeneticAlgorithm);
+
+		GeneticAlgorithm<?> ga = (GeneticAlgorithm<?>) result;
+		TestSuiteChromosome best = (TestSuiteChromosome) ga.getBestIndividual();
+		System.out.println("EvolvedTestSuite:\n" + best);
+
+		// int goals = TestSuiteGenerator.getFitnessFactory().getCoverageGoals().size();
+		// Assert.assertEquals("Wrong number of goals: ", 3, goals);
+		Assert.assertEquals("Non-optimal coverage: ", 1d, best.getCoverage(), 0.001);
+	}
+
+	@Test
+	public void testPartialGenericExample() {
+		EvoSuite evosuite = new EvoSuite();
+
+		String targetClass = GenericWithPartialParameters.class.getCanonicalName();
+
+		Properties.TARGET_CLASS = targetClass;
+		// Properties.SEARCH_BUDGET = 50000;
+
+		String[] command = new String[] { "-generateSuite", "-class", targetClass };
+
+		Object result = evosuite.parseCommandLine(command);
+
+		Assert.assertTrue(result != null);
+		Assert.assertTrue("Invalid result type :" + result.getClass(),
+		                  result instanceof GeneticAlgorithm);
+
+		GeneticAlgorithm<?> ga = (GeneticAlgorithm<?>) result;
+		TestSuiteChromosome best = (TestSuiteChromosome) ga.getBestIndividual();
+		System.out.println("EvolvedTestSuite:\n" + best);
+
+		// int goals = TestSuiteGenerator.getFitnessFactory().getCoverageGoals().size();
+		// Assert.assertEquals("Wrong number of goals: ", 3, goals);
+		Assert.assertEquals("Non-optimal coverage: ", 1d, best.getCoverage(), 0.001);
+	}
+
+	@Test
+	public void testGenericMethodReturningTypeVariable() {
+		EvoSuite evosuite = new EvoSuite();
+
+		String targetClass = GenericMethodReturningTypeVariable.class.getCanonicalName();
+
+		Properties.TARGET_CLASS = targetClass;
+		// Properties.SEARCH_BUDGET = 50000;
+
+		String[] command = new String[] { "-generateSuite", "-class", targetClass };
+
+		Object result = evosuite.parseCommandLine(command);
+
+		Assert.assertTrue(result != null);
+		Assert.assertTrue("Invalid result type :" + result.getClass(),
+		                  result instanceof GeneticAlgorithm);
+
+		GeneticAlgorithm<?> ga = (GeneticAlgorithm<?>) result;
+		TestSuiteChromosome best = (TestSuiteChromosome) ga.getBestIndividual();
+		System.out.println("EvolvedTestSuite:\n" + best);
+
+		// int goals = TestSuiteGenerator.getFitnessFactory().getCoverageGoals().size();
+		// Assert.assertEquals("Wrong number of goals: ", 3, goals);
+		Assert.assertEquals("Non-optimal coverage: ", 1d, best.getCoverage(), 0.001);
+	}
+
+	@Test
+	public void testGenericAbstractMethod() {
+		EvoSuite evosuite = new EvoSuite();
+
+		String targetClass = AbstractGenericClass.class.getCanonicalName();
+
+		Properties.TARGET_CLASS = targetClass;
+		// Properties.SEARCH_BUDGET = 50000;
+
+		String[] command = new String[] { "-generateSuite", "-class", targetClass };
+
+		Object result = evosuite.parseCommandLine(command);
+
+		Assert.assertTrue(result != null);
+		Assert.assertTrue("Invalid result type :" + result.getClass(),
+		                  result instanceof GeneticAlgorithm);
+
+		GeneticAlgorithm<?> ga = (GeneticAlgorithm<?>) result;
+		TestSuiteChromosome best = (TestSuiteChromosome) ga.getBestIndividual();
+		System.out.println("EvolvedTestSuite:\n" + best);
+
+		// int goals = TestSuiteGenerator.getFitnessFactory().getCoverageGoals().size();
+		// Assert.assertEquals("Wrong number of goals: ", 3, goals);
+		Assert.assertEquals("Non-optimal coverage: ", 1d, best.getCoverage(), 0.001);
+	}
+
+	@Test
+	public void testGenericGuavaExample5() {
+		EvoSuite evosuite = new EvoSuite();
+
+		String targetClass = GuavaExample5.class.getCanonicalName();
+
+		Properties.TARGET_CLASS = targetClass;
+		// Properties.SEARCH_BUDGET = 50000;
+
+		String[] command = new String[] { "-generateSuite", "-class", targetClass };
+
+		Object result = evosuite.parseCommandLine(command);
+
+		Assert.assertTrue(result != null);
+		Assert.assertTrue("Invalid result type :" + result.getClass(),
+		                  result instanceof GeneticAlgorithm);
+
+		GeneticAlgorithm<?> ga = (GeneticAlgorithm<?>) result;
+		TestSuiteChromosome best = (TestSuiteChromosome) ga.getBestIndividual();
+		System.out.println("EvolvedTestSuite:\n" + best);
+
+		// int goals = TestSuiteGenerator.getFitnessFactory().getCoverageGoals().size();
+		// Assert.assertEquals("Wrong number of goals: ", 3, goals);
+		Assert.assertEquals("Non-optimal coverage: ", 1d, best.getCoverage(), 0.001);
+	}
+
+	@Test
+	public void testGenericGuavaExample5Abstract() {
+		EvoSuite evosuite = new EvoSuite();
+
+		String targetClass = AbstractGuavaExample.class.getCanonicalName();
+
+		Properties.TARGET_CLASS = targetClass;
+		Properties.SEARCH_BUDGET = 50000;
+
+		String[] command = new String[] { "-generateSuite", "-class", targetClass };
+
+		Object result = evosuite.parseCommandLine(command);
+
+		Assert.assertTrue(result != null);
+		Assert.assertTrue("Invalid result type :" + result.getClass(),
+		                  result instanceof GeneticAlgorithm);
+
+		GeneticAlgorithm<?> ga = (GeneticAlgorithm<?>) result;
+		TestSuiteChromosome best = (TestSuiteChromosome) ga.getBestIndividual();
+		System.out.println("EvolvedTestSuite:\n" + best);
+
+		// int goals = TestSuiteGenerator.getFitnessFactory().getCoverageGoals().size();
+		// Assert.assertEquals("Wrong number of goals: ", 3, goals);
+		Assert.assertEquals("Non-optimal coverage: ", 1d, best.getCoverage(), 0.001);
+	}
+
+	@Test
+	public void testGenericVarArgs() {
+		EvoSuite evosuite = new EvoSuite();
+
+		String targetClass = GenericVarArgMethod.class.getCanonicalName();
+
+		Properties.TARGET_CLASS = targetClass;
 
 		String[] command = new String[] { "-generateSuite", "-class", targetClass };
 

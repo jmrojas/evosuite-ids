@@ -10,11 +10,13 @@ import java.lang.reflect.ParameterizedType;
 import java.lang.reflect.Type;
 import java.lang.reflect.TypeVariable;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
 import org.apache.commons.lang3.reflect.TypeUtils;
+import org.evosuite.ga.ConstructionFailedException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -27,40 +29,13 @@ import com.googlecode.gentyref.GenericTypeReflector;
 public abstract class GenericAccessibleObject<T extends GenericAccessibleObject<?>>
         implements Serializable {
 
-	private static final long serialVersionUID = 7069749492563662621L;
-
 	protected static final Logger logger = LoggerFactory.getLogger(GenericAccessibleObject.class);
 
-	protected static Type getTypeFromExactReturnType(Type returnType, Type type) {
-		if (returnType instanceof ParameterizedType && type instanceof ParameterizedType)
-			return getTypeFromExactReturnType((ParameterizedType) returnType,
-			                                  (ParameterizedType) type);
-		else if (returnType instanceof GenericArrayType
-		        && type instanceof GenericArrayType)
-			return getTypeFromExactReturnType((GenericArrayType) returnType,
-			                                  (GenericArrayType) type);
-		else if (returnType instanceof ParameterizedType
-		        && type instanceof GenericArrayType)
-			return getTypeFromExactReturnType((ParameterizedType) returnType,
-			                                  (GenericArrayType) type);
-		else if (returnType instanceof GenericArrayType
-		        && type instanceof ParameterizedType)
-			return getTypeFromExactReturnType((GenericArrayType) returnType,
-			                                  (ParameterizedType) type);
-		else
-			throw new RuntimeException("Incompatible types: " + returnType.getClass()
-			        + " and " + type.getClass() + ": " + returnType + " and " + type);
-	}
+	private static final long serialVersionUID = 7069749492563662621L;
 
 	protected static Type getTypeFromExactReturnType(GenericArrayType returnType,
 	        GenericArrayType type) {
 		return GenericArrayTypeImpl.createArrayType(getTypeFromExactReturnType(returnType.getGenericComponentType(),
-		                                                                       type.getGenericComponentType()));
-	}
-
-	protected static Type getTypeFromExactReturnType(ParameterizedType returnType,
-	        GenericArrayType type) {
-		return GenericArrayTypeImpl.createArrayType(getTypeFromExactReturnType(returnType,
 		                                                                       type.getGenericComponentType()));
 	}
 
@@ -68,6 +43,12 @@ public abstract class GenericAccessibleObject<T extends GenericAccessibleObject<
 	        ParameterizedType type) {
 		return GenericArrayTypeImpl.createArrayType(getTypeFromExactReturnType(returnType.getGenericComponentType(),
 		                                                                       type));
+	}
+
+	protected static Type getTypeFromExactReturnType(ParameterizedType returnType,
+	        GenericArrayType type) {
+		return GenericArrayTypeImpl.createArrayType(getTypeFromExactReturnType(returnType,
+		                                                                       type.getGenericComponentType()));
 	}
 
 	/**
@@ -110,6 +91,31 @@ public abstract class GenericAccessibleObject<T extends GenericAccessibleObject<
 		        null);
 	}
 
+	protected static Type getTypeFromExactReturnType(Type returnType, Type type) {
+		if (returnType instanceof ParameterizedType && type instanceof ParameterizedType)
+			return getTypeFromExactReturnType((ParameterizedType) returnType,
+			                                  (ParameterizedType) type);
+		else if (returnType instanceof GenericArrayType
+		        && type instanceof GenericArrayType)
+			return getTypeFromExactReturnType((GenericArrayType) returnType,
+			                                  (GenericArrayType) type);
+		else if (returnType instanceof ParameterizedType
+		        && type instanceof GenericArrayType)
+			return getTypeFromExactReturnType((ParameterizedType) returnType,
+			                                  (GenericArrayType) type);
+		else if (returnType instanceof GenericArrayType
+		        && type instanceof ParameterizedType)
+			return getTypeFromExactReturnType((GenericArrayType) returnType,
+			                                  (ParameterizedType) type);
+		else if (returnType instanceof Class<?>)
+			return returnType;
+		else if (type instanceof Class<?>)
+			return type;
+		else
+			throw new RuntimeException("Incompatible types: " + returnType.getClass()
+			        + " and " + type.getClass() + ": " + returnType + " and " + type);
+	}
+
 	/**
 	 * Checks if the given type is a class that is supposed to have type
 	 * parameters, but doesn't. In other words, if it's a really raw type.
@@ -147,19 +153,153 @@ public abstract class GenericAccessibleObject<T extends GenericAccessibleObject<
 
 	public abstract T copyWithNewOwner(GenericClass newOwner);
 
-	public abstract T copyWithOwnerFromReturnType(GenericClass returnType);
+	public abstract T copyWithOwnerFromReturnType(GenericClass returnType)
+	        throws ConstructionFailedException;
+
+	public abstract AccessibleObject getAccessibleObject();
 
 	public abstract Class<?> getDeclaringClass();
 
 	public abstract Type getGeneratedType();
 
-	public abstract Class<?> getRawGeneratedType();
+	public GenericClass getGeneratedClass() {
+		return new GenericClass(getGeneratedType());
+	}
 
 	public abstract Type getGenericGeneratedType();
 
-	public abstract String getName();
+	/**
+	 * Instantiate all generic type parameters
+	 * 
+	 * @return
+	 * @throws ConstructionFailedException
+	 */
+	public T getGenericInstantiation() throws ConstructionFailedException {
+		T copy = copy();
 
-	public abstract AccessibleObject getAccessibleObject();
+		if (!hasTypeParameters()) {
+			copy.owner = copy.getOwnerClass().getGenericInstantiation();
+			return copy;
+		}
+
+		Map<TypeVariable<?>, Type> typeMap = copy.getOwnerClass().getTypeVariableMap();
+
+		logger.debug("Getting random generic instantiation of method: " + toString()
+		        + " with owner type map: " + typeMap);
+		List<GenericClass> typeParameters = new ArrayList<GenericClass>();
+
+		// TODO: The bounds of this type parameter need to be updataed for the owner of the call
+		// which may instantiate some of the type parameters
+		for (TypeVariable<?> parameter : getTypeParameters()) {
+			GenericClass genericType = new GenericClass(parameter);
+			GenericClass concreteType = genericType.getGenericInstantiation(typeMap);
+			logger.debug("Setting parameter " + parameter + " to type "
+			        + concreteType.getTypeName());
+			typeParameters.add(concreteType);
+		}
+		copy.setTypeParameters(typeParameters);
+		copy.owner = copy.getOwnerClass().getGenericInstantiation(typeMap);
+		return copy;
+	}
+
+	/**
+	 * Instantiate all generic type parameters based on a new callee type
+	 * 
+	 * @param calleeType
+	 * @return
+	 * @throws ConstructionFailedException
+	 */
+	public T getGenericInstantiation(GenericClass calleeType)
+	        throws ConstructionFailedException {
+
+		T copy = copy();
+
+		logger.debug("Getting generic instantiation for callee " + calleeType
+		        + " of method: " + toString() + " for callee " + calleeType);
+		Map<TypeVariable<?>, Type> typeMap = calleeType.getTypeVariableMap();
+		if (!hasTypeParameters()) {
+			copy.owner = copy.getOwnerClass().getGenericInstantiation(typeMap);
+			return copy;
+		}
+
+		List<GenericClass> typeParameters = new ArrayList<GenericClass>();
+		for (TypeVariable<?> parameter : getTypeParameters()) {
+			GenericClass concreteType = new GenericClass(parameter);
+			logger.debug("(I) Setting parameter " + parameter + " to type "
+			        + concreteType.getTypeName());
+			typeParameters.add(concreteType.getGenericInstantiation(typeMap));
+		}
+		copy.setTypeParameters(typeParameters);
+		copy.owner = copy.getOwnerClass().getGenericInstantiation(typeMap);
+
+		return copy;
+	}
+
+	/**
+	 * Set type parameters based on return type
+	 * 
+	 * @param returnType
+	 * @return
+	 * @throws ConstructionFailedException
+	 */
+	public T getGenericInstantiationFromReturnValue(GenericClass generatedType)
+	        throws ConstructionFailedException {
+
+		T copy = copy();
+
+		// We just want to have the type variables defined in the generic method here
+		// and not type variables defined in the owner
+		Map<TypeVariable<?>, Type> concreteTypes = new HashMap<TypeVariable<?>, Type>();
+		Map<TypeVariable<?>, Type> generatorTypes = generatedType.getTypeVariableMap();
+		Type genericReturnType = getGenericGeneratedType();
+
+		logger.debug("Getting generic instantiation for return type " + generatedType
+		        + " of method: " + toString());
+
+		if (genericReturnType instanceof ParameterizedType
+		        && generatedType.isParameterizedType()) {
+			logger.debug("Return value is a parameterized type, matching variables");
+			generatorTypes.putAll(GenericUtils.getMatchingTypeParameters((ParameterizedType) generatedType.getType(),
+			                                                             (ParameterizedType) genericReturnType));
+		} else if (genericReturnType instanceof TypeVariable<?>) {
+			generatorTypes.put((TypeVariable<?>) genericReturnType,
+			                   generatedType.getType());
+		}
+
+		List<TypeVariable<?>> parameters = Arrays.asList(getTypeParameters());
+		for (TypeVariable<?> var : generatorTypes.keySet()) {
+			if (parameters.contains(var))
+				concreteTypes.put(var, generatorTypes.get(var));
+		}
+
+		// When resolving the type variables on a non-static generic method
+		// we need to look at the owner type, and not the return type!
+
+		List<GenericClass> typeParameters = new ArrayList<GenericClass>();
+		logger.debug("Setting parameters with map: " + concreteTypes);
+		for (TypeVariable<?> parameter : getTypeParameters()) {
+			GenericClass concreteType = new GenericClass(parameter);
+			logger.debug("(I) Setting parameter " + parameter + " to type "
+			        + concreteType.getTypeName());
+			GenericClass instantiation = concreteType.getGenericInstantiation(concreteTypes);
+			logger.debug("Got instantiation for " + parameter + ": " + instantiation);
+			if (!instantiation.satisfiesBoundaries(parameter, concreteTypes)) {
+				logger.info("Type parameter does not satisfy boundaries: " + parameter
+				        + " " + instantiation);
+				logger.info(Arrays.asList(parameter.getBounds()).toString());
+				logger.info(instantiation.toString());
+				throw new ConstructionFailedException(
+				        "Type parameter does not satisfy boundaries: " + parameter);
+			}
+			typeParameters.add(instantiation);
+		}
+		copy.setTypeParameters(typeParameters);
+		copy.owner = copy.getOwnerClass().getGenericInstantiation(concreteTypes);
+
+		return copy;
+	}
+
+	public abstract String getName();
 
 	public int getNumParameters() {
 		return 0;
@@ -172,6 +312,8 @@ public abstract class GenericAccessibleObject<T extends GenericAccessibleObject<
 	public Type getOwnerType() {
 		return owner.getType();
 	}
+
+	public abstract Class<?> getRawGeneratedType();
 
 	public TypeVariable<?>[] getTypeParameters() {
 		return new TypeVariable<?>[] {};

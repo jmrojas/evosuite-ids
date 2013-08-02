@@ -106,7 +106,7 @@ public class TestClusterGenerator {
 				try {
 					TestGenerationContext.getClassLoader().loadClass(callTreeClass);
 				} catch (ClassNotFoundException e) {
-					logger.info("Class not found: " + callTreeClass);
+					logger.info("Class not found: " + callTreeClass + ": " + e);
 				}
 			}
 		}
@@ -686,12 +686,12 @@ public class TestClusterGenerator {
 			return false;
 		}
 
-		if (c.getName().matches(".*\\$\\d+$")) {
+		if (c.getName().matches(".*\\$\\d+\\$.*$")) {
 			logger.debug(c + " looks like an anonymous class, ignoring it");
 			return false;
 		}
 
-		if (c.getName().matches(".*\\.\\d+$")) {
+		if (c.getName().matches(".*\\.\\d+\\..*$")) {
 			logger.debug(c + " looks like an anonymous class, ignoring it");
 			return false;
 		}
@@ -820,6 +820,8 @@ public class TestClusterGenerator {
 		}
 
 		if (m.getDeclaringClass().equals(Enum.class)) {
+			return false;
+			/*
 			if (m.getName().equals("valueOf") || m.getName().equals("values")
 			        || m.getName().equals("ordinal")) {
 				logger.debug("Excluding valueOf for Enum " + m.toString());
@@ -829,6 +831,7 @@ public class TestClusterGenerator {
 			if (m.getName().equals("compareTo") && m.getParameterTypes().length == 1
 			        && m.getParameterTypes()[0].equals(Enum.class))
 				return false;
+				*/
 		}
 
 		if (m.getDeclaringClass().equals(java.lang.Thread.class))

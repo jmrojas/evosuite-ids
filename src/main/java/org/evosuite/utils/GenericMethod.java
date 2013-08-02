@@ -9,12 +9,14 @@ import java.io.ObjectOutputStream;
 import java.lang.reflect.AccessibleObject;
 import java.lang.reflect.Method;
 import java.lang.reflect.Modifier;
-import java.lang.reflect.ParameterizedType;
 import java.lang.reflect.Type;
 import java.lang.reflect.TypeVariable;
+import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
 
 import org.evosuite.TestGenerationContext;
+import org.evosuite.ga.ConstructionFailedException;
 import org.evosuite.setup.TestClusterGenerator;
 import org.evosuite.testcase.VariableReference;
 
@@ -54,38 +56,12 @@ public class GenericMethod extends GenericAccessibleObject<GenericMethod> {
 	}
 
 	@Override
-	public GenericMethod copyWithOwnerFromReturnType(GenericClass returnType) {
-		if (returnType.isParameterizedType()) {
-			GenericClass newOwner = new GenericClass(
-			        getTypeFromExactReturnType((ParameterizedType) returnType.getType(),
-			                                   (ParameterizedType) getOwnerType()));
-			GenericMethod copy = new GenericMethod(method, newOwner);
-			copy.typeVariables.addAll(typeVariables);
-			return copy;
-		} else if (returnType.isArray()) {
-			GenericClass newOwner = new GenericClass(
-			        getTypeFromExactReturnType(returnType.getComponentType(),
-			                                   getOwnerType()));
-			GenericMethod copy = new GenericMethod(method, newOwner);
-			copy.typeVariables.addAll(typeVariables);
-			return copy;
-		} else if (method.getGenericReturnType() instanceof TypeVariable<?>) {
-			GenericClass newOwner = new GenericClass(
-			        GenericUtils.replaceTypeVariable(owner.getType(),
-			                                         (TypeVariable<?>) method.getGenericReturnType(),
-			                                         returnType.getType()));
-			GenericMethod copy = new GenericMethod(method, newOwner);
-			copy.typeVariables.addAll(typeVariables);
-			return copy;
-		} else {
-			logger.info("Invalid type: " + returnType.getType() + " of type "
-			        + returnType.getType().getClass() + " with owner type "
-			        + getOwnerClass().getTypeName());
-			return this;
-			//			throw new RuntimeException("Invalid type: " + returnType.getType()
-			//			        + " of type " + returnType.getType().getClass() + " with owner type "
-			//			        + getOwnerClass().getTypeName());
-		}
+	public GenericMethod copyWithOwnerFromReturnType(GenericClass returnType)
+	        throws ConstructionFailedException {
+		GenericClass newOwner = getOwnerClass().getGenericInstantiation(returnType.getTypeVariableMap());
+		GenericMethod copy = new GenericMethod(method, newOwner);
+		copy.typeVariables.addAll(typeVariables);
+		return copy;
 	}
 
 	@Override
@@ -117,6 +93,17 @@ public class GenericMethod extends GenericAccessibleObject<GenericMethod> {
 
 	public Type[] getParameterTypes() {
 		return getExactParameterTypes(method, owner.getType());
+	}
+
+	public List<GenericClass> getParameterClasses() {
+		List<GenericClass> parameters = new ArrayList<GenericClass>();
+		logger.debug("Parameter types: "
+		        + Arrays.asList(method.getGenericParameterTypes()));
+		for (Type parameterType : getParameterTypes()) {
+			logger.debug("Adding parameter: " + parameterType);
+			parameters.add(new GenericClass(parameterType));
+		}
+		return parameters;
 	}
 
 	public Type[] getGenericParameterTypes() {
@@ -167,11 +154,18 @@ public class GenericMethod extends GenericAccessibleObject<GenericMethod> {
 		Type returnType = m.getGenericReturnType();
 		Type exactDeclaringType = GenericTypeReflector.getExactSuperType(GenericTypeReflector.capture(type),
 		                                                                 m.getDeclaringClass());
+
 		if (exactDeclaringType == null) { // capture(type) is not a subtype of m.getDeclaringClass()
 			logger.info("The method " + m + " is not a member of type " + type
 			        + " - declared in " + m.getDeclaringClass());
 			return m.getReturnType();
 		}
+
+		//if (exactDeclaringType.equals(type)) {
+		//	logger.debug("Returntype: " + returnType + ", " + exactDeclaringType);
+		//	return returnType;
+		//}
+
 		return mapTypeParameters(returnType, exactDeclaringType);
 	}
 
@@ -250,6 +244,10 @@ public class GenericMethod extends GenericAccessibleObject<GenericMethod> {
 	@Override
 	public int getNumParameters() {
 		return method.getGenericParameterTypes().length;
+	}
+
+	public boolean isGenericMethod() {
+		return getNumParameters() > 0;
 	}
 
 	/* (non-Javadoc)
