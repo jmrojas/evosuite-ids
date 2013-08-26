@@ -1,6 +1,7 @@
 package org.evosuite.coverage.entropy;
 
-import java.util.Arrays;
+import java.util.ArrayList;
+import java.util.LinkedHashSet;
 import java.util.List;
 
 import org.evosuite.testcase.ExecutableChromosome;
@@ -18,73 +19,74 @@ public class EntropyCoverageSuiteFitness extends
 {
 	private static final long	serialVersionUID = -878646285915396403L;
 
-	private boolean[][]			generated_matrix;
-	private int					number_of_tests;
-
 	/** {@inheritDoc} */
 	@Override
 	public double getFitness(
 			AbstractTestSuiteChromosome<? extends ExecutableChromosome> suite)
 	{
-		this.number_of_tests = 0;
-
-		List<ExecutionResult> results = runTestSuite(suite);
 		double fitness = 0.0;
+		int number_of_ones = EntropyCoverageFactory.getNumberOfOnes();
+		//int number_of_tests = EntropyCoverageFactory.getNumberOfTests() + suite.size();
+		int number_of_tests = EntropyCoverageFactory.getNumberOfTests();
 
 		List<? extends TestFitnessFunction> totalGoals = EntropyCoverageFactory.retrieveCoverageGoals();
-		this.initGeneratedMatrix(suite.size(), totalGoals.size());
-		double rho = 0.0;
 
-		int test_index = 0;
-		int number_of_invalid_solutions = 0;
-
-		for (ExecutionResult result : results)
+		LinkedHashSet<List<Boolean>>	matrix_tmp = new LinkedHashSet<List<Boolean>>();
+		List<ExecutionResult> results = runTestSuite(suite);
+		
+		for (int i = 0; i < results.size(); i++)
 		{
-			EntropyCoverageTestFitness.enableSaveCoverage();
-			EntropyCoverageTestFitness.init(totalGoals.size());
+			ExecutionResult result = results.get(i);
 
 			TestChromosome tc = new TestChromosome();
 			tc.setTestCase(result.test);
 
-			double total_number_of_ones = 0.0;
+			/*for (TestFitnessFunction goal : totalGoals)
+				number_of_ones += goal.getFitness(tc, result);*/
+
+			List<Boolean> t = new ArrayList<Boolean>();
+			int t_ones = 0;
 			for (TestFitnessFunction goal : totalGoals)
-				total_number_of_ones += goal.getFitness(tc, result);
+			{
+				double g = goal.getFitness(tc, result);
+				if (g > 0.0)
+					t.add(true);
+				else
+					t.add(false);
 
-			boolean[] test_coverage = EntropyCoverageTestFitness.getCoverage();
-			TestChromosome testC = (TestChromosome) suite.getTestChromosomes().get(test_index++);
+				t_ones += g;
+			}
 
-			/*
-			 * This TestChromosome already exists? or Doesn't cover any component?
-			 */
-			if ( this.testExists(test_coverage, totalGoals.size()) || (total_number_of_ones == 0.0) ) {
-				testC.setSolution(false);
-				number_of_invalid_solutions++;
+			if (t_ones == 0) {
+				suite.getTestChromosome(i).setSolution(false);
+			}
+			else if (matrix_tmp.add(t) == false) {
+				suite.getTestChromosome(i).setSolution(false);
+			}
+			else if (EntropyCoverageFactory.exists(t) == true) {
+				suite.getTestChromosome(i).setSolution(false);
 			}
 			else {
-				rho += total_number_of_ones;
+				number_of_tests++;
+				number_of_ones += t_ones;
 
-				testC.setSolution(true);
-				this.addTest(test_coverage);
+				suite.getTestChromosome(i).setSolution(true);
 			}
-
-			EntropyCoverageTestFitness.disableSaveCoverage();
 		}
 
-		double bar_rho = 0.0;
-		if (suite.size() == number_of_invalid_solutions) {
-			bar_rho = 1.0;
+		// was not possible to generate new test cases
+		if (number_of_tests == EntropyCoverageFactory.getNumberOfTests()) {
+			fitness = 1.0; // penalyse this suite
 			suite.setSolution(false);
 		}
 		else {
-			rho += EntropyCoverageFactory.getNumberOfOnes();
-			rho /= EntropyCoverageFactory.getNumberOfGoals();
-	
-			bar_rho = rho / ((suite.size() - number_of_invalid_solutions) + EntropyCoverageFactory.getNumberOfTests());
+			suite.setSolution(true);
+
+			fitness = ((double)number_of_ones) / ((double)(number_of_tests * totalGoals.size()));
+			fitness = Math.abs(0.5 - fitness);
 		}
 
-		fitness = Math.abs(0.5 - bar_rho);
 		updateIndividual(suite, fitness);
-
 		return fitness;
 	}
 
@@ -92,22 +94,5 @@ public class EntropyCoverageSuiteFitness extends
 	@Override
 	public boolean isMaximizationFunction() {
 		return false;
-	}
-
-	private void initGeneratedMatrix(int nT, int nG) {
-		this.generated_matrix = new boolean[nT][nG];
-	}
-	private void addTest(boolean[] coverage) {
-		this.generated_matrix[this.number_of_tests++] = coverage;
-	}
-
-	private boolean testExists(boolean coverage[], int numberGoals)
-	{
-		for (int i = 0; i < this.number_of_tests; i++)
-			if (Arrays.equals(this.generated_matrix[i], coverage))
-			//if (Hamming.isSimilar(this.generated_matrix[i], coverage, numberGoals))
-				return true;
-
-		return EntropyCoverageFactory.testExists(coverage);
 	}
 }

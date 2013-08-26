@@ -363,6 +363,8 @@ public class CoverageAnalysis {
 		LoggingUtils.getEvoLogger().info("* Executed " + testResults.size() + " unit tests");
 
 		List<? extends TestFitnessFunction> goals = TestSuiteGenerator.getFitnessFactory().getCoverageGoals();
+		//for (TestFitnessFunction goal : goals)
+		//	LoggingUtils.getEvoLogger().info(goal.toString());
 
 		TestChromosome dummy = new TestChromosome();
 		ExecutionResult executionResult = new ExecutionResult(dummy.getTestCase());
@@ -386,7 +388,8 @@ public class CoverageAnalysis {
 				 * FIXME When we have ENTROPY or AMBIGUITY criteria, why we need to negate the returned variable of isCovered function ?! 
 				 */
 				if ( (Properties.CRITERION == Criterion.ENTROPY) || 
-						(Properties.CRITERION == Criterion.AMBIGUITY) ) {
+						(Properties.CRITERION == Criterion.AMBIGUITY) ||
+						(Properties.CRITERION == Criterion.DIVERSITY)) {
 					isCovered = !goal.isCovered(dummy);
 				}
 				else
@@ -474,12 +477,12 @@ public class CoverageAnalysis {
 			if (superClazz.equals(TestCase.class))
 				return true;
 
-			if (superClazz.equals(clazz.getSuperclass()))
-				break;
+			/*if (superClazz.equals(clazz.getSuperclass()))
+				break;*/
 
-			superClazz = clazz.getSuperclass();
+			superClazz = superClazz.getSuperclass();
 		}
-		for (Method method : clazz.getMethods()) {
+		for (Method method : clazz.getDeclaredMethods()) {
 			if (method.isAnnotationPresent(Test.class)) {
 				return true;
 			}

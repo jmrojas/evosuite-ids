@@ -26,7 +26,7 @@ public class AmbiguityFactory extends
 	private static Set<Integer> lineNumbers = new HashSet<Integer>();
 
 	public static int MaxGroupID = 1;
-	public static double fitness;
+	private static double fitness;
 	public static HashMap<Integer, Integer> table = new HashMap<Integer, Integer>();
 
 	private static void computeGoals()

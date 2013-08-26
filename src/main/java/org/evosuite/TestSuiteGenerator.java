@@ -59,12 +59,16 @@ import org.evosuite.coverage.ambiguity.AmbiguitySuiteFitness;
 import org.evosuite.coverage.branch.BranchCoverageFactory;
 import org.evosuite.coverage.branch.BranchCoverageSuiteFitness;
 import org.evosuite.coverage.branch.BranchPool;
+import org.evosuite.coverage.bruteforce.BruteForceCoverageFactory;
+import org.evosuite.coverage.bruteforce.BruteForceCoverageSuiteFitness;
 import org.evosuite.coverage.dataflow.AllDefsCoverageFactory;
 import org.evosuite.coverage.dataflow.AllDefsCoverageSuiteFitness;
 import org.evosuite.coverage.dataflow.DefUseCoverageFactory;
 import org.evosuite.coverage.dataflow.DefUseCoverageSuiteFitness;
 import org.evosuite.coverage.dataflow.DefUseCoverageTestFitness;
 import org.evosuite.coverage.dataflow.DefUseFitnessCalculator;
+import org.evosuite.coverage.diversity.DiversityCoverageFactory;
+import org.evosuite.coverage.diversity.DiversityCoverageSuiteFitness;
 import org.evosuite.coverage.entropy.EntropyCoverageFactory;
 import org.evosuite.coverage.entropy.EntropyCoverageSuiteFitness;
 import org.evosuite.coverage.exception.ExceptionCoverageSuiteFitness;
@@ -365,7 +369,7 @@ public class TestSuiteGenerator {
 	 * @param tests
 	 * @return
 	 */
-	private static boolean verifyCompilationAndExecution(List<TestCase> tests) {
+	public static boolean verifyCompilationAndExecution(List<TestCase> tests) {
 
 		if (tests == null || tests.isEmpty()) {
 			//nothing to compile or run
@@ -535,7 +539,8 @@ public class TestSuiteGenerator {
 			TestSuiteWriter suite = new TestSuiteWriter();
 			if (Properties.STRUCTURED_TESTS
 					|| Properties.CRITERION == Criterion.ENTROPY
-					|| Properties.CRITERION == Criterion.AMBIGUITY)
+					|| Properties.CRITERION == Criterion.AMBIGUITY
+					|| Properties.CRITERION == Criterion.DIVERSITY)
 				suite.insertAllTests(tests);
 			else
 				suite.insertTests(tests);
@@ -825,7 +830,8 @@ public class TestSuiteGenerator {
 		        || Properties.CRITERION == Criterion.ALLDEFS
 		        || Properties.CRITERION == Criterion.STATEMENT
 		        || Properties.CRITERION == Criterion.ENTROPY
-				|| Properties.CRITERION == Criterion.AMBIGUITY)
+				|| Properties.CRITERION == Criterion.AMBIGUITY
+				|| Properties.CRITERION == Criterion.DIVERSITY)
 			ExecutionTracer.enableTraceCalls();
 
 		// TODO: why it was only if "analyzing"???
@@ -1006,6 +1012,9 @@ public class TestSuiteGenerator {
 		case AMBIGUITY:
 			LoggingUtils.getEvoLogger().info("* Test Criterion: Ambiguity Coverage");
 			break;
+		case DIVERSITY:
+			LoggingUtils.getEvoLogger().info("* Test Criterion: Diversity Coverage");
+			break;
 		case ALLDEFS:
 			LoggingUtils.getEvoLogger().info("* Test Criterion: All Definitions");
 			break;
@@ -1064,6 +1073,8 @@ public class TestSuiteGenerator {
 			return new EntropyCoverageSuiteFitness();
 		case AMBIGUITY:
 			return new AmbiguitySuiteFitness();
+		case DIVERSITY:
+			return new DiversityCoverageSuiteFitness();
 		case ALLDEFS:
 			return new AllDefsCoverageSuiteFitness();
 		case EXCEPTION:
@@ -1121,6 +1132,8 @@ public class TestSuiteGenerator {
 			return new EntropyCoverageFactory();
 		case AMBIGUITY:
 			return new AmbiguityFactory();
+		case DIVERSITY:
+			return new DiversityCoverageFactory();
 		case ALLDEFS:
 			return new AllDefsCoverageFactory();
 		case EXCEPTION:

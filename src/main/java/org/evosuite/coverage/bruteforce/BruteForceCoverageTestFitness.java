@@ -1,4 +1,4 @@
-package org.evosuite.coverage.ambiguity;
+package org.evosuite.coverage.bruteforce;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -12,15 +12,18 @@ import org.evosuite.testcase.ExecutionResult;
 import org.evosuite.testcase.TestChromosome;
 import org.evosuite.testcase.TestFitnessFunction;
 
-public class AmbiguityTestFitness extends
+/**
+ * 
+ */
+public class BruteForceCoverageTestFitness extends
 		TestFitnessFunction
 {
-	private static final long serialVersionUID = 3093045891696296900L;
+	private static final long	serialVersionUID = -2250185650388052675L;
 
 	protected BytecodeInstruction				goalInstruction;
 	protected List<BranchCoverageTestFitness>	branchFitnesses = new ArrayList<BranchCoverageTestFitness>();
 
-	public AmbiguityTestFitness(BytecodeInstruction goalInstruction) {
+	public BruteForceCoverageTestFitness(BytecodeInstruction goalInstruction) {
 		if (goalInstruction == null)
 			throw new IllegalArgumentException("null given");
 
@@ -53,7 +56,6 @@ public class AmbiguityTestFitness extends
 		for (BranchCoverageTestFitness branchFitness : branchFitnesses) {
 			if (branchFitness.isCovered(result)) {
 				touch = 1.0;
-				break;
 			}
 		}
 
