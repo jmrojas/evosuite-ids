@@ -20,10 +20,6 @@ public class EntropyCoverageTestFitness extends
 {
 	private static final long	serialVersionUID = -2250185650388052675L;
 
-	private static boolean		isToSaveCoverage = false;
-	private static boolean[]	test_coverage;
-	private static int			component_index;
-
 	protected BytecodeInstruction				goalInstruction;
 	protected List<BranchCoverageTestFitness>	branchFitnesses = new ArrayList<BranchCoverageTestFitness>();
 
@@ -60,12 +56,9 @@ public class EntropyCoverageTestFitness extends
 		for (BranchCoverageTestFitness branchFitness : branchFitnesses) {
 			if (branchFitness.isCovered(result)) {
 				touch = 1.0;
-				if (isToSaveCoverage)
-					test_coverage[component_index] = true;
+				break;
 			}
 		}
-
-		component_index++;
 
 		updateIndividual(individual, touch);
 		return touch;
@@ -100,21 +93,5 @@ public class EntropyCoverageTestFitness extends
 	@Override
 	public String getTargetMethod() {
 		return null;
-	}
-
-	public static void init(int nG) {
-		test_coverage = new boolean[nG];
-		component_index = 0;
-	}
-
-	public static void enableSaveCoverage() {
-		isToSaveCoverage = true;
-	}
-	public static void disableSaveCoverage() {
-		isToSaveCoverage = false;
-	}
-
-	public static boolean[] getCoverage() {
-		return test_coverage;
 	}
 }

@@ -435,6 +435,8 @@ public class TestSuiteWriter implements Opcodes {
 
 			builder.append("\n   */\n");
 		}
+		else
+			builder.append("\n");
 
 		return builder.toString();
 	}

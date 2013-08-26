@@ -26,28 +26,19 @@ public class AmbiguitySuiteFitness extends
 	{
 		MaxGroupID = AmbiguityFactory.MaxGroupID;
 
-		List<ExecutionResult> results = runTestSuite(suite);
-
+		List<ExecutionResult>				results = runTestSuite(suite);
 		List<? extends TestFitnessFunction> totalGoals = AmbiguityFactory.retrieveCoverageGoals();
-		double fitness = AmbiguityFactory.fitness;
-
-		HashMap<Integer, Integer> table = new HashMap<Integer, Integer>(AmbiguityFactory.table);
-
-		int test_index = 0;
-		int number_of_invalid_solutions = 0;
+		HashMap<Integer, Integer>			table = new HashMap<Integer, Integer>(AmbiguityFactory.table);
 
 		for (ExecutionResult result : results)
 		{
-			double g = 0.0;
-
 			TestChromosome tc = new TestChromosome();
 			tc.setTestCase(result.test);
 
 			List<Integer> covered = new ArrayList<Integer>();
 			int index_component = 0;
 
-			for (TestFitnessFunction goal : totalGoals)
-			{
+			for (TestFitnessFunction goal : totalGoals) {
 				if (goal.getFitness(tc, result) >= 1.0) {
 					covered.add(index_component);
 				}
@@ -55,37 +46,22 @@ public class AmbiguitySuiteFitness extends
 				index_component++;
 			}
 
-			TestChromosome testC = (TestChromosome) suite.getTestChromosomes().get(test_index++);
-
 			updateAmbiguityGroups(table, covered);
 			//print(table);
-
-			HashMap<Integer, Integer> groups = new HashMap<Integer, Integer>();
-			for (Integer i : table.values())
-			{
-				if (!groups.containsKey(i))
-					groups.put(i, 1);
-				else
-					groups.put(i, groups.get(i) + 1);
-			}
-
-			for (Integer i : groups.values()) {
-				g += (i / ((double)totalGoals.size())) * ((i - 1.0) / 2.0);
-			}
-
-			if (g < fitness) {
-				fitness = g;
-				testC.setSolution(true);
-			}
-			else {
-				testC.setSolution(false);
-				number_of_invalid_solutions++;
-			}
 		}
 
-		if (suite.size() == number_of_invalid_solutions) {
-			fitness = 100.0;
-			suite.setSolution(false);
+		HashMap<Integer, Integer> groups = new HashMap<Integer, Integer>();
+		for (Integer i : table.values())
+		{
+			if (!groups.containsKey(i))
+				groups.put(i, 1);
+			else
+				groups.put(i, groups.get(i) + 1);
+		}
+
+		double fitness = 0.0;
+		for (Integer i : groups.values()) {
+			fitness += (i / ((double)totalGoals.size())) * ((i - 1.0) / 2.0);
 		}
 
 		updateIndividual(suite, fitness);

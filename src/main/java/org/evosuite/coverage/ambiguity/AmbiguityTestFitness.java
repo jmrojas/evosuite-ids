@@ -50,9 +50,12 @@ public class AmbiguityTestFitness extends
 	{
 		double touch = 0.0;
 
-		for (BranchCoverageTestFitness branchFitness : branchFitnesses)
-			if (branchFitness.isCovered(result))
-				touch += 1.0;
+		for (BranchCoverageTestFitness branchFitness : branchFitnesses) {
+			if (branchFitness.isCovered(result)) {
+				touch = 1.0;
+				break;
+			}
+		}
 
 		updateIndividual(individual, touch);
 		return touch;

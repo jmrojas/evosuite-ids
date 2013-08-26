@@ -1037,6 +1037,7 @@ public class Properties {
 		STATEMENT,
 		ENTROPY,
 		AMBIGUITY,
+		DIVERSITY,
 		DATA,
 		BEHAVIORAL,
 		IBRANCH,
