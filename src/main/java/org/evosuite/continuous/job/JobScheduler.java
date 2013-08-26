@@ -9,6 +9,8 @@ import org.evosuite.continuous.job.schedule.SeedingSchedule;
 import org.evosuite.continuous.job.schedule.SimpleSchedule;
 import org.evosuite.continuous.persistency.StorageManager;
 import org.evosuite.continuous.project.ProjectStaticData;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 /**
  * Class used to define which classes should be used as CUT for this CTG execution,
@@ -26,8 +28,9 @@ public class JobScheduler {
 	 */
 	public enum AvailableSchedule {SIMPLE,BUDGET,SEEDING,BUDGET_AND_SEEDING}; 
 	
+	private static Logger logger = LoggerFactory.getLogger(JobScheduler.class);
+
 	private final ProjectStaticData projectData;
-	private final StorageManager storageManager;
 	private final int numberOfCores;
 	private final int totalBudgetInMinutes;
 	private final int totalMemoryInMB;
@@ -37,11 +40,10 @@ public class JobScheduler {
 
 	
 	public JobScheduler(ProjectStaticData projectData,
-			StorageManager storageManager, int numberOfCores,
+			int numberOfCores,
 			int totalMemoryInMB, int totalBudgetInMinutes) {
 		super();
 		this.projectData = projectData;
-		this.storageManager = storageManager;
 		this.numberOfCores = numberOfCores;
 		this.totalMemoryInMB = totalMemoryInMB;
 		this.totalBudgetInMinutes = totalBudgetInMinutes;
@@ -78,8 +80,10 @@ public class JobScheduler {
 	 */
 	public List<JobDefinition> createNewSchedule(){
 		if(!canExecuteMore()){
+			logger.info("Cannot schedule more jobs");
 			return null;
 		}
+		logger.info("Creating new schedule with "+currentSchedule.getClass().getSimpleName());
 		return currentSchedule.createNewSchedule();
 	}
 	
@@ -98,10 +102,6 @@ public class JobScheduler {
 
 	public ProjectStaticData getProjectData() {
 		return projectData;
-	}
-
-	public StorageManager getStorageManager() {
-		return storageManager;
 	}
 	
 	public int getNumberOfCores() {

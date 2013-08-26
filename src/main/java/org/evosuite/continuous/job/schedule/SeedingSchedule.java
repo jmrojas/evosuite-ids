@@ -1,12 +1,19 @@
 package org.evosuite.continuous.job.schedule;
 
+import java.util.ArrayList;
+import java.util.HashSet;
+import java.util.Iterator;
 import java.util.LinkedHashSet;
+import java.util.LinkedList;
 import java.util.List;
+import java.util.Queue;
 import java.util.Set;
 
 import org.evosuite.continuous.job.JobDefinition;
 import org.evosuite.continuous.job.JobScheduler;
 import org.evosuite.continuous.project.ProjectGraph;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 /**
  * Choose a precise order in which the CUTs will be targeted.
@@ -18,24 +25,31 @@ import org.evosuite.continuous.project.ProjectGraph;
  */
 public class SeedingSchedule extends OneTimeSchedule{
 
+	private static Logger logger = LoggerFactory.getLogger(SeedingSchedule.class);
+
 	protected final OneTimeSchedule base;
-	
+
 	public SeedingSchedule(JobScheduler scheduler) {
 		this(scheduler, new SimpleSchedule(scheduler));
 	}
-	
+
 	protected SeedingSchedule(JobScheduler scheduler, OneTimeSchedule base) {
 		super(scheduler);
 		this.base = base;
 	}
-	
+
 
 	@Override
 	protected List<JobDefinition> createScheduleOnce() {
 		List<JobDefinition> jobs = base.createScheduleOnce();
-		return addDependenciesForSeeding(jobs);
+		
+		if(logger.isDebugEnabled()){
+			logger.debug("Base schedule: "+jobs);
+		}
+		
+		return addDepenciesAndSort(jobs);		
 	}
-	
+
 	@Override
 	protected List<JobDefinition> createScheduleForWhenNotEnoughBudget(){
 		/*
@@ -43,9 +57,102 @@ public class SeedingSchedule extends OneTimeSchedule{
 		 * still want to use seeding.
 		 */
 		List<JobDefinition> jobs = super.createScheduleForWhenNotEnoughBudget(); 
-		return addDependenciesForSeeding(jobs);
+		if(logger.isDebugEnabled()){
+			logger.debug("Base, reduced schedule: "+jobs);
+		}
+		return addDepenciesAndSort(jobs);
+	}
+
+	
+	protected List<JobDefinition> addDepenciesAndSort(List<JobDefinition> jobs){
+		jobs = addDependenciesForSeeding(jobs);
+
+		if(logger.isDebugEnabled()){
+			logger.debug("Schedule after adding dependencies: "+jobs);
+		}
+		
+		jobs = getSortedToSatisfyDependencies(jobs);
+		
+		if(logger.isDebugEnabled()){
+			logger.debug("Final schedule after sorting: "+jobs);
+		}
+		
+		return jobs;		
 	}
 	
+	/**
+	 * Try (best effort) to sort the jobs in a way in which dependent jobs
+	 * are executed first. Try to maintain the relative order of the input list.
+	 * Note: even if sorting is not precise, still the job executor will be able to handle it
+	 * 
+	 * 
+	 * @param jobs  A sorted copy of the input list
+	 */
+	protected static List<JobDefinition> getSortedToSatisfyDependencies(List<JobDefinition> jobs){
+
+		Queue<JobDefinition> toAssign = new LinkedList<JobDefinition>(jobs);
+		List<JobDefinition> postponed = new LinkedList<JobDefinition>();
+
+		List<JobDefinition> out = new ArrayList<JobDefinition>(jobs.size());
+		Set<String> assigned = new HashSet<String>();
+
+		/*
+		 * Note: the code here is similar to what done in JobExecutor
+		 */
+		
+		mainLoop: while(!toAssign.isEmpty() || !postponed.isEmpty()){
+
+			JobDefinition chosenJob = null;
+
+			//postponed jobs have the priority
+			if(!postponed.isEmpty()){
+				Iterator<JobDefinition> iterator = postponed.iterator();
+				postponedLoop : while(iterator.hasNext()){
+					JobDefinition job = iterator.next();
+					if(job.areDependenciesSatisfied(jobs,assigned)){
+						chosenJob = job;							
+						iterator.remove();
+						break postponedLoop;
+					}
+				}
+			}
+
+			if(chosenJob == null && toAssign.isEmpty()){
+				/*
+				 * nothing satisfied in 'postponed', and nothing left in 'toAssign'.
+				 * so just pick up one (the oldest)
+				 */
+				assert !postponed.isEmpty();
+				chosenJob = postponed.remove((int) 0);  
+			}
+
+			if(chosenJob == null){
+				assert !toAssign.isEmpty();
+
+				toExecuteLoop : while(!toAssign.isEmpty()){
+					JobDefinition job = toAssign.poll();
+					if(job.areDependenciesSatisfied(jobs,assigned)){
+						chosenJob = job;
+						break toExecuteLoop;
+					}  else {
+						postponed.add(job);
+					}
+				}
+
+				if(chosenJob == null){					
+					assert !postponed.isEmpty() && toAssign.isEmpty();
+					continue mainLoop;
+				}
+			}
+			
+			out.add(chosenJob);
+			assigned.add(chosenJob.cut);
+		}
+		
+		return out;
+	}
+
+
 	/**
 	 * For each input job, identify all the others jobs we want to generate
 	 * test cases first.
@@ -59,21 +166,22 @@ public class SeedingSchedule extends OneTimeSchedule{
 	 * - subtypes of classes used as input objects
 	 * 
 	 * @param jobs
-	 * @return the given input list, but with new jobs objects
+	 * @return a copy given input list, but with new jobs objects
 	 */
 	protected List<JobDefinition> addDependenciesForSeeding(List<JobDefinition> jobs){
 
+		List<JobDefinition> list = new  ArrayList<JobDefinition>(jobs.size());
+
 		for(int i=0; i<jobs.size(); i++){
 			JobDefinition job = jobs.get(i);
-			Set<String> dep = new LinkedHashSet<String>();
-			
-			addAncestors(job,dep);
-			addInputClasses(job,dep);
-			
-			jobs.set(i, job.getByAddingDependencies(dep));
+
+			Set<String> inputs = calculateInputClasses(job);
+			Set<String> parents = calculateAncestors(job);
+
+			list.add(job.getByAddingDependencies(inputs,parents));
 		}
-		
-		return jobs; 
+
+		return list; 
 	}
 
 	/**
@@ -84,15 +192,19 @@ public class SeedingSchedule extends OneTimeSchedule{
 	 * @param job
 	 * @param dep
 	 */
-	private void addInputClasses(JobDefinition job, Set<String> dep) {
-		
+	private Set<String>  calculateInputClasses(JobDefinition job) {
+
+		Set<String> dep = new LinkedHashSet<String>();
+
 		ProjectGraph graph = scheduler.getProjectData().getProjectGraph();
 		for(String input : graph.getCUTsDirectlyUsedAsInput(job.cut, true)){
-			if(graph.isInterface(input)){
+			if(graph.isInterface(input)){ 
 				continue;
 			}
 			dep.add(input);
-		}		
+		}	
+
+		return dep;
 	}
 
 	/**
@@ -131,26 +243,28 @@ public class SeedingSchedule extends OneTimeSchedule{
 	 * be a bug/problem in how EvoSuite generated test cases for B
 	 * 
 	 * @param job
-	 * @param dep
 	 */
-	private void addAncestors(JobDefinition job, Set<String> dep) {
+	private Set<String> calculateAncestors(JobDefinition job) {
+
+		Set<String> dep = new LinkedHashSet<String>();
 
 		ProjectGraph graph = scheduler.getProjectData().getProjectGraph();
-		
+
 		if(graph.isInterface(job.cut)){
 			/*
 			 * even if an interface has code, it will have no class state (ie fields).
 			 * so, no point in looking at its ancestors 
 			 */
-			return;
+			return dep;
 		}
-		
+
 		for(String parent :  graph.getAllCUTsParents(job.cut)){
 			if(graph.isInterface(parent)){
 				continue;
 			}
 			dep.add(parent);
 		}
+		return dep;
 	}
-	
+
 }

@@ -38,6 +38,7 @@ import org.evosuite.coverage.path.PrimePathPool;
 import org.evosuite.graphs.cfg.CFGMethodAdapter;
 import org.evosuite.instrumentation.LinePool;
 import org.evosuite.rmi.ClientServices;
+import org.evosuite.seeding.ObjectPoolManager;
 import org.junit.Test;
 import org.junit.runners.Suite;
 import org.objectweb.asm.ClassReader;
@@ -75,9 +76,9 @@ public class DependencyAnalysis {
 	 */
 	public static void analyze(String className, List<String> classPath)
 	        throws RuntimeException, ClassNotFoundException {
-
+		
 		logger.debug("Calculate inheritance hierarchy");		
-		inheritanceTree = InheritanceTreeGenerator.analyze(classPath);
+		inheritanceTree = InheritanceTreeGenerator.createFromClassPath(classPath);
 		InheritanceTreeGenerator.gatherStatistics(inheritanceTree);
 		if(!inheritanceTree.hasClass(Properties.TARGET_CLASS)) {
 			throw new ClassNotFoundException("Target class not found in inheritance tree");

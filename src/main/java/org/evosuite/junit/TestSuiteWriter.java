@@ -94,8 +94,8 @@ public class TestSuiteWriter implements Opcodes {
 
 	/**
 	 * FIXME: this filter assumes "Test" as prefix, but would be better to have
-	 * it as postfix (and as a variable) 
-	 *
+	 * it as postfix (and as a variable)
+	 * 
 	 */
 	class TestFilter implements IOFileFilter {
 		@Override
@@ -358,9 +358,12 @@ public class TestSuiteWriter implements Opcodes {
 		}
 		List<String> imports_sorted = new ArrayList<String>(import_names);
 
+		//we always need thos one, due to for example logging setup
+		imports_sorted.add(org.junit.BeforeClass.class.getCanonicalName());
+		
 		if (Properties.REPLACE_CALLS || wasSecurityException) {
-			// BeforeClass is always added due to REPLACE_CALLS
-			imports_sorted.add(org.junit.BeforeClass.class.getCanonicalName());
+			imports_sorted.add(org.junit.Before.class.getCanonicalName());
+			imports_sorted.add(org.junit.After.class.getCanonicalName());
 		}
 
 		if (wasSecurityException) {
@@ -372,8 +375,6 @@ public class TestSuiteWriter implements Opcodes {
 			imports_sorted.add(java.util.concurrent.Executors.class.getCanonicalName());
 			imports_sorted.add(java.util.concurrent.Future.class.getCanonicalName());
 			imports_sorted.add(java.util.concurrent.TimeUnit.class.getCanonicalName());
-			imports_sorted.add(org.junit.Before.class.getCanonicalName());
-			imports_sorted.add(org.junit.After.class.getCanonicalName());
 			imports_sorted.add(org.junit.AfterClass.class.getCanonicalName());
 		}
 
@@ -562,78 +563,96 @@ public class TestSuiteWriter implements Opcodes {
 	 */
 	protected String getBeforeAndAfterMethods(boolean wasSecurityException) {
 
+		/*
+		 * Usually, we need support methods (ie @BeforeClass,@Before,@After and @AfterClass)
+		 * only if there was a security exception (and so we need EvoSuite security manager,
+		 * and test runs on separated thread) or if we are doing bytecode replacement (and
+		 * so we need to activate JavaAgent).
+		 * 
+		 * But there are cases that we might always want: eg, setup logging
+		 */
+
 		StringBuilder bd = new StringBuilder("");
 		bd.append("\n");
-
-		if (!wasSecurityException) {
-			/*
-			 * If no security manager, we still need to setup REPLACE_CALLS
-			 */
-			if (Properties.REPLACE_CALLS) {
-				bd.append(METHOD_SPACE);
-				bd.append("@BeforeClass \n");
-
-				bd.append(METHOD_SPACE);
-				bd.append("public static void initEvoSuiteFramework(){ \n");
-
-				bd.append(BLOCK_SPACE);
-				bd.append("org.evosuite.Properties.REPLACE_CALLS = "
-				        + Properties.REPLACE_CALLS + "; \n");
-
-				bd.append(METHOD_SPACE);
-				bd.append("} \n");
-
-				bd.append("\n");
-			}
-
-			return bd.toString();
-		}
 
 		/*
 		 * Because this method is perhaps called only once per SUT,
 		 * not much of the point to try to optimize it 
 		 */
 
-		generateFields(bd);
+		generateFields(bd, wasSecurityException);
 
-		generateBeforeClass(bd);
+		generateBeforeClass(bd, wasSecurityException);
 
-		generateAfterClass(bd);
+		generateAfterClass(bd, wasSecurityException);
 
-		generateBefore(bd);
+		generateBefore(bd, wasSecurityException);
 
-		generateAfter(bd);
+		generateAfter(bd, wasSecurityException);
 
 		return bd.toString();
 	}
 
-	private void generateAfter(StringBuilder bd) {
+	private void generateAfter(StringBuilder bd, boolean wasSecurityException) {
+
+		if (!wasSecurityException && !Properties.REPLACE_CALLS) {
+			return;
+		}
+		
 		bd.append(METHOD_SPACE);
 		bd.append("@After \n");
 		bd.append(METHOD_SPACE);
 		bd.append("public void doneWithTestCase(){ \n");
-		bd.append(BLOCK_SPACE);
-		bd.append("Sandbox.doneWithExecutingSUTCode(); \n");
+
+		if (wasSecurityException) {
+			bd.append(BLOCK_SPACE);
+			bd.append("Sandbox.doneWithExecutingSUTCode(); \n");
+		}
+
+		if (Properties.REPLACE_CALLS) {
+			bd.append(BLOCK_SPACE);
+			bd.append("org.evosuite.agent.InstrumentingAgent.deactivate(); \n");
+		}
+
 		bd.append(METHOD_SPACE);
 		bd.append("} \n");
 
 		bd.append("\n");
 	}
 
-	private void generateBefore(StringBuilder bd) {
+	private void generateBefore(StringBuilder bd, boolean wasSecurityException) {
+
+		if (!wasSecurityException && !Properties.REPLACE_CALLS) {
+			return;
+		}
+
 		bd.append(METHOD_SPACE);
 		bd.append("@Before \n");
 		bd.append(METHOD_SPACE);
 		bd.append("public void initTestCase(){ \n");
-		bd.append(BLOCK_SPACE);
-		bd.append("Sandbox.goingToExecuteSUTCode(); \n");
+
+		if (wasSecurityException) {
+			bd.append(BLOCK_SPACE);
+			bd.append("Sandbox.goingToExecuteSUTCode(); \n");
+		}
+
+		if (Properties.REPLACE_CALLS) {
+			bd.append(BLOCK_SPACE);
+			bd.append("org.evosuite.agent.InstrumentingAgent.activate(); \n");
+		}
+
 		bd.append(METHOD_SPACE);
 		bd.append("} \n");
 
 		bd.append("\n");
 	}
 
-	private void generateAfterClass(StringBuilder bd) {
+	private void generateAfterClass(StringBuilder bd, boolean wasSecurityException) {
+
+		if (!wasSecurityException) {
+			return;
+		}
+
 		bd.append(METHOD_SPACE);
 		bd.append("@AfterClass \n");
 		bd.append(METHOD_SPACE);
@@ -648,35 +667,49 @@ public class TestSuiteWriter implements Opcodes {
 		bd.append("\n");
 	}
 
-	private void generateBeforeClass(StringBuilder bd) {
+	private void generateBeforeClass(StringBuilder bd, boolean wasSecurityException) {
 		bd.append(METHOD_SPACE);
 		bd.append("@BeforeClass \n");
 
 		bd.append(METHOD_SPACE);
 		bd.append("public static void initEvoSuiteFramework(){ \n");
 
-		//need to setup REPLACE_CALLS
 		bd.append(BLOCK_SPACE);
-		bd.append("org.evosuite.Properties.REPLACE_CALLS = " + Properties.REPLACE_CALLS
-		        + "; \n");
+		bd.append("org.evosuite.utils.LoggingUtils.setLoggingForJUnit(); \n");
 
-		//need to setup the Sandbox mode
-		bd.append(BLOCK_SPACE);
-		bd.append("org.evosuite.Properties.SANDBOX_MODE = SandboxMode."
-		        + Properties.SANDBOX_MODE + "; \n");
+		if (Properties.REPLACE_CALLS) {
+			//need to setup REPLACE_CALLS and instrumentator
+			bd.append(BLOCK_SPACE);
+			bd.append("org.evosuite.Properties.REPLACE_CALLS = true; \n");
+			bd.append(BLOCK_SPACE);
+			bd.append("org.evosuite.agent.InstrumentingAgent.initialize(); \n");
+		}
 
-		bd.append(BLOCK_SPACE);
-		bd.append("Sandbox.initializeSecurityManagerForSUT(); \n");
+		if (wasSecurityException) {
+			//need to setup the Sandbox mode
+			bd.append(BLOCK_SPACE);
+			bd.append("org.evosuite.Properties.SANDBOX_MODE = SandboxMode."
+			        + Properties.SANDBOX_MODE + "; \n");
 
-		bd.append(BLOCK_SPACE);
-		bd.append(EXECUTOR_SERVICE + " = Executors.newCachedThreadPool(); \n");
+			bd.append(BLOCK_SPACE);
+			bd.append("Sandbox.initializeSecurityManagerForSUT(); \n");
+
+			bd.append(BLOCK_SPACE);
+			bd.append(EXECUTOR_SERVICE + " = Executors.newCachedThreadPool(); \n");
+		}
+
 		bd.append(METHOD_SPACE);
 		bd.append("} \n");
 
 		bd.append("\n");
 	}
 
-	private void generateFields(StringBuilder bd) {
+	private void generateFields(StringBuilder bd, boolean wasSecurityException) {
+
+		if (!wasSecurityException) {
+			return;
+		}
+
 		bd.append(METHOD_SPACE);
 		bd.append("private static ExecutorService " + EXECUTOR_SERVICE + "; \n");
 
@@ -704,6 +737,7 @@ public class TestSuiteWriter implements Opcodes {
 			builder.append(METHOD_SPACE);
 			builder.append("//");
 			builder.append(getInformation(id));
+			builder.append("\n");
 		}
 		if (Properties.STRUCTURED_TESTS) {
 			StructuredTestCase structuredTest = (StructuredTestCase) testCases.get(id);

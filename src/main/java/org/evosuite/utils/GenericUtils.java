@@ -8,6 +8,9 @@ import java.lang.reflect.WildcardType;
 import java.util.HashMap;
 import java.util.Map;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
 public class GenericUtils {
 
 	public static boolean isAssignable(Type type, TypeVariable<?> typeVariable) {
@@ -23,6 +26,39 @@ public class GenericUtils {
 			}
 		}
 		return isAssignable;
+	}
+
+	private static final Logger logger = LoggerFactory.getLogger(GenericUtils.class);
+
+	public static Type replaceTypeVariables(Type targetType,
+	        Map<TypeVariable<?>, Type> typeMap) {
+		Type returnType = targetType;
+		for (TypeVariable<?> var : typeMap.keySet()) {
+			//logger.debug("Current variable: "+var+" of type "+typeMap.get(var)+" in "+returnType);
+			returnType = replaceTypeVariable(returnType, var, typeMap.get(var));
+		}
+
+		return returnType;
+	}
+
+	public static Type replaceTypeVariablesWithWildcards(Type targetType) {
+		if (targetType instanceof TypeVariable) {
+			TypeVariable<?> typeVariable = (TypeVariable<?>) targetType;
+			return new WildcardTypeImpl(typeVariable.getBounds(), new Type[] {});
+		} else if (targetType instanceof ParameterizedType) {
+			ParameterizedType parameterizedType = (ParameterizedType) targetType;
+			Type owner = null;
+			if (parameterizedType.getOwnerType() != null)
+				owner = replaceTypeVariablesWithWildcards(parameterizedType.getOwnerType());
+			Type[] currentParameters = parameterizedType.getActualTypeArguments();
+			Type[] parameters = new Type[currentParameters.length];
+			for (int i = 0; i < parameters.length; i++) {
+				parameters[i] = replaceTypeVariablesWithWildcards(currentParameters[i]);
+			}
+			return new ParameterizedTypeImpl((Class<?>) parameterizedType.getRawType(),
+			        parameters, owner);
+		}
+		return targetType;
 	}
 
 	public static Type replaceTypeVariable(Type targetType, TypeVariable<?> variable,
@@ -91,12 +127,17 @@ public class GenericUtils {
 			return new WildcardTypeImpl(upperBounds, lowerBounds);
 		} else if (targetType instanceof TypeVariable<?>) {
 			if (targetType.equals(variable)) {
+				logger.debug("Do equal: " + variable + "/" + targetType);
 				return variableType;
 			} else {
+				logger.debug("Do not equal: " + variable + "/" + targetType);
+				logger.debug("Do not equal: " + variable.getGenericDeclaration() + "/"
+				        + ((TypeVariable<?>) targetType).getGenericDeclaration());
 				return targetType;
 			}
 		} else {
-			// logger.debug("Unknown type of class "+targetType.getClass()+": "+targetType);
+			logger.debug("Unknown type of class " + targetType.getClass() + ": "
+			        + targetType);
 			return targetType;
 		}
 	}
@@ -122,15 +163,20 @@ public class GenericUtils {
 		for (int i = 0; i < p1.getActualTypeArguments().length; i++) {
 			Type t1 = p1.getActualTypeArguments()[i];
 			Type t2 = p2.getActualTypeArguments()[i];
+			logger.debug("First match: " + t1 + " - " + t2);
 			if (t1 instanceof TypeVariable<?>) {
 				map.put((TypeVariable<?>) t1, t2);
 			}
 			if (t2 instanceof TypeVariable<?>) {
 				map.put((TypeVariable<?>) t2, t1);
+			} else if (t2 instanceof ParameterizedType && t1 instanceof ParameterizedType) {
+				map.putAll(getMatchingTypeParameters((ParameterizedType) t1,
+				                                     (ParameterizedType) t2));
 			}
 		}
 
-		if (p1.getOwnerType() != null && p1.getOwnerType() instanceof ParameterizedType) {
+		if (p1.getOwnerType() != null && p1.getOwnerType() instanceof ParameterizedType
+		        && p2.getOwnerType() instanceof ParameterizedType) {
 			map.putAll(getMatchingTypeParameters((ParameterizedType) p1.getOwnerType(),
 			                                     (ParameterizedType) p2.getOwnerType()));
 		}

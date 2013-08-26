@@ -124,7 +124,6 @@ import org.evosuite.ga.stoppingconditions.StoppingCondition;
 import org.evosuite.ga.stoppingconditions.ZeroFitnessStoppingCondition;
 import org.evosuite.graphs.LCSAJGraph;
 import org.evosuite.junit.TestSuiteWriter;
-import org.evosuite.primitives.ObjectPool;
 import org.evosuite.regression.RegressionSuiteFitness;
 import org.evosuite.regression.RegressionTestChromosomeFactory;
 import org.evosuite.regression.RegressionTestSuiteChromosomeFactory;
@@ -133,6 +132,8 @@ import org.evosuite.rmi.service.ClientState;
 import org.evosuite.rmi.service.ClientStateInformation;
 import org.evosuite.sandbox.PermissionStatistics;
 import org.evosuite.sandbox.Sandbox;
+import org.evosuite.seeding.ObjectPool;
+import org.evosuite.seeding.ObjectPoolManager;
 import org.evosuite.setup.DependencyAnalysis;
 import org.evosuite.setup.TestCluster;
 import org.evosuite.symbolic.DSEStats;
@@ -174,6 +175,7 @@ import org.evosuite.testsuite.TestSuiteFitnessFunction;
 import org.evosuite.testsuite.TestSuiteMinimizer;
 import org.evosuite.testsuite.TestSuiteReplacementFunction;
 import org.evosuite.utils.ClassPathHacker;
+import org.evosuite.utils.GenericClass;
 import org.evosuite.utils.LoggingUtils;
 import org.evosuite.utils.Randomness;
 import org.evosuite.utils.ResourceController;
@@ -242,6 +244,7 @@ public class TestSuiteGenerator {
 			Sandbox.doneWithExecutingUnsafeCodeOnSameThread();
 			Sandbox.doneWithExecutingSUTCode();
 		}
+		ObjectPoolManager.getInstance();
 
 		TestCaseExecutor.initExecutor();
 
@@ -263,7 +266,7 @@ public class TestSuiteGenerator {
 		statistics.writeReport();
 		if (!Properties.NEW_STATISTICS && Properties.OLD_STATISTICS)
 			statistics.writeStatistics();
-		
+
 		PermissionStatistics.getInstance().printStatistics();
 
 		LoggingUtils.getEvoLogger().info("* Done!");
@@ -423,7 +426,8 @@ public class TestSuiteGenerator {
 			fileManager.close();
 
 			if (!compiled) {
-				logger.error("Compilation failed on compilation units: "+compilationUnits);
+				logger.error("Compilation failed on compilation units: "
+				        + compilationUnits);
 				for (Diagnostic<?> diagnostic : diagnostics.getDiagnostics()) {
 					logger.error("Diagnostic: " + diagnostic.getMessage(null) + ": "
 					        + diagnostic.getLineNumber());
@@ -444,6 +448,7 @@ public class TestSuiteGenerator {
 			ClassPathHacker.addFile(dir);
 			Class<?>[] testClasses = getClassesFromFiles(generated);
 			if (testClasses == null) {
+				logger.error("Found no classes for compiled tests");
 				return false;
 			}
 
@@ -524,10 +529,11 @@ public class TestSuiteGenerator {
 	/**
 	 * <p>
 	 * If Properties.JUNIT_TESTS is set, this method writes the given test cases
-	 * to the default directory Properties.TEST_DIR. 
+	 * to the default directory Properties.TEST_DIR.
 	 * 
 	 * <p>
-	 * The name of the test will be equal to the SUT followed by the given suffix
+	 * The name of the test will be equal to the SUT followed by the given
+	 * suffix
 	 * 
 	 * @param tests
 	 *            a {@link java.util.List} object.
@@ -553,7 +559,7 @@ public class TestSuiteGenerator {
 			String name = Properties.TARGET_CLASS.substring(Properties.TARGET_CLASS.lastIndexOf(".") + 1);
 			String testDir = Properties.TEST_DIR;
 			LoggingUtils.getEvoLogger().info("* Writing JUnit test cases to " + testDir);
-			suite.writeTestSuite(name+suffix, testDir);
+			suite.writeTestSuite(name + suffix, testDir);
 		}
 	}
 
@@ -563,7 +569,7 @@ public class TestSuiteGenerator {
 	 *            the test cases which should be written to file
 	 */
 	public static void writeJUnitTests(List<TestCase> tests) {
-		 writeJUnitTests(tests,Properties.JUNIT_SUFFIX); 
+		writeJUnitTests(tests, Properties.JUNIT_SUFFIX);
 	}
 
 	private void addAssertions(List<TestCase> tests) {
@@ -699,12 +705,10 @@ public class TestSuiteGenerator {
 	}
 
 	private void writeObjectPool(List<TestCase> tests) {
-		if (Properties.WRITE_POOL) {
+		if (!Properties.WRITE_POOL.isEmpty()) {
 			LoggingUtils.getEvoLogger().info("* Writing sequences to pool");
-			ObjectPool pool = ObjectPool.getInstance();
-			for (TestCase test : tests) {
-				pool.storeSequence(Properties.getTargetClass(), test);
-			}
+			ObjectPool pool = ObjectPool.getPoolFromTestCases(tests);
+			pool.writePool(Properties.WRITE_POOL);
 		}
 	}
 

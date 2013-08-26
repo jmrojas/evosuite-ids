@@ -30,9 +30,11 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
 import org.evosuite.EvoSuite;
+import org.evosuite.Properties;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import ch.qos.logback.classic.Level;
 import ch.qos.logback.classic.LoggerContext;
 import ch.qos.logback.classic.joran.JoranConfigurator;
 import ch.qos.logback.classic.spi.ILoggingEvent;
@@ -46,7 +48,7 @@ import ch.qos.logback.core.util.StatusPrinter;
  */
 public class LoggingUtils {
 
-	private static final Logger log = LoggerFactory.getLogger(LoggingUtils.class);
+	private static final Logger logger = LoggerFactory.getLogger(LoggingUtils.class);
 
 	/** Constant <code>DEFAULT_OUT</code> */
 	public static final PrintStream DEFAULT_OUT = System.out;
@@ -54,7 +56,7 @@ public class LoggingUtils {
 	public static final PrintStream DEFAULT_ERR = System.err;
 
 	public static final String USE_DIFFERENT_LOGGING_XML_PARAMETER = "use_different_logback";
-	
+
 	private static final String EVO_LOGGER = "evo_logger";
 
 	/** Constant <code>latestOut</code> */
@@ -146,10 +148,10 @@ public class LoggingUtils {
 									/*
 									 * TODO: unclear why it happens... need more investigation 
 									 */
-									log.error("Error in de-serialized log event: "
+									logger.error("Error in de-serialized log event: "
 									        + ice.getMessage());
 								} catch (Exception e) {
-									log.error("Problem in reading loggings", e);
+									logger.error("Problem in reading loggings", e);
 								}
 								return null;
 							}
@@ -161,7 +163,7 @@ public class LoggingUtils {
 
 			return true;
 		} catch (Exception e) {
-			log.error("Can't start log server", e);
+			logger.error("Can't start log server", e);
 			return false;
 		}
 	}
@@ -201,7 +203,7 @@ public class LoggingUtils {
 			try {
 				serverSocket.close();
 			} catch (IOException e) {
-				log.error("Error in closing log server", e);
+				logger.error("Error in closing log server", e);
 			}
 			serverSocket = null;
 		}
@@ -245,22 +247,61 @@ public class LoggingUtils {
 		System.setErr(DEFAULT_ERR);
 	}
 
+	
+	/**
+	 * If the application is using a SLF4 compliant logging framework, check 
+	 * if it has been configured. If so, keep the logging as it is.
+	 * On the other hand, if no configuration/framework is used, then mute
+	 * the default logging (Logback) of the EvoSuite modules.
+	 * 
+	 */
+	public static void setLoggingForJUnit(){
+		
+		if(Properties.ENABLE_ASSERTS_FOR_EVOSUITE){
+			//if we are debugging, we don't want to switch off the logging
+			return;
+		}
+		
+		LoggerContext context = (LoggerContext) LoggerFactory.getILoggerFactory();
+		if(isDefaultLoggingConfiguration(context)){
+
+			Logger root = LoggerFactory.getLogger("org.evosuite");
+			if(root != null && root instanceof ch.qos.logback.classic.Logger){
+				((ch.qos.logback.classic.Logger) root).setLevel(Level.OFF);
+			}
+		}
+	}
+
+	private static boolean isDefaultLoggingConfiguration(LoggerContext context){
+		// TODO: Find better way to find out the default configuration
+		return context.getName().equals("default");
+	}
+	
 	/**
 	 * Load the EvoSuite xml configuration file for Logback, unless a
 	 * non-default one is already in use. The file has to be on the classpath.
 	 */
 	public static void loadLogbackForEvoSuite() {
 		LoggerContext context = (LoggerContext) LoggerFactory.getILoggerFactory();
-		// Only overrule default configurations
-		// TODO: Find better way to allow external logback configuration
-		if (context.getName().equals("default")) {
+
+		// Only overrule default configurations		
+		if (isDefaultLoggingConfiguration(context)) {
 			try {
 				JoranConfigurator configurator = new JoranConfigurator();
 				configurator.setContext(context);
 				final String xmlFileName = getLogbackFileName();
-				InputStream f = EvoSuite.class.getClassLoader().getResourceAsStream(xmlFileName);
+				InputStream f = null;
+				if (EvoSuite.class.getClassLoader() != null) {
+					f = EvoSuite.class.getClassLoader().getResourceAsStream(xmlFileName);
+				} else {
+					// If the classloader is null, then that means EvoSuite.class was loaded
+					// with the bootstrap classloader, so let's try that as well
+					f = ClassLoader.getSystemClassLoader().getResourceAsStream(xmlFileName);
+				}
 				if (f == null) {
-					System.err.println(xmlFileName + " not found on classpath");
+					String msg = xmlFileName + " not found on classpath";
+					System.err.println(msg);
+					logger.error(msg);
 				}
 				context.reset();
 				configurator.doConfigure(f);
@@ -271,8 +312,9 @@ public class LoggingUtils {
 		}
 	}
 
-	public static String getLogbackFileName() {		
-		return System.getProperty(USE_DIFFERENT_LOGGING_XML_PARAMETER, "logback-evosuite.xml");
+	public static String getLogbackFileName() {
+		return System.getProperty(USE_DIFFERENT_LOGGING_XML_PARAMETER,
+		                          "logback-evosuite.xml");
 	}
 
 }

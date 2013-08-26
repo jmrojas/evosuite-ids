@@ -1,9 +1,13 @@
 package org.evosuite.continuous.persistency;
 
 import java.io.File;
+import java.io.FileInputStream;
+import java.io.FileNotFoundException;
 import java.io.IOException;
+import java.io.InputStream;
 import java.io.StringWriter;
 import java.math.BigInteger;
+import java.net.URISyntaxException;
 import java.util.Date;
 import java.util.Iterator;
 import java.util.LinkedHashMap;
@@ -12,6 +16,7 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 
+import javax.annotation.Resources;
 import javax.xml.XMLConstants;
 import javax.xml.bind.JAXBContext;
 import javax.xml.bind.Marshaller;
@@ -22,6 +27,7 @@ import javax.xml.validation.SchemaFactory;
 
 import org.apache.commons.io.FileUtils;
 import org.apache.commons.lang3.time.DateFormatUtils;
+import org.evosuite.Properties;
 import org.evosuite.continuous.project.ProjectStaticData;
 import org.evosuite.utils.Utils;
 import org.evosuite.xsd.ProjectInfo;
@@ -49,7 +55,8 @@ public class StorageManager {
 	private File tmpLogs;
 	private File tmpReports;
 	private File tmpTests;
-
+	private File tmpPools;
+	
 	/**
 	 * Folder where all the best test suites generated so far in all CTG runs are stored
 	 */
@@ -62,7 +69,7 @@ public class StorageManager {
 	}
 
 	public StorageManager(){
-		this(".continuous_evosuite");
+		this(Properties.CTG_FOLDER);
 	}
 
 	/**
@@ -76,12 +83,12 @@ public class StorageManager {
 		 * Note: here we just make sure we can write on disk
 		 */
 
+		boolean created = false;
+		
 		File root = new File(rootFolderName);
 		if(root.exists()){
 			if(root.isDirectory()){
-				if(root.canWrite()){
-					return true;
-				} else {
+				if(!root.canWrite()){					
 					logger.error("Cannot write in "+root.getAbsolutePath());
 					return false;
 				}
@@ -89,24 +96,29 @@ public class StorageManager {
 				//it exists but not a folder...
 				boolean deleted = root.delete();
 				if(!deleted){
-					logger.error("Folder "+root+" is a file, and we cannot delete it");
+					logger.error("Folder "+root+" is a file, and failed to delete it");
 					return false;
 				} else {
-					// same as "else" of !exist
+					created = root.mkdirs();
+					if(!created){
+						logger.error("Failed to mkdir "+root.getAbsolutePath());
+						return false;
+					}
 				}
 			}
+		} else {
+			created = root.mkdirs();
+			if(!created){
+				logger.error("Failed to mkdir "+root.getAbsolutePath());
+				return false;
+			}
 		}
-
-		boolean created = root.mkdir();
-		if(!created){
-			logger.error("Failed to mkdir "+root.getAbsolutePath());
-			return false;
-		}
-
+		
 		testsFolder = new File(root.getAbsolutePath()+File.separator+"evosuite-tests");
 		if(!testsFolder.exists()){
 			created = testsFolder.mkdirs();
-			if(created){
+			if(!created){
+				logger.error("Failed to mkdir "+testsFolder.getAbsolutePath());
 				return false;
 			}
 		}
@@ -142,7 +154,9 @@ public class StorageManager {
 		tmpReports.mkdirs();
 		tmpTests = new File(tmpFolder.getAbsolutePath()+"/tests");
 		tmpTests.mkdirs();
-
+		tmpPools = new File(tmpFolder.getAbsolutePath()+"/pools");
+		tmpPools.mkdirs();
+		
 		return true;
 	}
 
@@ -196,11 +210,17 @@ public class StorageManager {
 	 * @param data
 	 * @return
 	 */
-	public String mergeAndCommitChanges(ProjectStaticData current){
+	public String mergeAndCommitChanges(ProjectStaticData current) throws NullPointerException{
 
+		if(current == null){
+			throw new NullPointerException("ProjectStaticData 'current' cannot be null");
+		}
+		
 		ProjectInfo db = getDatabaseProjectInfo();
 		String info = removeNoMoreExistentData(db,current);
 
+		info += "\n\n=== CTG run results ===";
+		
 		/*
 		 * Check what test cases have been actually generated
 		 * in this CTG run
@@ -215,7 +235,7 @@ public class StorageManager {
 				better++;
 			}
 		}
-		info += "Better test suites: "+better;
+		info += "\nBetter test suites: "+better;
 		
 		updateProjectStatistics(db,current);
 		commitDatabase(db);
@@ -229,9 +249,9 @@ public class StorageManager {
 	 * Note: in theory we could re-execute the test cases to extract/recalculate
 	 * those statistics, but it would be pretty inefficient
 	 * 
-	 * @return
+	 * @return  a List containing all info regarding generated tests in the last CTG run
 	 */
-	private List<TestsOnDisk> gatherGeneratedTestsOnDisk(){
+	public List<TestsOnDisk> gatherGeneratedTestsOnDisk(){
 		
 		List<TestsOnDisk> list = new LinkedList<TestsOnDisk>();
 		List<File> generatedTests = Utils.getAllFilesInSubFolder(tmpTests.getAbsolutePath(), ".java");
@@ -288,11 +308,21 @@ public class StorageManager {
 	 * We want "com.name.of.a.package.AClass" as a result
 	 * 
 	 */
-	private String extractClassName(File base, File target){		
+	protected String extractClassName(File base, File target){		
 		int len = base.getAbsolutePath().length();
 		String path = target.getAbsolutePath(); 
-		String name = path.substring(len,path.length()-".java".length());
-		name = name.replaceAll(File.separator,".");
+		String name = path.substring(len+1,path.length()-".java".length());
+		
+		/*
+		 * Using File.separator seems to give problems in Windows, because "\\" is treated specially
+		 * by the replaceAll method
+		 */
+		name = name.replaceAll("/",".");
+		
+		if(name.contains("\\")){
+			name = name.replaceAll("\\\\",".");
+		}
+		
 		return name;
 	}
 	
@@ -520,22 +550,39 @@ public class StorageManager {
 	public ProjectInfo getDatabaseProjectInfo(){
 
 		File current = new File(rootFolderName + File.separator + projectFileName);
+		InputStream stream = null;
 		if(!current.exists()){
-			return null;
+			/*
+			 * this will happen the first time CTG is run
+			 */
+			String empty = "xsd/ctg_project_report_empty.xml";
+			try {
+				stream = ClassLoader.getSystemResourceAsStream(empty);
+			} catch (Exception e) {
+				throw new RuntimeException("Failed to read resource "+empty+" , "+e.getMessage());
+			}
+		} else {
+			try {
+				stream = new FileInputStream(current);
+			} catch (FileNotFoundException e) {
+				assert false; // this should never happen
+				throw new RuntimeException("Bug in EvoSuite framework: "+e.getMessage());
+			}
 		}
 
 		try{
 			JAXBContext jaxbContext = JAXBContext.newInstance(ProjectInfo.class);
 			SchemaFactory factory = SchemaFactory.newInstance(XMLConstants.W3C_XML_SCHEMA_NS_URI);
 			Schema schema = factory.newSchema(new StreamSource(
-					new File(ClassLoader.getSystemResource("/xsd/ctg_project_report.xsd").toURI())));
+					ClassLoader.getSystemResourceAsStream("xsd/ctg_project_report.xsd")));
 			Unmarshaller jaxbUnmarshaller = jaxbContext.createUnmarshaller();
 			jaxbUnmarshaller.setSchema(schema);
-			ProjectInfo project = (ProjectInfo) jaxbUnmarshaller.unmarshal(current);
+			ProjectInfo project = (ProjectInfo) jaxbUnmarshaller.unmarshal(stream);
 			return project;
 		} catch(Exception e){
-			logger.error("Error in reading "+current.getAbsolutePath()+". "+e,e);
-			return null;
+			String msg = "Error in reading "+current.getAbsolutePath()+" , "+e;
+			logger.error(msg,e);
+			throw new RuntimeException(msg);
 		}
 	}
 
@@ -553,5 +600,9 @@ public class StorageManager {
 
 	public File getTmpTests() {
 		return tmpTests;
+	}
+
+	public File getTmpPools() {
+		return tmpPools;
 	}
 }

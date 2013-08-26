@@ -28,13 +28,8 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
-import org.apache.commons.lang3.reflect.TypeUtils;
 import org.evosuite.Properties;
-import org.evosuite.TestGenerationContext;
 import org.evosuite.runtime.EvoSuiteFile;
-import org.evosuite.setup.DependencyAnalysis;
-import org.evosuite.setup.TestCluster;
-import org.evosuite.setup.TestClusterGenerator;
 import org.evosuite.utils.GenericAccessibleObject;
 import org.evosuite.utils.GenericClass;
 import org.evosuite.utils.Randomness;
@@ -166,24 +161,50 @@ public abstract class PrimitiveStatement<T> extends AbstractStatement {
 			// TODO: Ensure that files were accessed in the first place
 			statement = new FileNamePrimitiveStatement(tc, new EvoSuiteFile(
 			        Randomness.choice(tc.getAccessedFiles())));
-		} else if (clazz.equals(Class.class)) {
-			Type typeParameter = genericClass.getParameterTypes().get(0);
-			if(genericClass.hasWildcardTypes()) {
-				Class<?> bound = GenericTypeReflector.erase(TypeUtils.getImplicitUpperBounds((WildcardType) typeParameter)[0]);
-				if(!bound.equals(Object.class)) {
-					Set<Class<?>> assignableClasses = TestClusterGenerator.getConcreteClasses(bound, DependencyAnalysis.getInheritanceTree());					
-					statement = new ClassPrimitiveStatement(tc, genericClass, assignableClasses);
+		} else if (clazz instanceof Class) {
+			final List<Type> types = genericClass.getParameterTypes();
+
+			Type typeParameter = null;
+			if (!types.isEmpty()) {
+				typeParameter = types.get(0);
+				logger.debug("Creating class primitive with value " + typeParameter);
+				if (typeParameter instanceof WildcardType) {
+					statement = new ClassPrimitiveStatement(
+					        tc,
+					        GenericTypeReflector.erase(((WildcardType) typeParameter).getUpperBounds()[0]));
 				} else {
-					statement = new ClassPrimitiveStatement(tc);
+					statement = new ClassPrimitiveStatement(tc,
+					        GenericTypeReflector.erase(typeParameter));
 				}
-					
-			} else
-			if (typeParameter instanceof Class<?>) {
-				statement = new ClassPrimitiveStatement(tc, (Class<?>) typeParameter);
 			} else {
+				logger.debug("Creating class primitive with random value / "
+				        + genericClass);
 				statement = new ClassPrimitiveStatement(tc);
 			}
-
+			/*
+						if (genericClass.hasWildcardTypes()) {
+							Class<?> bound = GenericTypeReflector.erase(TypeUtils.getImplicitUpperBounds((WildcardType) typeParameter)[0]);
+							if (!bound.equals(Object.class)) {
+								Set<Class<?>> assignableClasses = TestClusterGenerator.getConcreteClasses(bound,
+								                                                                          DependencyAnalysis.getInheritanceTree());
+								statement = new ClassPrimitiveStatement(tc, genericClass,
+								        assignableClasses);
+							} else {
+								statement = new ClassPrimitiveStatement(tc);
+							}
+						} else {
+						*/
+			/*
+			if (typeParameter instanceof Class<?>) {
+				logger.debug("Creating class primitive with value " + typeParameter);
+				statement = new ClassPrimitiveStatement(tc, (Class<?>) typeParameter);
+			} else {
+				logger.debug("Creating class primitive with random value / "
+				        + typeParameter);
+				statement = new ClassPrimitiveStatement(tc);
+			}
+			*/
+			//}
 		} else {
 			throw new RuntimeException("Getting unknown type: " + clazz + " / "
 			        + clazz.getClass());

@@ -44,9 +44,11 @@ import org.evosuite.Properties;
 import org.evosuite.Properties.Criterion;
 import org.evosuite.TestGenerationContext;
 import org.evosuite.instrumentation.BooleanTestabilityTransformation;
-import org.evosuite.primitives.ConstantPoolManager;
 import org.evosuite.rmi.ClientServices;
 import org.evosuite.runtime.FileSystem;
+import org.evosuite.seeding.CastClassAnalyzer;
+import org.evosuite.seeding.CastClassManager;
+import org.evosuite.seeding.ConstantPoolManager;
 import org.evosuite.utils.GenericAccessibleObject;
 import org.evosuite.utils.GenericClass;
 import org.evosuite.utils.GenericConstructor;
@@ -106,7 +108,7 @@ public class TestClusterGenerator {
 				try {
 					TestGenerationContext.getClassLoader().loadClass(callTreeClass);
 				} catch (ClassNotFoundException e) {
-					logger.info("Class not found: " + callTreeClass);
+					logger.info("Class not found: " + callTreeClass + ": " + e);
 				}
 			}
 		}
@@ -400,7 +402,7 @@ public class TestClusterGenerator {
 
 				// Sometimes strange things appear such as Map$Entry
 				if (!targetClasses.contains(innerClass)
-				        && innerClassName.matches(".*\\$\\d+$")) {
+				        && !innerClassName.matches(".*\\$\\d+(\\$.*)?$")) {
 
 					logger.info("Adding inner class " + innerClassName);
 					targetClasses.add(innerClass);
@@ -650,6 +652,27 @@ public class TestClusterGenerator {
 		        || c.getName().equals("java.lang.String");
 	}
 
+	protected static void makeAccessible(Field field) {
+		if (!Modifier.isPublic(field.getModifiers())
+		        || !Modifier.isPublic(field.getDeclaringClass().getModifiers())) {
+			field.setAccessible(true);
+		}
+	}
+
+	protected static void makeAccessible(Method method) {
+		if (!Modifier.isPublic(method.getModifiers())
+		        || !Modifier.isPublic(method.getDeclaringClass().getModifiers())) {
+			method.setAccessible(true);
+		}
+	}
+
+	protected static void makeAccessible(Constructor<?> constructor) {
+		if (!Modifier.isPublic(constructor.getModifiers())
+		        || !Modifier.isPublic(constructor.getDeclaringClass().getModifiers())) {
+			constructor.setAccessible(true);
+		}
+	}
+
 	public static boolean canUse(Class<?> c) {
 		//if (Throwable.class.isAssignableFrom(c))
 		//	return false;
@@ -661,7 +684,16 @@ public class TestClusterGenerator {
 			return false;
 		}
 
-		if (c.getName().matches(".*\\$\\d+$")) {
+		if (c.isAnonymousClass()) {
+			return false;
+		}
+
+		if (c.getName().matches(".*\\$\\d+(\\$.*)?$")) {
+			logger.debug(c + " looks like an anonymous class, ignoring it");
+			return false;
+		}
+
+		if (c.getName().matches(".*\\.\\d+(\\..*)?$")) {
 			logger.debug(c + " looks like an anonymous class, ignoring it");
 			return false;
 		}
@@ -671,11 +703,12 @@ public class TestClusterGenerator {
 
 		if (isEvoSuiteClass(c))
 			return false;
-		
+
 		// If the SUT is not in the default package, then
 		// we cannot import classes that are in the default
 		// package
-		if(!c.isArray() && !c.isPrimitive() && !Properties.CLASS_PREFIX.isEmpty() && !c.getName().contains(".")) {
+		if (!c.isArray() && !c.isPrimitive() && !Properties.CLASS_PREFIX.isEmpty()
+		        && !c.getName().contains(".")) {
 			return false;
 		}
 
@@ -733,7 +766,7 @@ public class TestClusterGenerator {
 			// we already know we can use. In that case, the compiler would be fine with accessing the 
 			// field, but reflection would start complaining about IllegalAccess!
 			// Therefore, we set the field accessible to be on the safe side
-			f.setAccessible(true);
+			makeAccessible(f);
 			return true;
 		}
 
@@ -741,8 +774,12 @@ public class TestClusterGenerator {
 		if (!Modifier.isPrivate(f.getModifiers())
 		        && !Modifier.isProtected(f.getModifiers())) {
 			String packageName = ClassUtils.getPackageName(f.getDeclaringClass());
-			if (packageName.equals(Properties.CLASS_PREFIX)) {
-				f.setAccessible(true);
+
+			String declaredPackageName = ClassUtils.getPackageName(f.getDeclaringClass());
+
+			if (packageName.equals(Properties.CLASS_PREFIX)
+			        && packageName.equals(declaredPackageName)) {
+				makeAccessible(f);
 				return true;
 			}
 		}
@@ -785,6 +822,8 @@ public class TestClusterGenerator {
 		}
 
 		if (m.getDeclaringClass().equals(Enum.class)) {
+			return false;
+			/*
 			if (m.getName().equals("valueOf") || m.getName().equals("values")
 			        || m.getName().equals("ordinal")) {
 				logger.debug("Excluding valueOf for Enum " + m.toString());
@@ -794,6 +833,7 @@ public class TestClusterGenerator {
 			if (m.getName().equals("compareTo") && m.getParameterTypes().length == 1
 			        && m.getParameterTypes()[0].equals(Enum.class))
 				return false;
+				*/
 		}
 
 		if (m.getDeclaringClass().equals(java.lang.Thread.class))
@@ -835,15 +875,19 @@ public class TestClusterGenerator {
 		*/
 
 		// If default or
-		if (Modifier.isPublic(m.getModifiers()))
+		if (Modifier.isPublic(m.getModifiers())) {
+			makeAccessible(m);
 			return true;
+		}
 
 		// If default access rights, then check if this class is in the same package as the target class
 		if (!Modifier.isPrivate(m.getModifiers())
 		        && !Modifier.isProtected(m.getModifiers())) {
 			String packageName = ClassUtils.getPackageName(ownerClass);
-			if (packageName.equals(Properties.CLASS_PREFIX)) {
-				m.setAccessible(true);
+			String declaredPackageName = ClassUtils.getPackageName(m.getDeclaringClass());
+			if (packageName.equals(Properties.CLASS_PREFIX)
+			        && packageName.equals(declaredPackageName)) {
+				makeAccessible(m);
 				return true;
 			}
 		}
@@ -885,15 +929,17 @@ public class TestClusterGenerator {
 			return false;
 		}
 
-		if (Modifier.isPublic(c.getModifiers()))
+		if (Modifier.isPublic(c.getModifiers())) {
+			makeAccessible(c);
 			return true;
+		}
 
 		// If default access rights, then check if this class is in the same package as the target class
 		if (!Modifier.isPrivate(c.getModifiers())
 		        && !Modifier.isProtected(c.getModifiers())) {
 			String packageName = ClassUtils.getPackageName(c.getDeclaringClass());
 			if (packageName.equals(Properties.CLASS_PREFIX)) {
-				c.setAccessible(true);
+				makeAccessible(c);
 				return true;
 			}
 		}
@@ -1212,13 +1258,17 @@ public class TestClusterGenerator {
 
 		Set<Class<?>> actualClasses = new LinkedHashSet<Class<?>>();
 		if (Modifier.isAbstract(clazz.getModifiers())
-		        || Modifier.isInterface(clazz.getModifiers())) {
+		        || Modifier.isInterface(clazz.getModifiers()) || clazz.equals(Enum.class)) {
 			Set<String> subClasses = inheritanceTree.getSubclasses(clazz.getName());
 			logger.debug("Subclasses of " + clazz.getName() + ": " + subClasses);
 			Map<String, Integer> classDistance = new HashMap<String, Integer>();
 			int maxDistance = -1;
+			String name = clazz.getName();
+			if (clazz.equals(Enum.class)) {
+				name = Properties.TARGET_CLASS;
+			}
 			for (String subClass : subClasses) {
-				int distance = getPackageDistance(subClass, clazz.getName());
+				int distance = getPackageDistance(subClass, name);
 				classDistance.put(subClass, distance);
 				maxDistance = Math.max(distance, maxDistance);
 			}
@@ -1301,6 +1351,15 @@ public class TestClusterGenerator {
 			e.printStackTrace();
 		}
 		return comparableClasses;
+	}
+
+	private Set<Class<?>> getConcreteClassesEnum() {
+		Set<Class<?>> enumClasses = new LinkedHashSet<Class<?>>();
+		for (String className : inheritanceTree.getSubclasses("java.lang.Enum")) {
+			logger.warn("Enum candidate: " + className);
+		}
+
+		return enumClasses;
 	}
 
 	/**

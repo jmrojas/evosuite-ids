@@ -97,7 +97,7 @@ public class EvoSuite {
 		List<String> cpList = Arrays.asList(cp.split(File.pathSeparator));
 		// Clear current inheritance file to make sure a new one is generated
 		Properties.INHERITANCE_FILE = "";
-		InheritanceTree tree = InheritanceTreeGenerator.analyze(cpList);
+		InheritanceTree tree = InheritanceTreeGenerator.createFromClassPath(cpList);
 		File outputFile = File.createTempFile("ES_inheritancetree", ".xml.gz");
 		outputFile.deleteOnExit();
 		InheritanceTreeGenerator.writeInheritanceTree(tree, outputFile);
@@ -143,6 +143,13 @@ public class EvoSuite {
 
 			setupProperties();
 
+			if (line.hasOption("seed")) {
+				/*
+				 * user can both use -seed and -Drandom.seed to set this variable
+				 */
+				javaOpts.add("-Drandom.seed=" + line.getOptionValue("seed"));
+			}
+
 			addJavaDOptions(javaOpts, line);
 
 			/*
@@ -166,10 +173,6 @@ public class EvoSuite {
 				}
 			} else {
 				javaOpts.add("-Dcriterion=regression");
-			}
-
-			if (line.hasOption("seed")) {
-				javaOpts.add("-Drandom.seed=" + line.getOptionValue("seed"));
 			}
 
 			if (line.hasOption("base_dir")) {
@@ -235,7 +238,7 @@ public class EvoSuite {
 
 		} catch (ParseException exp) {
 			// oops, something went wrong
-			logger.error("Parsing failed.  Reason: " + exp.getMessage());
+			logger.error("Parsing failed.  Reason: " + exp.getMessage()); 
 			// automatically generate the help statement
 			Help.execute(options);
 		}
@@ -273,7 +276,7 @@ public class EvoSuite {
 			try {
 				Properties.getInstance().setValue(propertyName, propertyValue);
 			} catch (Exception e) {
-				// Ignore?
+				throw new Error("Invalid value for property " + propertyName+": "+propertyValue+". Exception "+e.getMessage(),e);
 			}
 		}
 	}

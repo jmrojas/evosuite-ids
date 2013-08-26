@@ -16,9 +16,9 @@ import java.util.Set;
 
 import org.evosuite.Properties;
 import org.evosuite.ga.ConstructionFailedException;
-import org.evosuite.primitives.ObjectPool;
 import org.evosuite.runtime.EvoSuiteFile;
-import org.evosuite.setup.CastClassManager;
+import org.evosuite.seeding.CastClassManager;
+import org.evosuite.seeding.ObjectPoolManager;
 import org.evosuite.setup.TestCluster;
 import org.evosuite.setup.TestClusterGenerator;
 import org.evosuite.testsuite.TestCallStatement;
@@ -32,6 +32,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import com.googlecode.gentyref.CaptureType;
+import com.googlecode.gentyref.GenericTypeReflector;
 
 /**
  * @author Gordon Fraser
@@ -100,6 +101,7 @@ public class TestFactory {
 				        + test.getStatement(position + i).getCode());
 				test.remove(position + i);
 			}
+			logger.debug("Test after removal: " + test.toCode());
 			return false;
 		}
 	}
@@ -130,16 +132,21 @@ public class TestFactory {
 
 		int length = test.size();
 
-		List<VariableReference> parameters = satisfyParameters(test,
-		                                                       null,
-		                                                       Arrays.asList(constructor.getParameterTypes()),
-		                                                       position,
-		                                                       recursionDepth + 1);
-		int newLength = test.size();
-		position += (newLength - length);
+		try {
+			List<VariableReference> parameters = satisfyParameters(test,
+			                                                       null,
+			                                                       Arrays.asList(constructor.getParameterTypes()),
+			                                                       position,
+			                                                       recursionDepth + 1);
+			int newLength = test.size();
+			position += (newLength - length);
 
-		StatementInterface st = new ConstructorStatement(test, constructor, parameters);
-		return test.addStatement(st, position);
+			StatementInterface st = new ConstructorStatement(test, constructor,
+			        parameters);
+			return test.addStatement(st, position);
+		} catch (Exception e) {
+			throw new ConstructionFailedException(e.getMessage());
+		}
 	}
 
 	/**
@@ -161,9 +168,12 @@ public class TestFactory {
 		if (!field.isStatic()) {
 			try {
 				callee = test.getRandomNonNullObject(field.getOwnerType(), position);
-				if(!TestClusterGenerator.canUse(field.getField(), callee.getVariableClass())) {
-					logger.debug("Cannot call field "+field+" with callee of type "+callee.getClassName());
-					throw new ConstructionFailedException("Cannot apply field to this callee");
+				if (!TestClusterGenerator.canUse(field.getField(),
+				                                 callee.getVariableClass())) {
+					logger.debug("Cannot call field " + field + " with callee of type "
+					        + callee.getClassName());
+					throw new ConstructionFailedException(
+					        "Cannot apply field to this callee");
 				}
 
 			} catch (ConstructionFailedException e) {
@@ -213,8 +223,9 @@ public class TestFactory {
 				position += test.size() - length;
 				length = test.size();
 			}
-			if(!TestClusterGenerator.canUse(field.getField(), callee.getVariableClass())) {
-				logger.debug("Cannot call field "+field+" with callee of type "+callee.getClassName());
+			if (!TestClusterGenerator.canUse(field.getField(), callee.getVariableClass())) {
+				logger.debug("Cannot call field " + field + " with callee of type "
+				        + callee.getClassName());
 				throw new ConstructionFailedException("Cannot apply field to this callee");
 			}
 
@@ -299,9 +310,12 @@ public class TestFactory {
 					                                                 position);
 					logger.debug("Found callee of type " + method.getOwnerType() + ": "
 					        + callee.getName());
-					if(!TestClusterGenerator.canUse(method.getMethod(), callee.getVariableClass())) {
-						logger.debug("Cannot call method "+method+" with callee of type "+callee.getClassName());
-						throw new ConstructionFailedException("Cannot apply method to this callee");
+					if (!TestClusterGenerator.canUse(method.getMethod(),
+					                                 callee.getVariableClass())) {
+						logger.debug("Cannot call method " + method
+						        + " with callee of type " + callee.getClassName());
+						throw new ConstructionFailedException(
+						        "Cannot apply method to this callee");
 					}
 				} catch (ConstructionFailedException e) {
 					logger.debug("No callee of type " + method.getOwnerType() + " found");
@@ -521,12 +535,12 @@ public class TestFactory {
 	        int recursionDepth, boolean allowNull) throws ConstructionFailedException {
 		GenericClass clazz = new GenericClass(type);
 
-		if(clazz.isEnum()) {
-			if(!TestClusterGenerator.canUse(clazz.getRawClass()))
-				throw new ConstructionFailedException("Cannot generate unaccessible enum "+clazz);
-			return createPrimitive(test, clazz, position, recursionDepth);			
-		}
-		else if (clazz.isPrimitive() || clazz.isClass()
+		if (clazz.isEnum()) {
+			if (!TestClusterGenerator.canUse(clazz.getRawClass()))
+				throw new ConstructionFailedException(
+				        "Cannot generate unaccessible enum " + clazz);
+			return createPrimitive(test, clazz, position, recursionDepth);
+		} else if (clazz.isPrimitive() || clazz.isClass()
 		        || clazz.getRawClass().equals(EvoSuiteFile.class)) {
 			return createPrimitive(test, clazz, position, recursionDepth);
 		} else if (clazz.isString()) {
@@ -544,19 +558,19 @@ public class TestFactory {
 				return createNull(test, type, position, recursionDepth);
 			}
 
-			ObjectPool objectPool = ObjectPool.getInstance();
-			if (Randomness.nextDouble() <= Properties.OBJECT_POOL
-			        && objectPool.hasSequence(type)) {
+			ObjectPoolManager objectPool = ObjectPoolManager.getInstance();
+			if (Randomness.nextDouble() <= Properties.P_OBJECT_POOL
+			        && objectPool.hasSequence(clazz)) {
 				logger.debug("Using a sequence from the pool to satisfy the type: "
 				        + type);
-				TestCase sequence = objectPool.getRandomSequence(type);
-				logger.info("Old test: " + test.toCode());
-				logger.info("Sequence: " + sequence.toCode());
+				TestCase sequence = objectPool.getRandomSequence(clazz);
+				// logger.info("Old test: " + test.toCode());
+				// logger.info("Sequence: " + sequence.toCode());
 				for (int i = 0; i < sequence.size(); i++) {
 					StatementInterface s = sequence.getStatement(i);
 					test.addStatement(s.clone(test), position + i);
 				}
-				logger.info("New test: " + test.toCode());
+				// logger.info("New test: " + test.toCode());
 
 			}
 
@@ -706,7 +720,7 @@ public class TestFactory {
 		objects.remove(statement.getReturnValue());
 		// TODO: replacing void calls with other void calls might not be the best idea
 		List<GenericAccessibleObject<?>> calls = getPossibleCalls(statement.getReturnType(),
-		                                                       objects);
+		                                                          objects);
 
 		GenericAccessibleObject<?> ao = statement.getAccessibleObject();
 		if (ao != null)
@@ -748,12 +762,12 @@ public class TestFactory {
 
 		logger.debug("Creating array of type " + arrayClass.getTypeName());
 		if (arrayClass.hasWildcardOrTypeVariables()) {
-			if (arrayClass.getComponentClass().isClass()) {
-				arrayClass = arrayClass.getWithWildcardTypes();
-			} else {
-				arrayClass = TestCluster.getInstance().getGenericInstantiation(arrayClass);
-				logger.debug("Setting generic array to type " + arrayClass.getTypeName());
-			}
+			//if (arrayClass.getComponentClass().isClass()) {
+			//	arrayClass = arrayClass.getWithWildcardTypes();
+			//} else {
+			arrayClass = arrayClass.getGenericInstantiation();
+			logger.debug("Setting generic array to type " + arrayClass.getTypeName());
+			//}
 		}
 		// Create array with random size
 		ArrayStatement statement = new ArrayStatement(test, arrayClass.getType());
@@ -805,9 +819,23 @@ public class TestFactory {
 	 * @param position
 	 * @param recursionDepth
 	 * @return
+	 * @throws ConstructionFailedException
 	 */
 	private VariableReference createPrimitive(TestCase test, GenericClass clazz,
-	        int position, int recursionDepth) {
+	        int position, int recursionDepth) throws ConstructionFailedException {
+		// Special case: we cannot instantiate Class<Class<?>>
+		if (clazz.isClass()) {
+			if (clazz.hasWildcardOrTypeVariables()) {
+				logger.debug("Getting generic instantiation of class");
+				clazz = clazz.getGenericInstantiation();
+				logger.debug("Chosen: " + clazz);
+			}
+			Type parameterType = clazz.getParameterTypes().get(0);
+			if (GenericTypeReflector.erase(parameterType).equals(Class.class)) {
+				throw new ConstructionFailedException(
+				        "Cannot instantiate a class with a class");
+			}
+		}
 		StatementInterface st = PrimitiveStatement.getRandomStatement(test, clazz,
 		                                                              position);
 		VariableReference ret = test.addStatement(st, position);
@@ -823,12 +851,19 @@ public class TestFactory {
 	 * @param position
 	 * @param recursionDepth
 	 * @return
+	 * @throws ConstructionFailedException
 	 */
 	private VariableReference createNull(TestCase test, Type type, int position,
-	        int recursionDepth) {
+	        int recursionDepth) throws ConstructionFailedException {
 		GenericClass genericType = new GenericClass(type);
+
+		// For example, HashBasedTable.Factory in Guava is private but used as a parameter
+		// in a public method. This would lead to compile errors 
+		if (!TestClusterGenerator.canUse(genericType.getRawClass())) {
+			throw new ConstructionFailedException("Cannot use class " + type);
+		}
 		if (genericType.hasWildcardOrTypeVariables()) {
-			type = TestCluster.getInstance().getGenericInstantiation(genericType).getType();
+			type = genericType.getGenericInstantiation().getType();
 		}
 		StatementInterface st = new NullStatement(test, type);
 		test.addStatement(st, position);
@@ -851,7 +886,7 @@ public class TestFactory {
 	        int recursionDepth) throws ConstructionFailedException {
 		GenericClass clazz = new GenericClass(type);
 		GenericAccessibleObject<?> o = TestCluster.getInstance().getRandomGenerator(clazz,
-		                                                                         currentRecursion);
+		                                                                            currentRecursion);
 
 		currentRecursion.add(o);
 		if (o == null) {
@@ -871,9 +906,11 @@ public class TestFactory {
 			        + " of type " + type);
 			VariableReference ret = addMethod(test, (GenericMethod) o, position,
 			                                  recursionDepth + 1);
-			if (o.isStatic()) {
-				ret.setType(type);
-			}
+
+			// TODO: Why are we doing this??
+			//if (o.isStatic()) {
+			//	ret.setType(type);
+			//}
 			logger.debug("Success in generating type " + type);
 			ret.setDistance(recursionDepth + 1);
 			return ret;
@@ -933,11 +970,8 @@ public class TestFactory {
 			VariableReference reference = Randomness.choice(objects);
 			return reference;
 
-		} else if (!clazz.isPrimitive()
-		        && !clazz.isEnum()
-		        && !clazz.isClass()
-		        && !objects.isEmpty()
-		        && ((reuse <= Properties.OBJECT_REUSE_PROBABILITY) || !TestCluster.getInstance().hasGenerator(parameterType))) {
+		} else if (!clazz.isPrimitive() && !clazz.isEnum() && !clazz.isClass()
+		        && !objects.isEmpty() && ((reuse <= Properties.OBJECT_REUSE_PROBABILITY))) {
 
 			logger.debug(" Choosing from " + objects.size() + " existing objects");
 			VariableReference reference = Randomness.choice(objects);
@@ -946,11 +980,27 @@ public class TestFactory {
 			return reference;
 
 		} else {
-			logger.debug(" Generating new object of type " + parameterType);
-			VariableReference reference = attemptGeneration(test, parameterType,
-			                                                position, recursionDepth,
-			                                                true);
-			return reference;
+			if (clazz.hasWildcardOrTypeVariables()) {
+				clazz = clazz.getGenericInstantiation();
+				parameterType = clazz.getType();
+			}
+			if (!TestCluster.getInstance().hasGenerator(parameterType)) {
+				if (objects.isEmpty())
+					throw new ConstructionFailedException(
+					        "Have no objects and generators");
+
+				logger.debug(" Choosing from " + objects.size() + " existing objects");
+				VariableReference reference = Randomness.choice(objects);
+				logger.debug(" Using existing object of type " + parameterType + ": "
+				        + reference);
+				return reference;
+			} else {
+				logger.debug(" Generating new object of type " + parameterType);
+				VariableReference reference = attemptGeneration(test, parameterType,
+				                                                position, recursionDepth,
+				                                                true);
+				return reference;
+			}
 		}
 	}
 
@@ -1086,16 +1136,16 @@ public class TestFactory {
 			for (int i = position + 1; i < test.size(); i++) {
 				StatementInterface s = test.getStatement(i);
 				if (s.references(var)) {
-					if(s.isAssignmentStatement()) {
-						AssignmentStatement assignment = (AssignmentStatement)s;
-						if(assignment.parameter == var) {
+					if (s.isAssignmentStatement()) {
+						AssignmentStatement assignment = (AssignmentStatement) s;
+						if (assignment.parameter == var) {
 							VariableReference replacementVar = Randomness.choice(alternatives);
-							if(assignment.retval.isAssignableFrom(replacementVar)) {
+							if (assignment.retval.isAssignableFrom(replacementVar)) {
 								s.replace(var, replacementVar);
 							}
-						} else if(assignment.retval == var) {
+						} else if (assignment.retval == var) {
 							VariableReference replacementVar = Randomness.choice(alternatives);
-							if(replacementVar.isAssignableFrom(assignment.parameter)) {
+							if (replacementVar.isAssignableFrom(assignment.parameter)) {
 								s.replace(var, replacementVar);
 							}
 						}
@@ -1223,7 +1273,7 @@ public class TestFactory {
 
 		try {
 			allCalls = TestCluster.getInstance().getGenerators(new GenericClass(
-			                                                           returnType));
+			                                                           returnType), true);
 		} catch (ConstructionFailedException e) {
 			return calls;
 		}
@@ -1234,9 +1284,7 @@ public class TestFactory {
 				GenericMethod method = (GenericMethod) call;
 				if (method.hasTypeParameters()) {
 					try {
-						call = TestCluster.getInstance().getGenericGeneratorInstantiation(method,
-						                                                                  new GenericClass(
-						                                                                          returnType));
+						call = method.getGenericInstantiation(new GenericClass(returnType));
 					} catch (ConstructionFailedException e) {
 						continue;
 					}
@@ -1274,8 +1322,8 @@ public class TestFactory {
 		String name = "";
 		currentRecursion.clear();
 		logger.debug("Inserting random call at position " + position);
-		GenericAccessibleObject<?> o = TestCluster.getInstance().getRandomTestCall();
 		try {
+			GenericAccessibleObject<?> o = TestCluster.getInstance().getRandomTestCall();
 			if (o == null) {
 				logger.warn("Have no target methods to test");
 			} else if (o.isConstructor()) {
@@ -1312,15 +1360,16 @@ public class TestFactory {
 					}
 					logger.debug("Got callee of type "
 					        + callee.getGenericClass().getTypeName());
-					if(!TestClusterGenerator.canUse(m.getMethod(), callee.getVariableClass())) {
-						logger.debug("Cannot call method "+m+" with callee of type "+callee.getClassName());
-						throw new ConstructionFailedException("Cannot apply method to this callee");
+					if (!TestClusterGenerator.canUse(m.getMethod(),
+					                                 callee.getVariableClass())) {
+						logger.debug("Cannot call method " + m + " with callee of type "
+						        + callee.getClassName());
+						throw new ConstructionFailedException(
+						        "Cannot apply method to this callee");
 					}
 
-					addMethodFor(test,
-					             callee,
-					             (GenericMethod) m.copyWithNewOwner(callee.getGenericClass()),
-					             position);
+					addMethodFor(test, callee,
+					             m.copyWithNewOwner(callee.getGenericClass()), position);
 				} else {
 					// We only use this for static methods to avoid using wrong constructors (?)
 					addMethod(test, m, position, 0);
@@ -1494,6 +1543,11 @@ public class TestFactory {
 				// TODO: This should not really happen in the first place
 				throw new ConstructionFailedException("Cannot satisfy capture type");
 			}
+			GenericClass parameterClass = new GenericClass(parameterType);
+			if (parameterClass.hasTypeVariables()) {
+				logger.debug("Parameter has type variables, replacing with wildcard");
+				parameterType = parameterClass.getWithWildcardTypes().getType();
+			}
 			int previousLength = test.size();
 
 			VariableReference var = createOrReuseVariable(test, parameterType, position,
@@ -1521,7 +1575,8 @@ public class TestFactory {
 
 		double sum = 0.0;
 		for (int i = 0; i < position; i++) {
-			sum += 1d / (10 * test.getStatement(i).getReturnValue().getDistance() + 1d);
+			//			sum += 1d / (10 * test.getStatement(i).getReturnValue().getDistance() + 1d);
+			sum += 1d / (test.getStatement(i).getReturnValue().getDistance() + 1d);
 			if (logger.isDebugEnabled()) {
 				logger.debug(test.getStatement(i).getCode() + ": Distance = "
 				        + test.getStatement(i).getReturnValue().getDistance());

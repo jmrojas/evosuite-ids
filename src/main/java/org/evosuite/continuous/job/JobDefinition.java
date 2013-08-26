@@ -2,8 +2,12 @@ package org.evosuite.continuous.job;
 
 import java.util.Collections;
 import java.util.HashSet;
+import java.util.List;
 import java.util.Set;
 import java.util.concurrent.atomic.AtomicInteger;
+
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 /**
  * Definition of a "job", ie a run of EvoSuite on a CUT.
@@ -12,46 +16,58 @@ import java.util.concurrent.atomic.AtomicInteger;
  * Note: this class is/should be immutable
  * 
  * @author arcuri
- *
+ * 
  */
 public class JobDefinition {
 
+	private static Logger logger = LoggerFactory.getLogger(JobDefinition.class);
+	
 	/**
 	 * counter used to create unique ids in a thread-safe manner
 	 */
 	private static final AtomicInteger counter = new AtomicInteger(0);
-	
+
 	/**
 	 * A unique, human-readable identifier for this job
 	 */
-	public final int jobID;	
-	
+	public final int jobID;
+
 	/**
 	 * define for how long this job should be run
 	 */
 	public final int seconds;
-	
+
 	/**
 	 * define how much memory this job can allocate
 	 */
-	public final int memoryInMB; 
-	
+	public final int memoryInMB;
+
 	/**
 	 * full qualifying name of the class under test (CUT)
 	 */
 	public final String cut;
-	
+
 	/**
-	 * the configuration id, identify which parameter settings
-	 * were used
+	 * the configuration id, identify which parameter settings were used
 	 */
 	public final int configurationId;
-	
+
 	/**
-	 * the name of all classes this CUT depends on,
-	 * and that would be good to have generated test cases before starting this job
+	 * the name of all classes this CUT depends on, and that would be good to
+	 * have generated test cases before starting this job. This is a union of
+	 * all the the types of dependency (eg, input and parent)
 	 */
 	public final Set<String> dependentOnClasses;
+
+	/**
+	 * All dependent classes used as input for this CUT
+	 */
+	public final Set<String> inputClasses;
+
+	/**
+	 * All dependent classes in the parent hierarchy
+	 */
+	public final Set<String> parentClasses;
 
 	/**
 	 * Main constructor
@@ -60,36 +76,150 @@ public class JobDefinition {
 	 * @param memoryInMB
 	 * @param cut
 	 * @param configurationId
-	 * @param dependencies
 	 */
-	public JobDefinition(int seconds, int memoryInMB, String cut,
-			int configurationId, Set<String> dependencies) {
+	public JobDefinition(int seconds, int memoryInMB, String cut, int configurationId,
+	        Set<String> inputDependencies, Set<String> parentDependencies) {
 		super();
 		this.jobID = counter.getAndIncrement();
 		this.seconds = seconds;
 		this.memoryInMB = memoryInMB;
 		this.cut = cut;
 		this.configurationId = configurationId;
-		if(dependencies!=null){
-			this.dependentOnClasses = Collections.unmodifiableSet(new HashSet<String>(dependencies));
+
+		HashSet<String> union = new HashSet<String>();
+
+		if (inputDependencies != null && inputDependencies.size() > 0) {
+			this.inputClasses = Collections.unmodifiableSet(new HashSet<String>(
+			        inputDependencies));
+			union.addAll(inputClasses);
 		} else {
+			this.inputClasses = null;
+		}
+
+		if (parentDependencies != null && parentDependencies.size() > 0) {
+			this.parentClasses = Collections.unmodifiableSet(new HashSet<String>(
+			        parentDependencies));
+			union.addAll(parentClasses);
+		} else {
+			this.parentClasses = null;
+		}
+
+		if (union.size() == 0) {
 			this.dependentOnClasses = null;
+		} else {
+			this.dependentOnClasses = Collections.unmodifiableSet(new HashSet<String>(
+			        union));
 		}
 	}
 
 	/**
-	 * Create a copy of this job, and add the input to the set of CUT dependencies
+	 * Create a copy of this job, and add the input and parent dependencies to
+	 * the set of CUT dependencies
+	 * 
+	 * <p>
+	 * It is OK to have one of the sets null, but not both
 	 * 
 	 * @param input
 	 * @return
 	 */
-	public JobDefinition getByAddingDependencies(Set<String> input){
-		if(dependentOnClasses!=null){
-			input.addAll(dependentOnClasses);
+	public JobDefinition getByAddingDependencies(Set<String> inputs, Set<String> parents)
+	        throws IllegalArgumentException {
+
+		if (inputs == null && parents == null) {
+			throw new IllegalArgumentException("Both sets are null");
 		}
 		
-		return new JobDefinition(seconds, memoryInMB, cut, configurationId, input);
+		if(inputs!=null && inputs.contains(cut)){
+			throw new IllegalArgumentException("'inputs' contains reference to this job");
+		}
+
+		if(parents!=null && parents.contains(cut)){
+			throw new IllegalArgumentException("'parents' contains reference to this job");
+		}
+
+		if (inputClasses != null) {
+			
+			logger.debug("Adding "+inputClasses.size()+"input dependecies in job "+jobID);
+			
+			if (inputs == null) {
+				inputs = inputClasses;
+			} else {
+				inputs.addAll(inputClasses);
+			}
+		}
+		if (parentClasses != null) {
+			if (parents == null) {
+				parents = parentClasses;
+			} else {
+				parents.addAll(parentClasses);
+			}
+		}
+
+		return new JobDefinition(seconds, memoryInMB, cut, configurationId, inputs,
+		        parents);
 	}
+	
+	/**
+	 * Does the execution of this job depend on the other?
+	 * @param other
+	 * @return
+	 */
+	public boolean dependOn(JobDefinition other){
+		return dependentOnClasses!=null && dependentOnClasses.contains(other.cut);
+	}
+
+	/**
+	 * The number of classes this job depends on and 
+	 * should be executed before this job
+	 * 
+	 * @return
+	 */
+	public int getNumberOfDependencies(){
+		if(dependentOnClasses==null){
+			return 0;
+		} else {
+			return dependentOnClasses.size();
+		}
+	}
+	
+	/**
+	 * Check if all jobs this one depends on are finished 
+	 * 
+	 * @param job
+	 * @return
+	 */
+	public boolean areDependenciesSatisfied(List<JobDefinition> schedule, Set<String> done){
+		
+		if(dependentOnClasses == null){
+			return true; // no dependencies to satisfy
+		}
+		
+		for(String name : dependentOnClasses){
+			/*
+			 * It could happen that a schedule is not complete, in the sense that
+			 * we do not create jobs for each single CUT in the project.
+			 * If A depends on B, but we have no job for B, then no point in postponing
+			 * a job for A
+			 */
+			if(!inTheSchedule(schedule,name)){
+				continue;
+			}
+			if(!done.contains(name)){
+				return false;
+			}
+		}
+		return true; 
+	}
+	
+	private boolean inTheSchedule(List<JobDefinition> jobs, String cut){
+		for(JobDefinition job : jobs){
+			if(job.cut.equals(cut)){
+				return true;
+			}
+		}
+		return false;
+	}
+	
 	
 	@Override
 	public int hashCode() {
@@ -97,10 +227,8 @@ public class JobDefinition {
 		int result = 1;
 		result = prime * result + configurationId;
 		result = prime * result + ((cut == null) ? 0 : cut.hashCode());
-		result = prime
-				* result
-				+ ((dependentOnClasses == null) ? 0 : dependentOnClasses
-						.hashCode());
+		result = prime * result
+		        + ((dependentOnClasses == null) ? 0 : dependentOnClasses.hashCode());
 		result = prime * result + jobID;
 		result = prime * result + memoryInMB;
 		result = prime * result + seconds;
@@ -135,6 +263,15 @@ public class JobDefinition {
 		if (seconds != other.seconds)
 			return false;
 		return true;
+	}
+
+	/* (non-Javadoc)
+	 * @see java.lang.Object#toString()
+	 */
+	@Override
+	public String toString() {
+		return "job "+jobID + ", target " + cut+
+				", number of dependencies "+getNumberOfDependencies();
 	}
 
 }

@@ -1,12 +1,17 @@
 package org.evosuite.continuous.job;
 
+import java.io.BufferedReader;
 import java.io.File;
 import java.io.IOException;
+import java.io.InputStreamReader;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.CountDownLatch;
 
 import org.evosuite.Properties;
 import org.evosuite.Properties.StoppingCondition;
+import org.evosuite.continuous.job.schedule.ScheduleType;
 import org.evosuite.continuous.persistency.StorageManager;
 import org.evosuite.utils.LoggingUtils;
 import org.evosuite.utils.ReportGenerator.RuntimeVariable;
@@ -69,19 +74,25 @@ public class JobHandler extends Thread{
 			Process process = null;
 
 			try{
-				String base_dir = System.getProperty("user.dir");
-				File dir = new File(base_dir);
-				ProcessBuilder builder = new ProcessBuilder(command);
+				String baseDir = System.getProperty("user.dir");
+				File dir = new File(baseDir);
+				
+				String[] parsedCommand = parseCommand(command);
+				
+				ProcessBuilder builder = new ProcessBuilder(parsedCommand);
 				builder.directory(dir);
+				builder.redirectErrorStream(true);
 
 				LoggingUtils.getEvoLogger().info("Going to start job for: "+job.cut);
+				logger.debug("Base directory: "+baseDir);
 				logger.debug("Command: "+command);
-				
+								
 				process = builder.start();
+								
 				int exitCode = process.waitFor(); //no need to have timeout here, as it is handled by the scheduler/executor				
 				
-				if(exitCode != 0){
-					logger.warn("Job ended with erroneous exit code: "+job.cut);
+				if(exitCode != 0){					
+					handleProcessError(job, process);
 				}
 				
 			} catch (IOException e) {
@@ -100,13 +111,51 @@ public class JobHandler extends Thread{
 			}
 		}
 	}
+
+	private String[] parseCommand(String command) {
+		List<String> list = new ArrayList<String>();
+		for(String token : command.split(" ")){
+			String entry = token.trim();
+			if(!entry.isEmpty()){
+				list.add(entry);
+			}
+		}
+		String[] parsedCommand = list.toArray(new String[0]);
+		return parsedCommand;
+	}
+
+	/**
+	 * Print process console output if it died, as its logs
+	 * on disks might not have been generated yet
+	 * 
+	 * @param job
+	 * @param process
+	 * @throws IOException
+	 */
+	private void handleProcessError(JobDefinition job, Process process)
+			throws IOException {
+		
+		StringBuffer sb = new StringBuffer();
+		BufferedReader in = new BufferedReader(
+				new InputStreamReader(process.getInputStream()));
+
+		int data = 0;
+		while (data != -1 && !isInterrupted()) {
+			data = in.read();
+			if (data != -1) {
+				sb.append((char)data);
+			}
+		}
+
+		logger.warn("Job ended with erroneous exit code: "+job.cut+"\nProcess console output:\n"+sb.toString());
+	}
 	
 	private String getCommandString(JobDefinition job){
 		
 		String cmd = "java "; 
-		//TODO check Windows/Unix file paths
-		cmd += " -cp " + executor.getProjectClassPath();
-		
+		String classpath = System.getProperty("java.class.path"); 
+		cmd += " -cp " + classpath+File.pathSeparator+executor.getProjectClassPath();
+	
 		/* 
 		 * FIXME for seeding, need to setup classpath of generated test suites
 		 * - first the currently generated
@@ -125,7 +174,12 @@ public class JobHandler extends Thread{
 
 		StorageManager storage = executor.getStorage();
 		File logs = storage.getTmpLogs(); 
-		cmd += " -Devosuite.log.folder="+logs.getAbsolutePath()+"/job"+job.configurationId;
+		cmd += " -Devosuite.log.folder="+logs.getAbsolutePath()+"/job"+job.jobID;
+		
+		if(Properties.LOG_LEVEL != null && !Properties.LOG_LEVEL.isEmpty()){
+			cmd += " -Dlog.level="+Properties.LOG_LEVEL; 
+		}
+		//cmd += " -Dprint_to_system=true";//TODO remove
 		
 		/*
 		 * TODO: this will likely need better handling
@@ -137,18 +191,19 @@ public class JobHandler extends Thread{
 		cmd += " " + org.evosuite.EvoSuite.class.getName();
 		cmd += " -mem " + clientMB;
 		cmd += " -class " + job.cut;
-		cmd += " -Dconfiguration_id="+job.configurationId;
-		
+
+		//needs to be called twice, after the Java command
+		if(Properties.LOG_LEVEL != null && !Properties.LOG_LEVEL.isEmpty()){
+			cmd += " -Dlog.level="+Properties.LOG_LEVEL; 
+		}
+
 		/*
 		 * TODO for now we ignore the job configuration (ie special parameter settings)
 		 */
-		
+		//cmd += " -D<TODO>="+job.configurationId; 
+				
 		/*
-		 * TODO: we ll need to handle dependent CUTs for seeding,
-		 * and distinguish on whether their are parent or input CUTs.
-		 * Like new parameters in EvoSuite will be needed for seeding.
-		 * 
-		 * Furthermore, we should check on whether the dependent CUTs have been
+		 * TODO we should check on whether the dependent CUTs have been
 		 * generated in this CTG run, or should rather look at previous runs.
 		 * This could happen for at least 2 reasons:
 		 * - under budget, and we could not run jobs for all CUTs
@@ -160,40 +215,108 @@ public class JobHandler extends Thread{
 		 * is available for the CUT 
 		 */
 		
+		cmd += " "+getPoolInfo(job);
+		
+		//TODO not just input pool, but also hierarchy
+		
 		cmd += timeSetUp(job.seconds);
 			
 		File reports = storage.getTmpReports();
 		File tests = storage.getTmpTests();
 		
 		//TODO check if it works on Windows... likely not	
-		cmd += " -Dreport_dir="+reports.getAbsolutePath()+"/job"+job.configurationId;
+		cmd += " -Dreport_dir="+reports.getAbsolutePath()+"/job"+job.jobID;
 		cmd += " -Dtest_dir="+tests.getAbsolutePath();
 		
-		cmd += getOutputVariables();
+		cmd += " -Derror_branches=true"; 
+		cmd += " -criterion exception"; 
+		
+		cmd += " "+getOutputVariables();
         
 		cmd += " -Djunit_suffix="+StorageManager.junitSuffix;
 		
-		cmd += " -Denable_asserts_for_evosuite=false -Dsecondary_objectives=totallength -Dminimize=true  -Dtimeout=5000  "; 
+		cmd += " -Denable_asserts_for_evosuite="+Properties.ENABLE_ASSERTS_FOR_EVOSUITE;
+		String confId = Properties.CONFIGURATION_ID;
+		if(confId!=null && !confId.isEmpty()){
+			cmd += " -Dconfiguration_id="+confId; 
+		}  else {
+			cmd += " -Dconfiguration_id=default";
+		}
+		
+		if(Properties.RANDOM_SEED!=null){
+			cmd += " -Drandom_seed="+Properties.RANDOM_SEED;
+		}
+		
+		cmd += " -Dsecondary_objectives=totallength -Dminimize=true  -Dtimeout=5000  "; 
         cmd += " -Dhtml=false -Dlog_timeout=false  -Dplot=false -Djunit_tests=true  -Dshow_progress=false";
         cmd += " -Dsave_all_data=false  -Dinline=false";
   		
 		return cmd;
 	}
 	
+	private String getPoolInfo(JobDefinition job){
+
+		StorageManager storage = executor.getStorage();
+		File poolFolder = storage.getTmpPools();
+		
+		String extension = ".pool";
+		String cmd = "";
+		cmd += " -Dwrite_pool="+poolFolder.getAbsolutePath()+File.separator+job.cut+extension;
+		
+		if(job.inputClasses!=null && job.inputClasses.size() > 0){
+
+			String[] dep = job.inputClasses.toArray(new String[0]);
+
+			cmd += " -Dp_object_pool=0.5 ";
+			cmd += " -Dobject_pools=";
+
+			cmd += poolFolder.getAbsolutePath()+File.separator+dep[0]+extension;
+
+			for(int i=1; i<dep.length; i++){
+				cmd += File.pathSeparator + poolFolder.getAbsolutePath()+File.separator+dep[i]+extension;
+			}
+		}
+
+		return cmd;
+	}
+
 	private String getOutputVariables(){
-		//TODO add other outputs once fitness functions are fixed
-		String cmd =  " -Doutput_variables=\""; 
-		cmd += "TARGET_CLASS,configuration_id"; 
+		String cmd =  " -Doutput_variables="; 
+		cmd += "TARGET_CLASS,configuration_id,"; 
+		cmd += "ctg_schedule,";
+		cmd += RuntimeVariable.NumberOfInputPoolObjects+",";				
 		cmd += RuntimeVariable.BranchCoverage+",";		
 		cmd += RuntimeVariable.Minimized_Size+",";		
 		cmd += RuntimeVariable.Statements_Executed+",";				
 		cmd += RuntimeVariable.Total_Time+",";				
-		cmd += RuntimeVariable.NumberOfGeneratedTestCases; 			
-		cmd += "\"";
+		cmd += RuntimeVariable.NumberOfGeneratedTestCases+","; 			
+		cmd += RuntimeVariable.Implicit_MethodExceptions+",";
+		cmd += RuntimeVariable.Explicit_MethodExceptions; 
+		
+		/*
+		 * Master/Client will not use this variable.
+		 * But here we include it just to be sure that it will end
+		 * up in the generated CSV files
+		 */
+		cmd += " -Dctg_schedule="+Properties.CTG_SCHEDULE;
+		
 		return cmd;
 	}
 	
 	private String timeSetUp(int seconds){
+		
+		//do we have enough time for this job?
+		int remaining = (int)executor.getRemainingTimeInMs() / 1000;
+		
+		if(seconds > remaining){
+			seconds = remaining;
+		}
+		
+		if(seconds < ScheduleType.MINIMUM_SECONDS){
+			//even if we do not have enough time, we go for the minimum
+			seconds = ScheduleType.MINIMUM_SECONDS;
+		}
+		
 		/*
 		 * We have at least 3 phases:
 		 * - search
@@ -207,7 +330,6 @@ public class JobHandler extends Thread{
 		 * For now we just do something very basic
 		 */
 		
-		int search = seconds / 4;
 		int minimization = seconds / 4;
 		int assertions = seconds / 4 ;
 		int extra = seconds / 4;
@@ -216,14 +338,14 @@ public class JobHandler extends Thread{
 			minimization = 120;
 			assertions = 120;
 			extra = 120;
-			search = seconds - 360;
 		} else if(seconds > 240){
 			minimization = 60;
 			assertions = 60;
 			extra = 60;
-			search = seconds - 180;			
 		}
-		
+
+		int search = seconds - (minimization+assertions+extra);
+				
 		String cmd = " -Dsearch_budget="+search;
 		cmd += " -Dglobal_timeout="+search;
 		cmd += " -Dstopping_condition=" + StoppingCondition.MAXTIME;
@@ -234,3 +356,4 @@ public class JobHandler extends Thread{
 		return cmd; 
 	}
 }
+

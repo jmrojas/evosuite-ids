@@ -4,12 +4,15 @@ import java.io.IOException;
 import java.io.ObjectInputStream;
 import java.io.ObjectOutputStream;
 import java.lang.reflect.Array;
+import java.lang.reflect.Type;
+import java.util.ArrayList;
 import java.util.LinkedHashSet;
+import java.util.List;
 import java.util.Set;
 
 import org.evosuite.Properties;
 import org.evosuite.TestGenerationContext;
-import org.evosuite.primitives.ConstantPoolManager;
+import org.evosuite.seeding.ConstantPoolManager;
 import org.evosuite.utils.GenericClass;
 import org.evosuite.utils.Randomness;
 import org.objectweb.asm.commons.GeneratorAdapter;
@@ -18,27 +21,39 @@ public class ClassPrimitiveStatement extends PrimitiveStatement<Class<?>> {
 
 	private static final long serialVersionUID = -2728777640255424791L;
 
-	private Set<Class<?>> assignableClasses = new LinkedHashSet<Class<?>>();
-	
-	public ClassPrimitiveStatement(TestCase tc, GenericClass type, Set<Class<?>> assignableClasses) {
+	private final Set<Class<?>> assignableClasses = new LinkedHashSet<Class<?>>();
+
+	public ClassPrimitiveStatement(TestCase tc, GenericClass type,
+	        Set<Class<?>> assignableClasses) {
 		super(tc, type, Randomness.choice(assignableClasses));
 		this.assignableClasses.addAll(assignableClasses);
 	}
 
 	public ClassPrimitiveStatement(TestCase tc, Class<?> value) {
-		super(tc, new GenericClass(Class.class).getWithWildcardTypes(), value);
+		//		super(tc, new GenericClass(Class.class).getWithWildcardTypes(), value);
+		super(
+		        tc,
+		        new GenericClass(Class.class).getWithParameterTypes(new Type[] { value }),
+		        value);
+		//		super(tc, new GenericClass(value.getClass()), value);
+		this.assignableClasses.add(value);
 	}
 
 	public ClassPrimitiveStatement(TestCase tc) {
-		super(tc, new GenericClass(Class.class).getWithWildcardTypes(),
+		//		super(tc, new GenericClass(Class.class).getWithWildcardTypes(),
+		super(
+		        tc,
+		        new GenericClass(Class.class).getWithParameterTypes(new Type[] { Properties.getTargetClass() }),
 		        Properties.getTargetClass());
+		//		super(tc, new GenericClass(Properties.getTargetClass()),
+		//		        Properties.getTargetClass());
 	}
 
 	@Override
 	public boolean hasMoreThanOneValue() {
 		return assignableClasses.size() != 1;
 	}
-	
+
 	@Override
 	public void delta() {
 		randomize();
@@ -57,7 +72,7 @@ public class ClassPrimitiveStatement extends PrimitiveStatement<Class<?>> {
 
 	private Class<?> getType(org.objectweb.asm.Type type) throws ClassNotFoundException {
 		// Not quite sure why we have to treat primitives explicitly...
-		switch(type.getSort()) {
+		switch (type.getSort()) {
 		case org.objectweb.asm.Type.ARRAY:
 			org.objectweb.asm.Type componentType = type.getElementType();
 			Class<?> componentClass = getType(componentType);
@@ -81,13 +96,13 @@ public class ClassPrimitiveStatement extends PrimitiveStatement<Class<?>> {
 			return short.class;
 		default:
 			return Class.forName(type.getClassName(), true,
-					TestGenerationContext.getClassLoader());
+			                     TestGenerationContext.getClassLoader());
 		}
 	}
-	
+
 	@Override
 	public void randomize() {
-		if(!assignableClasses.isEmpty()) {
+		if (!assignableClasses.isEmpty()) {
 			value = Randomness.choice(assignableClasses);
 		} else {
 			org.objectweb.asm.Type type = ConstantPoolManager.getInstance().getConstantPool().getRandomType();
@@ -103,29 +118,50 @@ public class ClassPrimitiveStatement extends PrimitiveStatement<Class<?>> {
 		}
 	}
 
+	private Class<?> getArray(Class<?> arrayClass, ClassLoader loader)
+	        throws ClassNotFoundException {
+		if (arrayClass.isPrimitive()) {
+			return Array.newInstance(arrayClass, 0).getClass();
+		} else if (arrayClass.isArray()) {
+			Class<?> newComponent = getArray(arrayClass.getComponentType(), loader);
+			return Array.newInstance(newComponent, 0).getClass();
+		} else {
+			Class<?> newComponent = loader.loadClass(arrayClass.getName());
+			return Array.newInstance(newComponent, 0).getClass();
+		}
+	}
+
 	@Override
 	public void changeClassLoader(ClassLoader loader) {
 		super.changeClassLoader(loader);
 		Class<?> currentClass = value;
 		try {
-			value = loader.loadClass(currentClass.getCanonicalName());
+			// Not using canonical name here because Class$Memberclass cannot be resolved
+			value = getArray(currentClass, loader);
 		} catch (ClassNotFoundException e) {
 			logger.warn("Could not load class in new classloader: " + currentClass);
 		}
 	}
 
 	private void writeObject(ObjectOutputStream oos) throws IOException {
-		Class<?> currentClass = value;
-		oos.writeObject(currentClass.getName());
+		GenericClass currentClass = new GenericClass(value);
+		oos.writeObject(currentClass);
+		List<GenericClass> currentAssignableClasses = new ArrayList<GenericClass>();
+		for (Class<?> assignableClass : assignableClasses)
+			currentAssignableClasses.add(new GenericClass(assignableClass));
+		oos.writeObject(currentAssignableClasses);
 	}
 
+	@SuppressWarnings("unchecked")
 	private void readObject(ObjectInputStream ois) throws ClassNotFoundException,
 	        IOException {
-		String name = (String) ois.readObject();
-		try {
-			value = TestGenerationContext.getClassLoader().loadClass(name);
-		} catch (ClassNotFoundException e) {
-			logger.warn("Could not load class in new classloader: " + name);
+		GenericClass currentClass = (GenericClass) ois.readObject();
+		value = currentClass.getRawClass();
+
+		List<GenericClass> newAssignableClasses = (List<GenericClass>) ois.readObject();
+		assignableClasses.clear();
+		for (GenericClass assignableClass : newAssignableClasses) {
+			assignableClasses.add(assignableClass.getRawClass());
 		}
 
 	}

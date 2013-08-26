@@ -3,6 +3,7 @@ package org.evosuite.testcase;
 import org.evosuite.Properties;
 import org.junit.Assert;
 import org.junit.Before;
+import org.junit.Ignore;
 import org.junit.Test;
 
 public class JUnitTestCarvedChromosomeFactoryTest {
@@ -161,6 +162,64 @@ public class JUnitTestCarvedChromosomeFactoryTest {
 		Assert.assertFalse("generated code contains object cast " + setLong + "\n" + code,
 		                   code.contains(setLong));
 
+	}
+
+	@Test
+	public void testInnerConstructor() {
+		Properties.SELECTED_JUNIT = com.examples.with.different.packagename.testcarver.InnerConstructorTest.class.getCanonicalName();
+		Properties.TARGET_CLASS = com.examples.with.different.packagename.testcarver.InnerConstructor.class.getCanonicalName();
+
+		Properties.SEED_MUTATIONS = 1;
+		Properties.SEED_CLONE = 1;
+
+		JUnitTestCarvedChromosomeFactory factory = new JUnitTestCarvedChromosomeFactory(
+		        null);
+		Assert.assertTrue(factory.hasCarvedTestCases());
+		TestChromosome carved = factory.getChromosome();
+
+		Assert.assertNotNull(carved);
+
+		String code = carved.toString();
+		Assert.assertNotNull(code);
+		
+		Assert.assertEquals(code, 2, carved.test.size());
+
+		for (int i = 0; i < carved.test.size(); i++) {
+			StatementInterface stmt = carved.test.getStatement(i);
+			boolean valid = stmt.isValid();
+			Assert.assertTrue("Invalid stmt at position " + i, valid);
+		}
+		
+		System.out.println(code);
+	}
+	
+	@Test
+	public void testInnerCalls() {
+		Properties.SELECTED_JUNIT = com.examples.with.different.packagename.testcarver.InnerCallsTest.class.getCanonicalName();
+		Properties.TARGET_CLASS = com.examples.with.different.packagename.testcarver.InnerCalls.class.getCanonicalName();
+
+		Properties.SEED_MUTATIONS = 1;
+		Properties.SEED_CLONE = 1;
+
+		JUnitTestCarvedChromosomeFactory factory = new JUnitTestCarvedChromosomeFactory(
+		        null);
+		Assert.assertTrue(factory.hasCarvedTestCases());
+		TestChromosome carved = factory.getChromosome();
+
+		Assert.assertNotNull(carved);
+
+		String code = carved.toString();
+		Assert.assertNotNull(code);
+		
+		Assert.assertEquals(code, 4, carved.test.size());
+
+		for (int i = 0; i < carved.test.size(); i++) {
+			StatementInterface stmt = carved.test.getStatement(i);
+			boolean valid = stmt.isValid();
+			Assert.assertTrue("Invalid stmt at position " + i, valid);
+		}
+		
+		System.out.println(code);
 	}
 
 	@Test
@@ -326,9 +385,29 @@ public class JUnitTestCarvedChromosomeFactoryTest {
 		Assert.assertEquals(code, 3, carved.test.size());
 	}
 	
+	@Ignore /* EvoSuiteRunner is now deprecated */ 
 	@Test
 	public void testEvoSuiteRunner() {
 		Properties.SELECTED_JUNIT = com.examples.with.different.packagename.testcarver.TestPersonWithEvoSuiteRunner.class.getCanonicalName();
+		Properties.TARGET_CLASS = com.examples.with.different.packagename.testcarver.Person.class.getCanonicalName();
+
+		Properties.SEED_MUTATIONS = 1;
+		Properties.SEED_CLONE = 1;
+
+		JUnitTestCarvedChromosomeFactory factory = new JUnitTestCarvedChromosomeFactory(
+		        null);
+		Assert.assertTrue(factory.hasCarvedTestCases());
+		TestChromosome carved = factory.getChromosome();
+		Assert.assertNotNull(carved);
+
+		String code = carved.toString();
+
+		Assert.assertEquals(code, 3, carved.test.size());
+	}
+	
+	@Test
+	public void testJavaAgent() {
+		Properties.SELECTED_JUNIT = com.examples.with.different.packagename.testcarver.TestPersonWithJavaAgent.class.getCanonicalName();
 		Properties.TARGET_CLASS = com.examples.with.different.packagename.testcarver.Person.class.getCanonicalName();
 
 		Properties.SEED_MUTATIONS = 1;
@@ -383,4 +462,42 @@ public class JUnitTestCarvedChromosomeFactoryTest {
 		        null);
 		Assert.assertEquals(18, factory.getNumCarvedTestCases());
 	}
+	
+	@Test
+	public void testWritePublicField() {
+		Properties.SELECTED_JUNIT = com.examples.with.different.packagename.testcarver.ClassWithPublicFieldWritingTestCase.class.getCanonicalName();
+		Properties.TARGET_CLASS = com.examples.with.different.packagename.testcarver.ClassWithPublicField.class.getCanonicalName();
+
+		Properties.SEED_MUTATIONS = 0;
+		Properties.SEED_CLONE = 1;
+
+		JUnitTestCarvedChromosomeFactory factory = new JUnitTestCarvedChromosomeFactory(
+		        null);
+		Assert.assertEquals(1, factory.getNumCarvedTestCases());
+		
+		TestChromosome test = (TestChromosome)factory.getChromosome();
+		String code = test.getTestCase().toCode();
+		Assert.assertFalse(code.contains("XStream"));
+		Assert.assertTrue(code.contains("clasWithPublicField0.x"));
+	}
+	
+	@Test
+	public void testReadPublicField() {
+		Properties.SELECTED_JUNIT = com.examples.with.different.packagename.testcarver.ClassWithPublicFieldReadingTestCase.class.getCanonicalName();
+		Properties.TARGET_CLASS = com.examples.with.different.packagename.testcarver.ClassWithPublicField.class.getCanonicalName();
+
+		Properties.SEED_MUTATIONS = 0;
+		Properties.SEED_CLONE = 1;
+
+		JUnitTestCarvedChromosomeFactory factory = new JUnitTestCarvedChromosomeFactory(
+		        null);
+		Assert.assertEquals(1, factory.getNumCarvedTestCases());
+
+		TestChromosome test = (TestChromosome)factory.getChromosome();
+		String code = test.getTestCase().toCode();
+		Assert.assertFalse(code.contains("XStream"));
+		Assert.assertTrue(code.contains("clasWithPublicField0.x"));
+	}
+
+
 }

@@ -22,9 +22,11 @@ import org.evosuite.testcase.ArrayIndex;
 import org.evosuite.testcase.ArrayReference;
 import org.evosuite.testcase.ArrayStatement;
 import org.evosuite.testcase.AssignmentStatement;
+import org.evosuite.testcase.ClassPrimitiveStatement;
 import org.evosuite.testcase.ConstructorStatement;
 import org.evosuite.testcase.DefaultTestCase;
 import org.evosuite.testcase.FieldReference;
+import org.evosuite.testcase.FieldStatement;
 import org.evosuite.testcase.MethodStatement;
 import org.evosuite.testcase.NullStatement;
 import org.evosuite.testcase.PrimitiveStatement;
@@ -34,6 +36,7 @@ import org.evosuite.testcase.VariableReferenceImpl;
 import org.evosuite.utils.GenericConstructor;
 import org.evosuite.utils.GenericField;
 import org.evosuite.utils.GenericMethod;
+import org.evosuite.utils.LoggingUtils;
 import org.evosuite.utils.Utils;
 
 public final class EvoTestCaseCodeGenerator implements ICodeGenerator<TestCase> {
@@ -132,9 +135,11 @@ public final class EvoTestCaseCodeGenerator implements ICodeGenerator<TestCase> 
 			} else {
 				VariableReference ref = this.oidToVarRefMap.get(argOID);
 				if (ref == null) {
-
+					throw new RuntimeException("VariableReference is null for argOID "
+					        + argOID);
+				} else {
+					args.add(ref);
 				}
-				args.add(ref);
 			}
 		}
 		return args;
@@ -155,14 +160,24 @@ public final class EvoTestCaseCodeGenerator implements ICodeGenerator<TestCase> 
 		final String type = log.getTypeName(oid);
 		final Object value = log.params.get(logRecNo)[0];
 
-		if (!(value instanceof Class)) // Class is a plain type according to log
-		{
+		final VariableReference varRef;
+
+		if (value instanceof Class) {
+			// final PrimitiveStatement cps = ClassPrimitiveStatement.getPrimitiveStatement(testCase, getClassForName(type));
+			final PrimitiveStatement cps = new ClassPrimitiveStatement(testCase,
+			        getClassForName(type));
+			cps.setValue(value);
+
+			varRef = testCase.addStatement(cps);
+		} else {
 			final PrimitiveStatement primitiveValue = PrimitiveStatement.getPrimitiveStatement(testCase,
 			                                                                                   getClassForName(type));
 			primitiveValue.setValue(value);
-			final VariableReference varRef = testCase.addStatement(primitiveValue);
-			this.oidToVarRefMap.put(oid, varRef);
+
+			varRef = testCase.addStatement(primitiveValue);
 		}
+
+		this.oidToVarRefMap.put(oid, varRef);
 	}
 
 	@SuppressWarnings({ "unchecked", "rawtypes" })
@@ -225,7 +240,7 @@ public final class EvoTestCaseCodeGenerator implements ICodeGenerator<TestCase> 
 			final Class<?> fieldType = CaptureUtil.getClassFromDesc(fieldDesc);
 
 			final FieldReference targetFieldRef = new FieldReference(testCase,
-			        new GenericField(this.getDeclaredField(type, fieldName), type));
+			        new GenericField(this.getDeclaredField(type, fieldName), type), this.oidToVarRefMap.get(oid));
 
 			final AssignmentStatement assignment;
 
@@ -270,17 +285,23 @@ public final class EvoTestCaseCodeGenerator implements ICodeGenerator<TestCase> 
 				final Class<?> type = getClassForName(typeName);// Class.forName(typeName, true, StaticTestCluster.classLoader);
 
 				final FieldReference valueRef = new FieldReference(testCase,
-				        new GenericField(type.getField(fieldName), type));
+				        new GenericField(getDeclaredField(type, fieldName), type));
 				final VariableReference targetVar = new VariableReferenceImpl(testCase,
 				        fieldType);
 
-				final AssignmentStatement assignment = new AssignmentStatement(testCase,
-				        targetVar, valueRef);
-				VariableReference varRef = testCase.addStatement(assignment);
+				
+				final FieldStatement fieldStatement = new FieldStatement(testCase, new GenericField(type.getField(fieldName), type), this.oidToVarRefMap.get(oid));
+				//final AssignmentStatement assignment = new AssignmentStatement(testCase,
+				//        targetVar, valueRef);
+				// VariableReference varRef = testCase.addStatement(assignment);
+				VariableReference varRef = testCase.addStatement(fieldStatement);
 
 				this.oidToVarRefMap.put(returnValueOID, varRef);
 
 			} catch (final Exception e) {
+				LoggingUtils.getEvoLogger().debug("Error while trying to get field "
+				                                          + fieldName + " of class "
+				                                          + getClassForName(typeName));
 				throw new RuntimeException(e);
 			}
 		}

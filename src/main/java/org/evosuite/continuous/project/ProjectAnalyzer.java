@@ -1,8 +1,13 @@
 package org.evosuite.continuous.project;
 
 import java.io.File;
+import java.util.Arrays;
 import java.util.Collection;
+import java.util.LinkedList;
+import java.util.List;
 import java.util.regex.Pattern;
+
+import javax.swing.event.ListSelectionEvent;
 
 import org.evosuite.Properties;
 import org.evosuite.continuous.project.ProjectStaticData.ClassInfo;
@@ -31,37 +36,105 @@ import org.slf4j.LoggerFactory;
  *
  */
 public class ProjectAnalyzer {
- 
+
 	private static Logger logger = LoggerFactory.getLogger(ProjectAnalyzer.class);
-	
+
 	/**
 	 * the folder/jar where to find the .class files used as CUTs
 	 */
 	private final String target;
 
-	public ProjectAnalyzer(String target) {
+	/**
+	 * package prefix to select a subset of classes on classpath/target to define
+	 * what to run CTG on
+	 */
+	private final String prefix;
+
+	private transient String[] cutsToAnalyze;
+
+	public ProjectAnalyzer(String target, String prefix) {
 		super();
 		this.target = target;
+		this.prefix = prefix;
+		this.cutsToAnalyze = null;
 	}
-	
-	public ProjectStaticData analyze(){
-		Pattern pattern = Pattern.compile("[^\\$]*.class");
-		Collection<String> classes = ResourceList.getResources(target, pattern);
-		
-		ProjectStaticData data = new ProjectStaticData();
-		
-		for (String fileName : classes) {
-			String className = fileName.replace(".class", "").replaceAll(File.separator, ".");
 
+	/**
+	 * Instead of scanning for classes in the given target, directly specify
+	 * the class names the project is composed by
+	 * 
+	 * <p>
+	 * Note: this constructor is mainly meant for unit tests
+	 * @param cuts
+	 */
+	public ProjectAnalyzer(String[] cuts) throws NullPointerException {
+		super();
+		if(cuts==null){
+			throw new NullPointerException("Input array cannot be null");
+		}
+		this.target = null;
+		this.prefix = null;
+		this.cutsToAnalyze = cuts;
+	}
+
+	private Collection<String> getCutsToAnalyze(){
+
+		if(cutsToAnalyze!=null){
+			return Arrays.asList(cutsToAnalyze);
+		}
+
+		Pattern pattern = Pattern.compile("[^\\$]*.class");
+		Collection<String> classes = null;
+
+		if(target!=null){
+			classes = ResourceList.getResources(target, pattern);
+		} else {
+			/*
+			 * if no target specified, just grab everything on classpath
+			 */
+			classes = ResourceList.getResources(pattern);
+		}
+
+		List<String> cuts = new LinkedList<String>();
+
+		for (String fileName : classes) {
+			/*
+			 * Using File.separator seems to give problems in Windows
+			 */
+			String className = fileName.replace(".class", "").replaceAll("/", ".");
+
+			if(prefix!=null && !prefix.isEmpty() && !className.startsWith(prefix)){
+				/*
+				 * A prefix is defined, but this class does not belong to that package hierarchy
+				 */
+				continue;
+			}
+
+			cuts.add(className);
+
+		}
+		return cuts;
+
+	}
+
+	/**
+	 * Analyze the classes in the given target
+	 * @return
+	 */
+	public ProjectStaticData analyze(){		
+
+		ProjectStaticData data = new ProjectStaticData();
+
+		for (String className : getCutsToAnalyze()) {
 			Class<?> theClass = null; 
 			int numberOfBranches = -1;			
 			boolean hasCode = false;
-			
+
 			Properties.TARGET_CLASS = className;
 			InstrumentingClassLoader instrumenting = new InstrumentingClassLoader();
-			
+
 			BranchPool.reset();
-			
+
 			try{
 				/*
 				 * to access number of branches, we need to use
@@ -71,7 +144,7 @@ public class ProjectAnalyzer {
 				 */
 				Sandbox.goingToExecuteUnsafeCodeOnSameThread();
 				instrumenting.loadClass(className);
-				
+
 				numberOfBranches = BranchPool.getBranchCounter();
 				hasCode = (numberOfBranches > 0) || (BranchPool.getBranchlessMethods().size() > 0);
 
@@ -84,7 +157,7 @@ public class ProjectAnalyzer {
 				//if(theClass.isInterface()){
 				//	kind = ClassKind.INTERFACE;
 				//} else if(theClass.is  Modifier.isAbstract( someClass.getModifiers() );
-				
+
 			} catch  (Exception e) {
 				logger.warn("Cannot handle "+className);
 				continue;
@@ -94,10 +167,10 @@ public class ProjectAnalyzer {
 				BranchPool.reset();
 				Properties.TARGET_CLASS = "";
 			}
-			
+
 			data.addNewClass(new ClassInfo(theClass, numberOfBranches, hasCode));
 		}
-		
+
 		return data;
 	}
 }

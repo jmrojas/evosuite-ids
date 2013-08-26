@@ -155,9 +155,12 @@ public class Properties {
 	public static double P_SPECIAL_TYPE_CALL = 0.05;
 
 	/** Constant <code>OBJECT_POOL=0.0</code> */
-	@Parameter(key = "object_pool", group = "Test Creation", description = "Probability to use a predefined sequence from the pool rather than a random generator")
+	@Parameter(key = "p_object_pool", group = "Test Creation", description = "Probability to use a predefined sequence from the pool rather than a random generator")
 	@DoubleValue(min = 0.0, max = 1.0)
-	public static double OBJECT_POOL = 0.0;
+	public static double P_OBJECT_POOL = 0.0;
+	
+	@Parameter(key = "object_pools", group = "Test Creation", description = "List of object pools")
+	public static String OBJECT_POOLS = "";
 
 	@Parameter(key = "seed_types", group = "Test Creation", description = "Use type information gathered from casts to instantiate generics")
 	public static boolean SEED_TYPES = true;
@@ -251,6 +254,10 @@ public class Properties {
 	/** Constant <code>ALGORITHM</code> */
 	@Parameter(key = "algorithm", group = "Search Algorithm", description = "Search algorithm")
 	public static Algorithm ALGORITHM = Algorithm.STEADYSTATEGA;
+
+	/** Constant <code>ALGORITHM</code> */
+	@Parameter(key = "random_seed", group = "Search Algorithm", description = "Seed used for random generator. If left empty, use current time")
+	public static Long RANDOM_SEED = null;
 
 	/** Constant <code>CHECK_BEST_LENGTH=true</code> */
 	@Parameter(key = "check_best_length", group = "Search Algorithm", description = "Check length against length of best individual")
@@ -542,7 +549,10 @@ public class Properties {
 	public static int CTG_CORES = 1;
 
 	@Parameter(key = "ctg_time", group = "Continuous Test Generation", description = "How many minutes in total CTG will run")
-	public static int CTG_TIME = 2;
+	public static int CTG_TIME = 1;
+
+	@Parameter(key = "ctg_folder", group = "Continuous Test Generation", description = "Where generated files will be stored")
+	public static String CTG_FOLDER = ".continuous_evosuite";
 
 	/*
 	 * FIXME choose best schedule for default
@@ -614,7 +624,8 @@ public class Properties {
 	public static String JUNIT_SUFFIX = "EvoSuiteTest";
 
 	@Parameter(key = "junit_runner", group = "Output", description = "Use EvoSuite JUnit runner in generated test suites")
-	public static boolean JUNIT_RUNNER = true;
+	@Deprecated
+	public static boolean JUNIT_RUNNER = false;
 	
 	/**
 	 * TODO: this functionality is not implemented yet
@@ -658,7 +669,7 @@ public class Properties {
 
 	/** Constant <code>WRITE_POOL=false</code> */
 	@Parameter(key = "write_pool", group = "Output", description = "Keep sequences for object pool")
-	public static boolean WRITE_POOL = false;
+	public static String WRITE_POOL = "";
 
 	/** Constant <code>REPORT_DIR="evosuite-report"</code> */
 	@Parameter(key = "report_dir", group = "Output", description = "Directory in which to put HTML and CSV reports")
@@ -1158,8 +1169,8 @@ public class Properties {
 				parameterMap.put(p.key(), f);
 				try {
 					defaultMap.put(f, f.get(null));
-				} catch (IllegalArgumentException e) {
-				} catch (IllegalAccessException e) {
+				} catch (Exception e) {
+					logger.error("Exception: "+e.getMessage(),e);
 				}
 			}
 		}
@@ -1246,11 +1257,11 @@ public class Properties {
 				// logger.info("* Properties loaded from default configuration file.");
 			}
 		} catch (FileNotFoundException e) {
-			logger.info("- Error: Could not find configuration file " + propertiesPath);
+			logger.warn("- Error: Could not find configuration file " + propertiesPath);
 		} catch (IOException e) {
-			logger.info("- Error: Could not find configuration file " + propertiesPath);
+			logger.warn("- Error: Could not find configuration file " + propertiesPath);
 		} catch (Exception e) {
-			logger.info("- Error: Could not find configuration file " + propertiesPath);
+			logger.warn("- Error: Could not find configuration file " + propertiesPath);
 		}
 	}
 
@@ -1853,15 +1864,8 @@ public class Properties {
 				buffer.append("=");
 				try {
 					buffer.append(getStringValue(p.key()));
-				} catch (IllegalArgumentException e) {
-					// TODO Auto-generated catch block
-					e.printStackTrace();
-				} catch (NoSuchParameterException e) {
-					// TODO Auto-generated catch block
-					e.printStackTrace();
-				} catch (IllegalAccessException e) {
-					// TODO Auto-generated catch block
-					e.printStackTrace();
+				} catch (Exception e) {
+					logger.error("Exception "+e.getMessage(),e);
 				}
 				buffer.append("\n\n");
 			}
@@ -1881,8 +1885,8 @@ public class Properties {
 				if (defaultMap.containsKey(f)) {
 					try {
 						f.set(null, defaultMap.get(f));
-					} catch (IllegalArgumentException e) {
-					} catch (IllegalAccessException e) {
+					} catch (Exception e) {
+						logger.error("Failed to init property field "+f+" , "+e.getMessage(),e);
 					}
 				}
 			}
