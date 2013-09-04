@@ -20,11 +20,14 @@
  */
 package org.evosuite.contracts;
 
+import java.util.List;
 import java.util.Set;
 
 import org.evosuite.testcase.CodeUnderTestException;
+import org.evosuite.testcase.MethodStatement;
 import org.evosuite.testcase.Scope;
 import org.evosuite.testcase.StatementInterface;
+import org.evosuite.testcase.VariableReference;
 
 
 /**
@@ -39,43 +42,59 @@ public class UndeclaredExceptionContract extends Contract {
 	 */
 	/** {@inheritDoc} */
 	@Override
-	public boolean check(StatementInterface statement, Scope scope, Throwable exception) {
+	public ContractViolation check(StatementInterface statement, Scope scope, Throwable exception) {
 		if (!isTargetStatement(statement))
-			return true;
+			return null;
 
 		if (exception != null) {
 			Set<Class<?>> exceptions = statement.getDeclaredExceptions();
 
 			if (!exceptions.contains(exception.getClass())) {
 				if (exception instanceof CodeUnderTestException)
-					return true;
+					return null;
 
 				StackTraceElement element = exception.getStackTrace()[0];
 
 				// If the exception was thrown in the test directly, it is also not interesting
 				if (element.getClassName().startsWith("org.evosuite.testcase")) {
-					return true;
+					return null;
 				}
 
 				/*
 				 * even if possible handled by other contracts, that does not mean
 				 * they check the signature. 
-				 *
+				 * TODO: Not sure I can follow, what does that have to do with the signature
+				 */
 				// Assertion errors are checked by a different contract
 				if (exception instanceof AssertionError)
-					return true;
-
+					return null;
+				/*
 				// NullPointerExceptions are checked by a different contract
 				if (exception instanceof NullPointerException) {
 					return true;
 				}
 				*/
+				if(statement instanceof MethodStatement) {
+					// hashCode and toString are covered already
+					String methodName = ((MethodStatement)statement).getMethod().getName();
+					if(methodName.equals("toString") || methodName.equals("hashCode")) {
+						return null;
+					}
+					
+				}
+				
 
-				return false;
+				return new ContractViolation(this, statement, exception);
 			}
 		}
 
-		return true;
+		return null;
+	}
+	
+	@Override
+	public void addAssertionAndComments(StatementInterface statement,
+			List<VariableReference> variables, Throwable exception) {
+		statement.addComment("Throws undeclared exception: " +exception.getMessage());
 	}
 
 	/** {@inheritDoc} */

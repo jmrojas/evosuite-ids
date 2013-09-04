@@ -28,6 +28,7 @@ import org.evosuite.junit.TestSuiteWriter;
 import org.evosuite.testcase.StatementInterface;
 import org.evosuite.testcase.TestCase;
 import org.evosuite.testcase.TestCaseExecutor;
+import org.evosuite.testcase.VariableReference;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -63,13 +64,22 @@ public class FailingTestSet {
 	 * @param exception
 	 *            a {@link java.lang.Throwable} object.
 	 */
+	/*
 	public static void addFailingTest(TestCase test, Contract contract,
-	        StatementInterface statement, Throwable exception) {
+	        StatementInterface statement, List<VariableReference> variables, Throwable exception) {
 		violationCount++;
-		ContractViolation violation = new ContractViolation(contract, test, statement,
+		ContractViolation violation = new ContractViolation(contract, test, statement, variables,
 		        exception);
 
 		if (!hasViolation(violation)) {
+			violations.add(violation);
+		}
+	}
+	*/
+	
+	public static void addFailingTest(ContractViolation violation) {
+		violationCount++;
+		if(!hasViolation(violation)) {
 			violations.add(violation);
 		}
 	}
@@ -133,7 +143,9 @@ public class FailingTestSet {
 			logger.debug("Writing test {}/{}", i, violations.size());
 			ContractViolation violation = violations.get(i);
 			violation.minimizeTest();
-			tests.add(violation.getTestCase());
+			TestCase test = violation.getTestCase();
+			//violation.addAssertion(test);
+			tests.add(test);
 		}
 		return tests;
 	}
@@ -162,6 +174,7 @@ public class FailingTestSet {
 			ContractViolation violation = violations.get(i);
 			violation.minimizeTest();
 			TestCase test = violation.getTestCase();
+			//violation.addAssertion(test);
 			// TODO: Add comment about contract violation
 			writer.insertTest(test, " Contract violation: "
 			        + violation.getContract().toString());
@@ -182,6 +195,17 @@ public class FailingTestSet {
 		}
 
 		return false;
+	}
+	
+	public static void changeClassLoader(ClassLoader classLoader) {
+		for(ContractViolation violation : violations) {
+			violation.changeClassLoader(classLoader);
+		}
+	}
+	
+	public static void clear() {
+		violations.clear();
+		violationCount = 0;
 	}
 
 }

@@ -157,6 +157,7 @@ import org.evosuite.testcase.TestCaseMinimizer;
 import org.evosuite.testcase.TestCaseReplacementFunction;
 import org.evosuite.testcase.TestChromosome;
 import org.evosuite.testcase.TestFitnessFunction;
+import org.evosuite.testcase.UncompilableCodeException;
 import org.evosuite.testcase.ValueMinimizer;
 import org.evosuite.testsuite.AbstractFitnessFactory;
 import org.evosuite.testsuite.AbstractTestSuiteChromosome;
@@ -175,7 +176,6 @@ import org.evosuite.testsuite.TestSuiteFitnessFunction;
 import org.evosuite.testsuite.TestSuiteMinimizer;
 import org.evosuite.testsuite.TestSuiteReplacementFunction;
 import org.evosuite.utils.ClassPathHacker;
-import org.evosuite.utils.GenericClass;
 import org.evosuite.utils.LoggingUtils;
 import org.evosuite.utils.Randomness;
 import org.evosuite.utils.ResourceController;
@@ -338,6 +338,11 @@ public class TestSuiteGenerator {
 				addAssertions(tests);
 			}
 		}
+		
+		if (Properties.CHECK_CONTRACTS) {
+			tests.addAll(FailingTestSet.getFailingTests());
+		}
+
 
 		// progressMonitor.setCurrentPhase("Writing JUnit test cases");
 		writeJUnitTests(tests);
@@ -553,6 +558,7 @@ public class TestSuiteGenerator {
 
 			if (Properties.CHECK_CONTRACTS) {
 				LoggingUtils.getEvoLogger().info("* Writing failing test cases");
+				// suite.insertAllTests(FailingTestSet.getFailingTests());
 				FailingTestSet.writeJUnitTestSuite(suite);
 			}
 
@@ -1219,13 +1225,18 @@ public class TestSuiteGenerator {
 		statistics.searchStarted(suiteGA);
 
 		for (int i = 0; i < Properties.NUM_RANDOM_TESTS; i++) {
+			if(suiteGA.isFinished())
+				break;
 			logger.info("Current test: " + i + "/" + Properties.NUM_RANDOM_TESTS);
 			TestChromosome test = factory.getChromosome();
 			ExecutionResult result = TestCaseExecutor.runTest(test.getTestCase());
 			Integer pos = result.getFirstPositionOfThrownException();
 			if (pos != null) {
-				if (result.getExceptionThrownAtPosition(pos) instanceof CodeUnderTestException) {
-					test.getTestCase().chop(pos);
+				if (result.getExceptionThrownAtPosition(pos) instanceof CodeUnderTestException ||
+						result.getExceptionThrownAtPosition(pos) instanceof UncompilableCodeException ||
+						result.getExceptionThrownAtPosition(pos) instanceof TestCaseExecutor.TimeoutExceeded) {
+					continue;
+					// test.getTestCase().chop(pos);
 				} else {
 					test.getTestCase().chop(pos + 1);
 				}

@@ -982,7 +982,7 @@ public class TestCodeVisitor extends TestVisitor {
 				result += getClassName(retval) + " ";
 			}
 		}
-		if (exception != null)
+		if (exception != null && !test.isFailing())
 			result += "try {\n  ";
 
 		String parameter_string = getParameterString(method.getParameterTypes(),
@@ -1023,7 +1023,7 @@ public class TestCodeVisitor extends TestVisitor {
 			result += callee_str + "." + method.getName() + "(" + parameter_string + ");";
 		}
 
-		if (exception != null) {
+		if (exception != null && !test.isFailing()) {
 			if (Properties.ASSERTIONS) {
 				result += generateFailAssertion(statement, exception);
 			}
@@ -1258,4 +1258,14 @@ public class TestCodeVisitor extends TestVisitor {
 		testCode += getClassName(retval) + " " + getVariableName(retval) + " = null;\n";
 	}
 
+	@Override
+	public void visitStatement(StatementInterface statement) {
+		if(!statement.getComment().isEmpty()) {
+			String comment = statement.getComment();
+			for(String line : comment.split("\n")) {
+				testCode += "// "+line + "\n";
+			}
+		}
+		super.visitStatement(statement);
+	}
 }

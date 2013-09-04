@@ -59,6 +59,8 @@ public interface TestCase extends Iterable<StatementInterface>, Cloneable,
 	 * @return true if size()==0
 	 */
 	public boolean isEmpty();
+	
+	public boolean isFailing();
 
 	/**
 	 * Remove all statements after a given position
@@ -130,6 +132,26 @@ public interface TestCase extends Iterable<StatementInterface>, Cloneable,
 	public VariableReference getRandomObject(Type type)
 	        throws ConstructionFailedException;
 
+	/**
+	 * Get the last object of the defined type
+	 * 
+	 * @param type
+	 * @return
+	 * @throws ConstructionFailedException
+	 */
+	public VariableReference getLastObject(Type type)
+			throws ConstructionFailedException;
+	
+	/**
+	 * Get the last object of the defined type
+	 * 
+	 * @param type
+	 * @return
+	 * @throws ConstructionFailedException
+	 */
+	public VariableReference getLastObject(Type type, int position)
+			throws ConstructionFailedException;
+	
 	/**
 	 * Get a random object matching type
 	 *

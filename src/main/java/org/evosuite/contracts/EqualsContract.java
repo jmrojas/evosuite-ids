@@ -21,9 +21,12 @@
 package org.evosuite.contracts;
 
 import java.lang.reflect.Method;
+import java.util.List;
 
+import org.evosuite.assertion.EqualsAssertion;
 import org.evosuite.testcase.Scope;
 import org.evosuite.testcase.StatementInterface;
+import org.evosuite.testcase.VariableReference;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -43,8 +46,10 @@ public class EqualsContract extends Contract {
 	 */
 	/** {@inheritDoc} */
 	@Override
-	public boolean check(StatementInterface statement, Scope scope, Throwable exception) {
-		for (Object object : getAllObjects(scope)) {
+	public ContractViolation check(StatementInterface statement, Scope scope, Throwable exception) {
+		for(VariableReference var : getAllVariables(scope)) {
+			Object object = scope.getObject(var);
+
 			if (object == null)
 				continue;
 
@@ -64,17 +69,31 @@ public class EqualsContract extends Contract {
 			try {
 				// An object always has to equal itself
 				if (!object.equals(object))
-					return false;
+					return new ContractViolation(this, statement, exception, var);
 
 			} catch (NullPointerException e) {
 				// No nullpointer exceptions may be thrown if the parameter was not null
-				return false;
+				// TODO: Use UndeclaredExceptionContract instead?
+				return new ContractViolation(this, statement, e, var);
+				
 			} catch (Throwable t) {
 				continue;
 			}
 		}
 
-		return true;
+		return null;
+	}
+
+	@Override
+	public void addAssertionAndComments(StatementInterface statement,
+			List<VariableReference> variables, Throwable exception) {
+		EqualsAssertion assertion = new EqualsAssertion();
+		assertion.setStatement(statement);
+		assertion.setSource(variables.get(0));
+		assertion.setDest(variables.get(0));
+		assertion.setValue(true);
+		statement.addAssertion(assertion);
+		statement.addComment("Violates contract a.equals(a)");
 	}
 
 	/** {@inheritDoc} */

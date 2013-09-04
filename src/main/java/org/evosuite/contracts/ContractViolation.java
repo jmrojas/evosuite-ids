@@ -20,11 +20,15 @@
  */
 package org.evosuite.contracts;
 
+import java.util.ArrayList;
+import java.util.List;
+
 import org.evosuite.Properties;
 import org.evosuite.ga.ConstructionFailedException;
 import org.evosuite.testcase.AssignmentStatement;
 import org.evosuite.testcase.ConstantInliner;
 import org.evosuite.testcase.ConstructorStatement;
+import org.evosuite.testcase.DefaultTestCase;
 import org.evosuite.testcase.FieldReference;
 import org.evosuite.testcase.MethodStatement;
 import org.evosuite.testcase.StatementInterface;
@@ -43,17 +47,26 @@ import org.slf4j.LoggerFactory;
  */
 public class ContractViolation {
 
-	@SuppressWarnings("unused")
 	private static Logger logger = LoggerFactory.getLogger(ContractViolation.class);
 
 	private final Contract contract;
 
 	private TestCase test;
 
-	private final StatementInterface statement;
-
+	private StatementInterface statement;
+	
+	/** If the statement execution leads to a contract violation with an undeclared exception
+	 * this is stored here 
+	 */
 	private final Throwable exception;
+	
+	/**
+	 * List of all variables involved in the contract violation
+	 */
+	private final List<VariableReference> variables = new ArrayList<VariableReference>();
 
+	private boolean isMinimized = false;
+	
 	/**
 	 * <p>
 	 * Constructor for ContractViolation.
@@ -68,14 +81,22 @@ public class ContractViolation {
 	 * @param exception
 	 *            a {@link java.lang.Throwable} object.
 	 */
-	public ContractViolation(Contract contract, TestCase test,
-	        StatementInterface statement, Throwable exception) {
+	public ContractViolation(Contract contract, StatementInterface statement, Throwable exception, VariableReference... variables) {
 		this.contract = contract;
-		this.test = test.clone();
-		this.statement = statement.clone(this.test);
+		this.test = statement.getTestCase().clone();
+		this.test.chop(statement.getPosition() + 1);
+		((DefaultTestCase)this.test).setFailing(true);
+		this.statement = this.test.getStatement(statement.getPosition());
+		for(VariableReference var : variables) {
+			this.variables.add(var.clone(this.test));
+		}
 		this.exception = exception;
 	}
 
+	protected VariableReference getVariable(int num) {
+		return variables.get(num).clone(this.test);
+	}
+	
 	/**
 	 * Getter for test case
 	 * 
@@ -98,15 +119,24 @@ public class ContractViolation {
 	 * Remove all statements that do not contribute to the contract violation
 	 */
 	public void minimizeTest() {
+		if(isMinimized)
+			return;
+		
 		/** Factory method that handles statement deletion */
 		TestFactory testFactory = TestFactory.getInstance();
-
-		TestCase origTest = test.clone();
+		
 		if (Properties.INLINE) {
 			ConstantInliner inliner = new ConstantInliner();
-			inliner.inline(origTest);
+			inliner.inline(test);
 		}
+		TestCase origTest = test.clone();
+		
+		int[] positions = new int[variables.size()];
+		int num = 0;
+		for(VariableReference var : variables)
+			positions[num++] = var.getStPosition();
 
+		int oldLength = test.size();
 		boolean changed = true;
 		while (changed) {
 			changed = false;
@@ -120,13 +150,29 @@ public class ContractViolation {
 					if (!contract.fails(test)) {
 						test = origTest.clone();
 					} else {
+						changed = true;
+						for(int j = 0; j < positions.length; j++) {
+							if(positions[j] > i) {
+								positions[j] -= (oldLength - test.size());
+							}
+						}
 						origTest = test.clone();
+						oldLength = test.size();
+
 					}
 				} catch (ConstructionFailedException e) {
 					test = origTest.clone();
 				}
 			}
 		}
+		
+		statement = test.getStatement(test.size() - 1);
+		for(int i = 0; i < variables.size(); i++) {
+			variables.set(i, test.getStatement(positions[i]).getReturnValue());
+		}
+
+		contract.addAssertionAndComments(statement, variables, exception);
+		isMinimized = true;
 	}
 
 	/**
@@ -156,20 +202,20 @@ public class ContractViolation {
 		if (statement instanceof MethodStatement) {
 			MethodStatement ms1 = (MethodStatement) statement;
 			MethodStatement ms2 = (MethodStatement) other.statement;
-			if (ms1.getMethod().equals(ms2.getMethod())) {
+			if (ms1.getMethod().getMethod().equals(ms2.getMethod().getMethod())) {
 				return true;
 			}
 		} else if (statement instanceof ConstructorStatement) {
 			ConstructorStatement ms1 = (ConstructorStatement) statement;
 			ConstructorStatement ms2 = (ConstructorStatement) other.statement;
-			if (ms1.getConstructor().equals(ms2.getConstructor())) {
+			if (ms1.getConstructor().getConstructor().equals(ms2.getConstructor().getConstructor())) {
 				return true;
 			}
 		} else if (statement instanceof AssignmentStatement) {
 			VariableReference var1 = statement.getReturnValue();
 			VariableReference var2 = other.statement.getReturnValue();
 			if (var1 instanceof FieldReference && var2 instanceof FieldReference) {
-				if (((FieldReference) var1).getField().equals(((FieldReference) var2).getField()))
+				if (((FieldReference) var1).getField().getField().equals(((FieldReference) var2).getField().getField()))
 					return true;
 			}
 		}
@@ -184,5 +230,13 @@ public class ContractViolation {
 		return "Violated contract: " + contract + " in statement " + statement
 		        + " with exception " + exception;
 	}
-
+	
+	public void changeClassLoader(ClassLoader classLoader) {
+		((DefaultTestCase)test).changeClassLoader(classLoader);
+		this.statement = this.test.getStatement(statement.getPosition());
+		for(int i = 0; i < variables.size(); i++) {
+			variables.set(i, variables.get(i).clone(test));
+		}
+	}
+	
 }
