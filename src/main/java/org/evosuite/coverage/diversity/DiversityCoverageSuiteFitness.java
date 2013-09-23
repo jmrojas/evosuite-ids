@@ -1,3 +1,20 @@
+/**
+ * Copyright (C) 2013 José Campos and EvoSuite
+ * contributors
+ * 
+ * This file is part of EvoSuite.
+ * 
+ * EvoSuite is free software: you can redistribute it and/or modify it under the
+ * terms of the GNU Public License as published by the Free Software Foundation,
+ * either version 3 of the License, or (at your option) any later version.
+ * 
+ * EvoSuite is distributed in the hope that it will be useful, but WITHOUT ANY
+ * WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS FOR
+ * A PARTICULAR PURPOSE. See the GNU Public License for more details.
+ * 
+ * You should have received a copy of the GNU Public License along with
+ * EvoSuite. If not, see <http://www.gnu.org/licenses/>.
+ */
 package org.evosuite.coverage.diversity;
 
 import java.util.HashMap;
@@ -11,7 +28,11 @@ import org.evosuite.testsuite.AbstractTestSuiteChromosome;
 import org.evosuite.testsuite.TestSuiteFitnessFunction;
 
 /**
+ * <p>
+ * DiversityCoverageSuiteFitness class.
+ * </p>
  * 
+ * @author José Campos
  */
 public class DiversityCoverageSuiteFitness extends
 		TestSuiteFitnessFunction
@@ -23,49 +44,48 @@ public class DiversityCoverageSuiteFitness extends
 	public double getFitness(
 			AbstractTestSuiteChromosome<? extends ExecutableChromosome> suite)
 	{
-		List<ExecutionResult> results = runTestSuite(suite);
-		double fitness = 0.0;
-
-		HashMap<Double, Integer> coverage = new HashMap<Double, Integer>(DiversityCoverageFactory.coverage);
-
 		List<? extends TestFitnessFunction> totalGoals = DiversityCoverageFactory.retrieveCoverageGoals();
+		HashMap<String, Double> categories = new HashMap<String, Double>(DiversityCoverageFactory.getCategories());
 
-		for (ExecutionResult result : results)
+		List<ExecutionResult> results = runTestSuite(suite);
+
+		for (int i = 0; i < results.size(); i++)
 		{
+			ExecutionResult result = results.get(i);
+
 			TestChromosome tc = new TestChromosome();
 			tc.setTestCase(result.test);
 
-			int count = 0;
-			double category = 0;
-
-			int i = 0;
+			StringBuilder test_coverage = new StringBuilder("");
 			for (TestFitnessFunction goal : totalGoals)
 			{
-				double f = goal.getFitness(tc, result);
-				count += f;
-
-				if (f >= 1.0) {
-					category += (Math.pow(2.0, i) / 100.0);
-				}
-
-				i++;
+				double g = goal.getFitness(tc, result);
+				if (g > 0.0)
+					test_coverage.append("1");
+				else
+					test_coverage.append("0");
 			}
 
-			category *= ((double)count);
-			if (coverage.get(category) != null)
-				coverage.put(category, coverage.get(category) + 1);
+			String hash = MD5.hash(test_coverage.toString());
+			if (categories.get(hash) == null)
+				categories.put(hash, 1.0);
 			else
-				coverage.put(category, 1);
+				categories.put(hash, categories.get(hash) + 1.0);
 		}
 
 		double N = 0.0;
-		for (Integer ni : coverage.values()) {
-			N += ni;
-			fitness += (ni * (ni - 0.01));
+		double sum_ni = 0.0;
+
+		for (Double number_of_individual_in_a_category : categories.values()) {
+			N += number_of_individual_in_a_category;
+			double ni = number_of_individual_in_a_category * (number_of_individual_in_a_category - 1.0);
+
+			sum_ni += ni;
 		}
 
-		fitness /= (N * (N - 0.01));
+		N = N * (N - 1.0);
 
+		double fitness = sum_ni / N;
 		updateIndividual(suite, fitness);
 		return (fitness);
 	}

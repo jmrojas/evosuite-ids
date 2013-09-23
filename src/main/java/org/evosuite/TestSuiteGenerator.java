@@ -59,8 +59,6 @@ import org.evosuite.coverage.ambiguity.AmbiguitySuiteFitness;
 import org.evosuite.coverage.branch.BranchCoverageFactory;
 import org.evosuite.coverage.branch.BranchCoverageSuiteFitness;
 import org.evosuite.coverage.branch.BranchPool;
-import org.evosuite.coverage.bruteforce.BruteForceCoverageFactory;
-import org.evosuite.coverage.bruteforce.BruteForceCoverageSuiteFitness;
 import org.evosuite.coverage.dataflow.AllDefsCoverageFactory;
 import org.evosuite.coverage.dataflow.AllDefsCoverageSuiteFitness;
 import org.evosuite.coverage.dataflow.DefUseCoverageFactory;
