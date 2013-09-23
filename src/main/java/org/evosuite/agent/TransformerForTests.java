@@ -6,10 +6,6 @@ import java.security.ProtectionDomain;
 
 import org.evosuite.instrumentation.BytecodeInstrumentation;
 import org.objectweb.asm.ClassReader;
-import org.objectweb.asm.ClassWriter;
-import org.objectweb.asm.Label;
-import org.objectweb.asm.MethodVisitor;
-import org.objectweb.asm.Opcodes;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -37,7 +33,7 @@ public class TransformerForTests implements ClassFileTransformer {
 	public byte[] transform(ClassLoader loader, String className, Class<?> classBeingRedefined,
 			ProtectionDomain protectionDomain, byte[] classfileBuffer)
 					throws IllegalClassFormatException {
-
+		
 		String classWithDots = className.replace("/", ".");
 		if(!active || BytecodeInstrumentation.isSharedClass(classWithDots) || classWithDots.startsWith("org.evosuite")){	
 			return classfileBuffer;

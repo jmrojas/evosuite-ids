@@ -26,7 +26,6 @@ import java.io.FileNotFoundException;
 import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
-import java.net.URL;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
@@ -38,7 +37,6 @@ import java.util.regex.Pattern;
 import java.util.zip.GZIPInputStream;
 import java.util.zip.GZIPOutputStream;
 import java.util.zip.ZipEntry;
-import java.util.zip.ZipException;
 import java.util.zip.ZipFile;
 
 import org.evosuite.Properties;
@@ -140,7 +138,9 @@ public class InheritanceTreeGenerator {
 	 * @param entry
 	 */
 	private static void analyze(InheritanceTree inheritanceTree, File file) {
-
+		if (!file.canRead()) {
+			return;
+		}
 		if (file.getName().endsWith(".jar")) {
 			// handle jar file
 			analyzeJarFile(inheritanceTree, file);
@@ -161,7 +161,8 @@ public class InheritanceTreeGenerator {
 		try {
 			zf = new ZipFile(jarFile);
 		} catch (Exception e) {
-			logger.warn("Failed to open/analyze jar file "+jarFile.getAbsolutePath()+" , "+e.getMessage());
+			logger.warn("Failed to open/analyze jar file " + jarFile.getAbsolutePath()
+			        + " , " + e.getMessage());
 			return;
 		}
 
@@ -179,13 +180,15 @@ public class InheritanceTreeGenerator {
 				 * even if there is a problem with one of the entries, we can still
 				 * go on and look at the others
 				 */
-				logger.error("Error while analyzing class "+fileName+" in the jar "+jarFile.getAbsolutePath(), e1);
+				logger.error("Error while analyzing class " + fileName + " in the jar "
+				        + jarFile.getAbsolutePath(), e1);
 			}
 		}
 		try {
 			zf.close();
 		} catch (final IOException e1) {
-			logger.warn("Failed to close jar file "+jarFile.getAbsolutePath()+" , "+e1.getMessage());
+			logger.warn("Failed to close jar file " + jarFile.getAbsolutePath() + " , "
+			        + e1.getMessage());
 		}
 	}
 
@@ -204,15 +207,16 @@ public class InheritanceTreeGenerator {
 	}
 
 	private static void analyzeClassName(InheritanceTree inheritanceTree, String className) {
+
+		
 		String fileName = ResourceList.getClassAsResource(className);
-		if (fileName == null) {
-			URL url = InheritanceTreeGenerator.class.getClassLoader().getResource(className.replace(".",
-			                                                                                        File.separator)
-			                                                                              + ".class");
-			fileName = url.getFile();
+		InputStream stream = InheritanceTreeGenerator.class.getClassLoader().getResourceAsStream(fileName);
+		if(stream != null) {
+			System.out.println(InheritanceTreeGenerator.class.getClassLoader().getResource(fileName));
+			analyzeClassStream(inheritanceTree, stream, false);
+		} else {
+			logger.warn("Could not find class file "+fileName +" for class "+className);
 		}
-		logger.info("Resource for class " + className + ": " + fileName);
-		analyze(inheritanceTree, fileName);
 	}
 
 	@SuppressWarnings("unchecked")

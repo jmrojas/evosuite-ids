@@ -164,8 +164,7 @@ public class JobHandler extends Thread{
 		 * if same test suites happen twice (ie in current and old), then we it would be 
 		 * complicated to use both (we would need to change their name) 
 		 */
-		
-		
+				
 		/*
 		 *  it is important to set it before calling EvoSuite, as it has to be read by Master before loading properties.
 		 *  Note: the Client will get it automatically from Master
@@ -179,7 +178,6 @@ public class JobHandler extends Thread{
 		if(Properties.LOG_LEVEL != null && !Properties.LOG_LEVEL.isEmpty()){
 			cmd += " -Dlog.level="+Properties.LOG_LEVEL; 
 		}
-		//cmd += " -Dprint_to_system=true";//TODO remove
 		
 		/*
 		 * TODO: this will likely need better handling
@@ -247,6 +245,10 @@ public class JobHandler extends Thread{
 			cmd += " -Drandom_seed="+Properties.RANDOM_SEED;
 		}
 		
+		cmd += " -Dprint_to_system="+Properties.PRINT_TO_SYSTEM;
+		
+		cmd += " -Dp_object_pool="+Properties.P_OBJECT_POOL;
+		
 		/*
 		 * these 2 options should always be 'true'.
 		 * Here we take them as parameter, just because for experiments
@@ -275,7 +277,12 @@ public class JobHandler extends Thread{
 
 			String[] dep = job.inputClasses.toArray(new String[0]);
 
-			cmd += " -Dp_object_pool=0.5 ";
+			double poolP = 0.5;
+			if(Properties.P_OBJECT_POOL > 0){ //TODO need refactoring, ie a Double initialized with null
+				poolP = Properties.P_OBJECT_POOL;
+			}
+			
+			cmd += " -Dp_object_pool="+poolP;
 			cmd += " -Dobject_pools=";
 
 			cmd += poolFolder.getAbsolutePath()+File.separator+dep[0]+extension;
@@ -291,7 +298,7 @@ public class JobHandler extends Thread{
 	private String getOutputVariables(){
 		String cmd =  " -Doutput_variables="; 
 		cmd += "TARGET_CLASS,configuration_id,"; 
-		cmd += "ctg_schedule,search_budget,";
+		cmd += "ctg_min_time_per_job,ctg_schedule,search_budget,p_object_pool,";
 		cmd += RuntimeVariable.Covered_Branches+",";				
 		cmd += RuntimeVariable.Total_Branches+",";				
 		cmd += RuntimeVariable.BranchCoverage+",";		
@@ -303,12 +310,18 @@ public class JobHandler extends Thread{
 		cmd += RuntimeVariable.Implicit_MethodExceptions+",";
 		cmd += RuntimeVariable.Explicit_MethodExceptions; 
 		
+		if(Properties.CTG_TIME_PER_CLASS != null){
+			cmd += ",ctg_time_per_class";
+			cmd += " -Dctg_time_per_class="+Properties.CTG_TIME_PER_CLASS;
+		}
+		
 		/*
-		 * Master/Client will not use this variable.
-		 * But here we include it just to be sure that it will end
+		 * Master/Client will not use these variables.
+		 * But here we include them just to be sure that they will end
 		 * up in the generated CSV files
 		 */
 		cmd += " -Dctg_schedule="+Properties.CTG_SCHEDULE;
+		cmd += " -Dctg_min_time_per_job="+Properties.CTG_MIN_TIME_PER_JOB;
 		
 		return cmd;
 	}

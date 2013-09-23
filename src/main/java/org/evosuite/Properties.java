@@ -245,6 +245,9 @@ public class Properties {
 	@Parameter(key = "insertion_score_parameter", group = "Test Creation", description = "Score for selection of insertion call with existing object")
 	public static int INSERTION_SCORE_PARAMETER = 1;
 
+	@Parameter(key = "consider_main_methods", group = "Test Creation", description = "Generate unit tests for 'main(String[] args)' methods as well")
+	public static boolean CONSIDER_MAIN_METHODS = false; //TODO should be set to true once "context" will work
+
 	// ---------------------------------------------------------------
 	// Search algorithm
 	public enum Algorithm {
@@ -551,6 +554,9 @@ public class Properties {
 	@Parameter(key = "ctg_time", group = "Continuous Test Generation", description = "How many minutes in total CTG will run")
 	public static int CTG_TIME = 1;
 
+	@Parameter(key = "ctg_time_per_class", group = "Continuous Test Generation", description = "How many minutes to allocate for each class. If this parameter is set, then ctg_time is going to be ignored. This parameter is mainly meant for debugging purposes.")
+	public static Integer CTG_TIME_PER_CLASS = null;
+
 	@Parameter(key = "ctg_min_time_per_job", group = "Continuous Test Generation", description = "How many minutes each class under test should have at least")
 	public static int CTG_MIN_TIME_PER_JOB = 1;
 
@@ -597,9 +603,6 @@ public class Properties {
 	@Parameter(key = "test_format", group = "Output", description = "Format of the resulting test cases")
 	public static OutputFormat TEST_FORMAT = OutputFormat.JUNIT4;
 
-	@Parameter(key = "structured_tests", group = "Output", description = "Structure tests according to setup - exercise - check")
-	public static boolean STRUCTURED_TESTS = false;
-
 	@Parameter(key = "test_comments", group = "Output", description = "Include a header with coverage information for each test")
 	public static boolean TEST_COMMENTS = true;
 
@@ -630,6 +633,10 @@ public class Properties {
 	@Deprecated
 	public static boolean JUNIT_RUNNER = false;
 
+	@Parameter(key = "tools_jar_location", group = "Output", description = "Location of where to locate tools.jar")
+	public static String TOOLS_JAR_LOCATION = null;
+
+	
 	/**
 	 * TODO: this functionality is not implemented yet
 	 */
@@ -703,7 +710,7 @@ public class Properties {
 	public static boolean ASSERTIONS = true;
 
 	public enum AssertionStrategy {
-		ALL, MUTATION, UNIT
+		ALL, MUTATION, UNIT, STRUCTURED
 	}
 
 	/** Constant <code>ASSERTION_STRATEGY</code> */
@@ -918,6 +925,9 @@ public class Properties {
 	/** Constant <code>CHECK_CONTRACTS_END=false</code> */
 	@Parameter(key = "check_contracts_end", description = "Check contracts only once per test")
 	public static boolean CHECK_CONTRACTS_END = false;
+	
+	@Parameter(key = "junit_theories", description = "Check JUnit theories as contracts")
+	public static String JUNIT_THEORIES = "";
 
 	/** Constant <code>ERROR_BRANCHES=false</code> */
 	@Parameter(key = "error_branches", description = "Instrument code with error checking branches")
@@ -968,6 +978,9 @@ public class Properties {
 	/** Constant <code>REPLACE_CALLS=false</code> */
 	@Parameter(key = "replace_calls", group = "Test Execution", description = "Replace nondeterministic calls and System.exit")
 	public static boolean REPLACE_CALLS = false;
+
+	@Parameter(key = "replace_system_in", group = "Test Execution", description = "Replace System.in with a smart stub/mock")
+	public static boolean REPLACE_SYSTEM_IN = true;
 
 	// ---------------------------------------------------------------
 	// Debugging

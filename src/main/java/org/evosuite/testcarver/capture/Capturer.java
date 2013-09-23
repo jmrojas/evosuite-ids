@@ -8,6 +8,7 @@ import java.util.Arrays;
 import java.util.List;
 
 import org.evosuite.testcarver.exception.CapturerException;
+import org.evosuite.utils.LoggingUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 

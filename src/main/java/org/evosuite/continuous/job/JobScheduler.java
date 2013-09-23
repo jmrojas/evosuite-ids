@@ -31,9 +31,10 @@ public class JobScheduler {
 	
 	private static Logger logger = LoggerFactory.getLogger(JobScheduler.class);
 
+
 	private final ProjectStaticData projectData;
 	
-	private final CtgConfiguration configuration;
+	protected  final CtgConfiguration configuration;
 
 	private ScheduleType currentSchedule;
 	
@@ -54,10 +55,6 @@ public class JobScheduler {
 		chooseScheduleType(configuration.schedule);
 	}
 	
-	
-	public int getMinSecondsPerJob(){
-		return configuration.minMinutesPerJob * 60;
-	}
 	
 	public void chooseScheduleType(AvailableSchedule schedule) throws IllegalArgumentException{
 
@@ -109,15 +106,7 @@ public class JobScheduler {
 		return projectData;
 	}
 	
-	public int getNumberOfCores() {
-		return configuration.numberOfCores;
+	public CtgConfiguration getConfiguration() {
+		return configuration;
 	}
-
-	public int getTotalBudgetInMinutes() {
-		return configuration.timeInMinutes;
-	}
-
-	public int getTotalMemoryInMB() {
-		return configuration.totalMemoryInMB;
-	}	
 }
