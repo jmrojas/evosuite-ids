@@ -133,50 +133,53 @@ public class CoverageAnalysis {
 
 	private static List<Class<?>> getClassesFromClasspath() {
 		List<Class<?>> classes = new ArrayList<Class<?>>();
-		Pattern pattern = Pattern.compile(Properties.JUNIT_PREFIX + ".*.class");
-		Collection<String> resources = ResourceList.getResources(pattern);
-		LoggingUtils.getEvoLogger().info("* Found " + resources.size()
-		                                         + " classes with prefix "
-		                                         + Properties.JUNIT_PREFIX);
-		if (!resources.isEmpty()) {
-			for (String resource : resources) {
-				try {
-					Class<?> clazz = Class.forName(resource.replaceAll(".class", "").replaceAll("/",
-					                                                                            "."),
-					                               true,
-					                               TestGenerationContext.getClassLoader());
-					if (isTest(clazz)) {
-						classes.add(clazz);
+		for(String prefix : Properties.JUNIT_PREFIX.split(":")) {
+			Pattern pattern = Pattern.compile(prefix + ".*.class");
+			Collection<String> resources = ResourceList.getResources(pattern);
+			LoggingUtils.getEvoLogger().info("* Found " + resources.size()
+					+ " classes with prefix " + prefix);
+			if (!resources.isEmpty()) {
+				for (String resource : resources) {
+					try {
+						Class<?> clazz = Class.forName(resource.replaceAll(".class", "").replaceAll("/",
+								"."),
+								true,
+								TestGenerationContext.getClassLoader());
+						if (isTest(clazz)) {
+							classes.add(clazz);
+						}
+					} catch (ClassNotFoundException e2) {
+						// Ignore?
 					}
-				} catch (ClassNotFoundException e2) {
-					// Ignore?
 				}
-			}
 
+			}
 		}
 		return classes;
 	}
 
 	private static List<Class<?>> getClasses() {
 		List<Class<?>> classes = new ArrayList<Class<?>>();
-		// If the target name is a path analyze it
-		File path = new File(Properties.JUNIT_PREFIX);
-		if (path.exists()) {
-			if (Properties.JUNIT_PREFIX.endsWith(".jar"))
-				classes.addAll(getClassesJar(path));
-			else
-				classes.addAll(getClasses(path));
-		} else {
+		
+		for(String prefix : Properties.JUNIT_PREFIX.split(":")) {
+			// If the target name is a path analyze it
+			File path = new File(prefix);
+			if (path.exists()) {
+				if (Properties.JUNIT_PREFIX.endsWith(".jar"))
+					classes.addAll(getClassesJar(path));
+				else
+					classes.addAll(getClasses(path));
+			} else {
 
-			try {
-				Class<?> junitClass = Class.forName(Properties.JUNIT_PREFIX,
-				                                    true,
-				                                    TestGenerationContext.getClassLoader());
-				classes.add(junitClass);
-			} catch (ClassNotFoundException e) {
-				System.out.println("NOT FOUND: " + e + " with " + Properties.JUNIT_PREFIX);
-				// Second, try if the target name is a package name
-				classes.addAll(getClassesFromClasspath());
+				try {
+					Class<?> junitClass = Class.forName(prefix,
+							true,
+							TestGenerationContext.getClassLoader());
+					classes.add(junitClass);
+				} catch (ClassNotFoundException e) {
+					// Second, try if the target name is a package name
+					classes.addAll(getClassesFromClasspath());
+				}
 			}
 		}
 		return classes;
