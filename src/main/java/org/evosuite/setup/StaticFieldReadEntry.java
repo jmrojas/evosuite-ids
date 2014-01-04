@@ -1,6 +1,12 @@
 package org.evosuite.setup;
 
-final class StaticFieldReadEntry extends StaticUsageGraphEntry {
+/**
+ * This class represents GETSTATIC edges in the static usage graph.
+ *  
+ * @author galeotti
+ *
+ */
+final class StaticFieldReadEntry extends GetStaticGraphEntry {
 
 	public StaticFieldReadEntry(String sourceClass, String sourceMethod,
 			String targetClass, String targetField) {

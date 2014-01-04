@@ -1,12 +1,19 @@
 package org.evosuite.setup;
 
-abstract class StaticUsageGraphEntry {
+/**
+ * The superclass of an entry of the static usage graph.
+ * The static usage graph contains information regarding how static fields are used
+ * by static methods.
+ *  
+ * @author galeotti
+ */
+abstract class GetStaticGraphEntry {
 
 	private final String sourceClass;
 	private final String sourceMethod;
 	private final String targetClass;
 
-	public StaticUsageGraphEntry(String sourceClass, String sourceMethod,
+	public GetStaticGraphEntry(String sourceClass, String sourceMethod,
 			String targetClass) {
 		super();
 		this.sourceClass = sourceClass;
@@ -45,9 +52,9 @@ abstract class StaticUsageGraphEntry {
 			return true;
 		if (obj == null)
 			return false;
-		if (!(obj instanceof StaticUsageGraphEntry))
+		if (!(obj instanceof GetStaticGraphEntry))
 			return false;
-		StaticUsageGraphEntry other = (StaticUsageGraphEntry) obj;
+		GetStaticGraphEntry other = (GetStaticGraphEntry) obj;
 		if (sourceClass == null) {
 			if (other.sourceClass != null)
 				return false;
@@ -65,6 +72,5 @@ abstract class StaticUsageGraphEntry {
 			return false;
 		return true;
 	}
-	
 
 }
