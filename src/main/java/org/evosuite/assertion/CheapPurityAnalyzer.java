@@ -4,13 +4,9 @@ import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Set;
 
-import org.evosuite.setup.CallTree;
-import org.evosuite.setup.CallTreeEntry;
-import org.evosuite.setup.DependencyAnalysis;
+import org.objectweb.asm.Type;
 
-import com.sun.xml.internal.ws.org.objectweb.asm.Type;
-
-public class PurityAnalyzer {
+public class CheapPurityAnalyzer {
 
 	private boolean underApproximateAnalysis = true;
 
@@ -20,9 +16,9 @@ public class PurityAnalyzer {
 	private final HashSet<MethodEntry> pureMethodCache = new HashSet<MethodEntry>();
 	private final HashSet<MethodEntry> notPureMethodCache = new HashSet<MethodEntry>();
 
-	private static final PurityAnalyzer instance = new PurityAnalyzer();
+	private static final CheapPurityAnalyzer instance = new CheapPurityAnalyzer();
 
-	public static PurityAnalyzer getInstance() {
+	public static CheapPurityAnalyzer getInstance() {
 		return instance;
 	}
 
@@ -51,6 +47,18 @@ public class PurityAnalyzer {
 					return false;
 				}
 			}
+		}
+
+		if (specialCalls.containsKey(entry)) {
+			return false;
+		}
+
+		if (virtualCalls.containsKey(entry)) {
+			return false;
+		}
+
+		if (interfaceCalls.containsKey(entry)) {
+			return false;
 		}
 
 		if (this.notUpdateFieldMethodList.contains(entry)) {
@@ -143,39 +151,66 @@ public class PurityAnalyzer {
 	}
 
 	private final HashMap<MethodEntry, Set<MethodEntry>> staticCalls = new HashMap<MethodEntry, Set<MethodEntry>>();
+	private final HashMap<MethodEntry, Set<MethodEntry>> virtualCalls = new HashMap<MethodEntry, Set<MethodEntry>>();
+	private final HashMap<MethodEntry, Set<MethodEntry>> specialCalls = new HashMap<MethodEntry, Set<MethodEntry>>();
+	private final HashMap<MethodEntry, Set<MethodEntry>> interfaceCalls = new HashMap<MethodEntry, Set<MethodEntry>>();
 
 	public void addStaticCall(String sourceClassName, String sourceMethodName,
 			String sourceDescriptor, String targetClassName,
 			String targetMethodName, String targetDescriptor) {
-		MethodEntry sourceEntry = new MethodEntry(sourceClassName.replace("/","."),
-				sourceMethodName, sourceDescriptor);
-		MethodEntry targetEntry = new MethodEntry(targetClassName.replace("/","."),
-				targetMethodName, targetDescriptor);
 
+		MethodEntry sourceEntry = new MethodEntry(sourceClassName.replace("/",
+				"."), sourceMethodName, sourceDescriptor);
+		MethodEntry targetEntry = new MethodEntry(targetClassName.replace("/",
+				"."), targetMethodName, targetDescriptor);
 		if (!staticCalls.containsKey(sourceEntry)) {
 			staticCalls.put(sourceEntry, new HashSet<MethodEntry>());
 		}
 		staticCalls.get(sourceEntry).add(targetEntry);
 	}
 
-	public void addVirtualCall(String sourceClassName,
-			String sourceMethodAndDescriptor, String targetClassName,
-			String targetMehtodAndDescriptor) {
-		// TODO Auto-generated method stub
+	public void addVirtualCall(String sourceClassName, String sourceMethodName,
+			String sourceDescriptor, String targetClassName,
+			String targetMethodName, String targetDescriptor) {
+
+		MethodEntry sourceEntry = new MethodEntry(sourceClassName.replace("/",
+				"."), sourceMethodName, sourceDescriptor);
+		MethodEntry targetEntry = new MethodEntry(targetClassName.replace("/",
+				"."), targetMethodName, targetDescriptor);
+		if (!virtualCalls.containsKey(sourceEntry)) {
+			virtualCalls.put(sourceEntry, new HashSet<MethodEntry>());
+		}
+		virtualCalls.get(sourceEntry).add(targetEntry);
 
 	}
 
 	public void addInterfaceCall(String sourceClassName,
-			String sourceMethodAndDescriptor, String targetClassName,
-			String targetMehtodAndDescriptor) {
-		// TODO Auto-generated method stub
+			String sourceMethodName, String sourceDescriptor,
+			String targetClassName, String targetMethodName,
+			String targetDescriptor) {
+
+		MethodEntry sourceEntry = new MethodEntry(sourceClassName.replace("/",
+				"."), sourceMethodName, sourceDescriptor);
+		MethodEntry targetEntry = new MethodEntry(targetClassName.replace("/",
+				"."), targetMethodName, targetDescriptor);
+		if (!interfaceCalls.containsKey(sourceEntry)) {
+			interfaceCalls.put(sourceEntry, new HashSet<MethodEntry>());
+		}
+		interfaceCalls.get(sourceEntry).add(targetEntry);
+
 	}
 
-	public void addSpecialCall(String sourceClassName,
-			String sourceMethodAndDescriptor, String targetClassName,
-			String targetMehtodAndDescriptor) {
-		// TODO Auto-generated method stub
-
+	public void addSpecialCall(String sourceClassName, String sourceMethodName,
+			String sourceDescriptor, String targetClassName,
+			String targetMethodName, String targetDescriptor) {
+		MethodEntry sourceEntry = new MethodEntry(sourceClassName.replace("/",
+				"."), sourceMethodName, sourceDescriptor);
+		MethodEntry targetEntry = new MethodEntry(targetClassName.replace("/",
+				"."), targetMethodName, targetDescriptor);
+		if (!specialCalls.containsKey(sourceEntry)) {
+			specialCalls.put(sourceEntry, new HashSet<MethodEntry>());
+		}
+		specialCalls.get(sourceEntry).add(targetEntry);
 	}
 
 }
