@@ -476,7 +476,11 @@ public class JUnitAnalyzer {
 			final String JAVA = ".java";
 			String name = file.getName();
 			
-			if (!name.endsWith(JAVA)) {
+			if(!name.endsWith(JAVA)){
+				/*
+				 * this could happen when we scan a folder for all src/compiled
+				 * files
+				 */
 				continue;
 			}
 			
