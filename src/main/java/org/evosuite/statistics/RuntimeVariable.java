@@ -81,6 +81,10 @@ public enum RuntimeVariable {
 	LengthTimeline,
 	/** The obtained statement coverage */
 	StatementCoverage,
+	/** The obtained rho coverage */
+	RhoCoverage,
+	/** The obtained ambiguity coverage */
+	AmbiguityCoverage,
 	/** Not only the covered branches ratio, but also including the branchless methods. FIXME: this will need to be changed */
 	BranchCoverage,
 	/** A bit string (0/1) representing whether branches (in order) are covered */
@@ -113,6 +117,8 @@ public enum RuntimeVariable {
 	CarvedCoverage, 
 	/** Was any test unstable in the generated JUnit files? */
 	HadUnstableTests, 
+	/** Number of unstable tests in the generated JUnit files */
+	NumUnstableTests, 
 	/** An estimate (ie not precise) of the maximum number of threads running at the same time in the CUT */
 	Threads,
 	/** Number of top-level methods throwing an undeclared exception explicitly with a 'throw new' */

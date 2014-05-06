@@ -2,21 +2,31 @@ package org.evosuite;
 
 import org.evosuite.ga.GeneticAlgorithm;
 import org.evosuite.testsuite.TestSuiteChromosome;
+import org.junit.After;
 import org.junit.Assert;
 import org.junit.Test;
 
-import com.examples.with.different.packagename.AbstractClassWithStaticFactory;
-import com.examples.with.different.packagename.AbstractSuperClass;
+import com.examples.with.different.packagename.DoubleExample;
+import com.examples.with.different.packagename.DoubleExample2;
 
-public class TestAbstractSUT extends SystemTest {
-
+public class TestDoubleOptimisation extends SystemTest {
+	
+	private double seedConstants = Properties.PRIMITIVE_POOL;
+	
+	@After
+	public void resetSeedConstants() {
+		Properties.PRIMITIVE_POOL = seedConstants;
+	}
+	
 	@Test
-	public void testAbstractSUT() {
+	public void testDoubleSUT() {
 		EvoSuite evosuite = new EvoSuite();
 
-		String targetClass = AbstractSuperClass.class.getCanonicalName();
+		String targetClass = DoubleExample.class.getCanonicalName();
 
 		Properties.TARGET_CLASS = targetClass;
+		Properties.PRIMITIVE_POOL = 0.0;
+		Properties.SEARCH_BUDGET = 30000;
 
 		String[] command = new String[] { "-generateSuite", "-class", targetClass };
 
@@ -32,12 +42,15 @@ public class TestAbstractSUT extends SystemTest {
 	}
 	
 	@Test
-	public void testAbstractSUTWithOnlyStaticFactory() {
+	public void testDoubleSUTExact() {
 		EvoSuite evosuite = new EvoSuite();
 
-		String targetClass = AbstractClassWithStaticFactory.class.getCanonicalName();
+		String targetClass = DoubleExample2.class.getCanonicalName();
 
 		Properties.TARGET_CLASS = targetClass;
+		//Properties.PRIMITIVE_POOL = 0.0;
+		// TODO: Optimising exact doubles without seeding takes _long_
+		//Properties.SEARCH_BUDGET = 30000;
 
 		String[] command = new String[] { "-generateSuite", "-class", targetClass };
 
@@ -51,5 +64,4 @@ public class TestAbstractSUT extends SystemTest {
 
 		Assert.assertEquals("Non-optimal coverage: ", 1d, best.getCoverage(), 0.001);
 	}
-
 }

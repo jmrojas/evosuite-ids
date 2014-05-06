@@ -43,6 +43,8 @@ import org.evosuite.contracts.FailingTestSet;
 import org.evosuite.coverage.CoverageAnalysis;
 import org.evosuite.coverage.FitnessLogger;
 import org.evosuite.coverage.TestFitnessFactory;
+import org.evosuite.coverage.ambiguity.AmbiguityCoverageFactory;
+import org.evosuite.coverage.ambiguity.AmbiguityCoverageSuiteFitness;
 import org.evosuite.coverage.branch.BranchCoverageFactory;
 import org.evosuite.coverage.branch.BranchCoverageSuiteFitness;
 import org.evosuite.coverage.branch.BranchPool;
@@ -66,6 +68,8 @@ import org.evosuite.coverage.mutation.StrongMutationSuiteFitness;
 import org.evosuite.coverage.mutation.WeakMutationSuiteFitness;
 import org.evosuite.coverage.path.PrimePathCoverageFactory;
 import org.evosuite.coverage.path.PrimePathSuiteFitness;
+import org.evosuite.coverage.rho.RhoCoverageFactory;
+import org.evosuite.coverage.rho.RhoCoverageSuiteFitness;
 import org.evosuite.coverage.statement.StatementCoverageFactory;
 import org.evosuite.coverage.statement.StatementCoverageSuiteFitness;
 import org.evosuite.ga.Chromosome;
@@ -329,10 +333,11 @@ public class TestSuiteGenerator {
 			StatisticsSender.sendIndividualToMaster(tests);
 		}
 
-		if (Properties.CHECK_CONTRACTS) {
+		if (Properties.CHECK_CONTRACTS) {			
 			for (TestCase test : FailingTestSet.getFailingTests()) {
 				tests.addTest(test);
 			}
+			FailingTestSet.sendStatistics();
 		}
 
 		List<TestCase> testCases = tests.getTests();
@@ -344,15 +349,18 @@ public class TestSuiteGenerator {
 				JUnitAnalyzer.removeTestsThatDoNotCompile(testCases);
 
 				boolean unstable = false;
-				
-				unstable = JUnitAnalyzer.handleTestsThatAreUnstable(testCases);
+				int numUnstable = 0;
+				numUnstable = JUnitAnalyzer.handleTestsThatAreUnstable(testCases); 
+				unstable = numUnstable > 0;
 				//second passage on reverse order, this is to spot dependencies among tests
 				if (testCases.size() > 1) {
 					Collections.reverse(testCases);
-					unstable = JUnitAnalyzer.handleTestsThatAreUnstable(testCases) || unstable;
+					numUnstable += JUnitAnalyzer.handleTestsThatAreUnstable(testCases); 
+					unstable = (numUnstable > 0) || unstable;
 				}
 				
 				ClientServices.getInstance().getClientNode().trackOutputVariable(RuntimeVariable.HadUnstableTests,unstable);
+				ClientServices.getInstance().getClientNode().trackOutputVariable(RuntimeVariable.NumUnstableTests,numUnstable);
 				
 			} else {
 				logger.error("No Java compiler is available. Are you running with the JDK?");
@@ -569,7 +577,9 @@ public class TestSuiteGenerator {
 
 		if (Properties.CRITERION == Criterion.DEFUSE
 		        || Properties.CRITERION == Criterion.ALLDEFS
-		        || Properties.CRITERION == Criterion.STATEMENT)
+		        || Properties.CRITERION == Criterion.STATEMENT
+		        || Properties.CRITERION == Criterion.RHO
+		        || Properties.CRITERION == Criterion.AMBIGUITY)
 			ExecutionTracer.enableTraceCalls();
 
 		// TODO: why it was only if "analyzing"???
@@ -666,6 +676,11 @@ public class TestSuiteGenerator {
 			// progressMonitor.setCurrentPhase("Minimizing test cases");
 			TestSuiteMinimizer minimizer = new TestSuiteMinimizer(getFitnessFactory());
 			minimizer.minimize(best);
+		} else {
+			ClientServices.getInstance().getClientNode().trackOutputVariable(RuntimeVariable.Result_Size, best.size());
+			ClientServices.getInstance().getClientNode().trackOutputVariable(RuntimeVariable.Minimized_Size, best.size());
+			ClientServices.getInstance().getClientNode().trackOutputVariable(RuntimeVariable.Result_Length, best.totalLengthOfTestCases());
+			ClientServices.getInstance().getClientNode().trackOutputVariable(RuntimeVariable.Minimized_Length, best.totalLengthOfTestCases());
 		}
 
 
@@ -747,6 +762,12 @@ public class TestSuiteGenerator {
 		case STATEMENT:
 			LoggingUtils.getEvoLogger().info("* Test Criterion: Statement Coverage");
 			break;
+		case RHO:
+            LoggingUtils.getEvoLogger().info("* Test Criterion: Rho Coverage");
+            break;
+		case AMBIGUITY:
+            LoggingUtils.getEvoLogger().info("* Test Criterion: Ambiguity Coverage");
+            break;
 		case ALLDEFS:
 			LoggingUtils.getEvoLogger().info("* Test Criterion: All Definitions");
 			break;
@@ -798,6 +819,10 @@ public class TestSuiteGenerator {
 			return new IBranchSuiteFitness();
 		case STATEMENT:
 			return new StatementCoverageSuiteFitness();
+		case RHO:
+            return new RhoCoverageSuiteFitness();
+		case AMBIGUITY:
+            return new AmbiguityCoverageSuiteFitness();
 		case ALLDEFS:
 			return new AllDefsCoverageSuiteFitness();
 		case EXCEPTION:
@@ -851,6 +876,10 @@ public class TestSuiteGenerator {
 			return new IBranchFitnessFactory();
 		case STATEMENT:
 			return new StatementCoverageFactory();
+		case RHO:
+            return new RhoCoverageFactory();
+		case AMBIGUITY:
+            return new AmbiguityCoverageFactory();
 		case ALLDEFS:
 			return new AllDefsCoverageFactory();
 		case EXCEPTION:
@@ -1520,7 +1549,7 @@ public class TestSuiteGenerator {
 	 * 
 	 * @return a {@link org.evosuite.ga.ChromosomeFactory} object.
 	 */
-	protected static ChromosomeFactory<? extends Chromosome> getDefaultChromosomeFactory() {
+	public static ChromosomeFactory<? extends Chromosome> getDefaultChromosomeFactory() {
 		switch (Properties.STRATEGY) {
 		case EVOSUITE:
 			return new TestSuiteChromosomeFactory(new RandomLengthTestFactory());
