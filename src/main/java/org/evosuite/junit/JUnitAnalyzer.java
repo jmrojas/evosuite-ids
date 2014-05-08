@@ -25,9 +25,7 @@ import org.evosuite.Properties;
 import org.evosuite.TestGenerationContext;
 import org.evosuite.instrumentation.InstrumentingClassLoader;
 import org.evosuite.junit.xml.JUnitProcessLauncher;
-import org.evosuite.rmi.ClientServices;
 import org.evosuite.sandbox.Sandbox;
-import org.evosuite.statistics.RuntimeVariable;
 import org.evosuite.testcase.TestCase;
 import org.evosuite.testsuite.SearchStatistics;
 import org.evosuite.utils.ClassPathHandler;
@@ -90,12 +88,9 @@ public class JUnitAnalyzer {
 				if (dir != null) {
 					try {
 						FileUtils.deleteDirectory(dir);
-						logger.debug("Deleted tmp folder: "
-								+ dir.getAbsolutePath());
+						logger.debug("Deleted tmp folder: " + dir.getAbsolutePath());
 					} catch (Exception e) {
-						logger.error(
-								"Cannot delete tmp dir: "
-										+ dir.getAbsolutePath(), e);
+						logger.error("Cannot delete tmp dir: " + dir.getAbsolutePath(), e);
 					}
 				}
 			}
@@ -114,18 +109,19 @@ public class JUnitAnalyzer {
 	 * @param tests
 	 * @return <code>true</code> if any test was unstable
 	 */
-	public static boolean handleTestsThatAreUnstable(List<TestCase> tests) {
+	public static int handleTestsThatAreUnstable(List<TestCase> tests) {
 
+		int numUnstable = 0;
 		logger.info("Going to execute: handleTestsThatAreUnstable");
 
 		if (tests == null || tests.isEmpty()) { //nothing to do
-			return false;
+			return numUnstable;
 		}
 
 		File dir = createNewTmpDir();
 		if (dir == null) {
 			logger.error("Failed to create tmp dir");
-			return false;
+			return numUnstable;
 		}
 		logger.debug("Created tmp folder: " + dir.getAbsolutePath());
 
@@ -137,29 +133,35 @@ public class JUnitAnalyzer {
 				 * is done before calling this method
 				 */
 				logger.warn("Failed to compile the test cases ");
-				return false;
+				return numUnstable;
 			}
 
 			Class<?>[] testClasses = loadTests(generated, dir);
 
 			if (testClasses == null) {
 				logger.error("Found no classes for compiled tests");
-				return false;
+				return numUnstable;
 			}
 
 			JUnitResult result = runTests(testClasses, dir);
 
 			if (result.wasSuccessful()) {
-				return false; //everything is OK
+				return numUnstable; //everything is OK
 			}
 
 			logger.error("" + result.getFailureCount() + " test cases failed");
-			for (JUnitFailure failure : result.getFailures()) {
+			failure_loop: for (JUnitFailure failure : result.getFailures()) {
 				String testName = failure.getDescriptionMethodName();//TODO check if correct
-
+				for (int i = 0; i < tests.size(); i++) {
+					if (TestSuiteWriter.getNameOfTest(tests, i).equals(testName)) {
+						if (tests.get(i).isFailing()) {
+							logger.info("Failure is expected, continuing...");
+							continue failure_loop;
+						}
+					}
+				}
 				logger.warn("Found unstable test named " + testName + " -> "
-						+ failure.getExceptionClassName() + ": "
-						+ failure.getMessage());
+				        + failure.getExceptionClassName() + ": " + failure.getMessage());
 				for (String elem : failure.getExceptionStackTrace()) {
 					logger.info(elem);
 				}
@@ -169,9 +171,9 @@ public class JUnitAnalyzer {
 				boolean toRemove = !(failure.isAssertionError());
 
 				for (int i = 0; i < tests.size(); i++) {
-					if (TestSuiteWriter.getNameOfTest(tests, i)
-							.equals(testName)) {
+					if (TestSuiteWriter.getNameOfTest(tests, i).equals(testName)) {
 						logger.warn("Failing test: " + tests.get(i).toCode());
+						numUnstable++;
 						/*
 						 * we have a match. should we remove it or mark as unstable?
 						 * When we have an Assert.* failing, we can just comment out
@@ -182,12 +184,10 @@ public class JUnitAnalyzer {
 						 * or something we cannot (easily) fix here 
 						 */
 						if (!toRemove) {
-							logger.debug("Going to mark test as unstable: "
-									+ testName);
+							logger.debug("Going to mark test as unstable: " + testName);
 							tests.get(i).setUnstable(true);
 						} else {
-							logger.debug("Going to remove unstable test: "
-									+ testName);
+							logger.debug("Going to remove unstable test: " + testName);
 							tests.remove(i);
 						}
 						break;
@@ -196,7 +196,7 @@ public class JUnitAnalyzer {
 			}
 		} catch (Exception e) {
 			logger.error("" + e, e);
-			return false;
+			return numUnstable;
 		} finally {
 			//let's be sure we clean up all what we wrote on disk
 
@@ -209,13 +209,13 @@ public class JUnitAnalyzer {
 			}
 
 		}
-		
+
 		//if we arrive here, then it means at least one test was unstable
-		return true;
+		return numUnstable;
 	}
 
-	private static JUnitResult runTests(Class<?>[] testClasses,
-			File testClassDir) throws JUnitExecutionException{
+	private static JUnitResult runTests(Class<?>[] testClasses, File testClassDir)
+	        throws JUnitExecutionException {
 		if (Properties.JUNIT_CHECK_ON_SEPARATE_PROCESS) {
 			return runJUnitOnSeparateProcess(testClasses, testClassDir);
 		} else {
@@ -223,13 +223,12 @@ public class JUnitAnalyzer {
 		}
 	}
 
-	private static JUnitResult runJUnitOnSeparateProcess(
-			Class<?>[] testClasses, File testClassDir)  throws JUnitExecutionException{
+	private static JUnitResult runJUnitOnSeparateProcess(Class<?>[] testClasses,
+	        File testClassDir) throws JUnitExecutionException {
 		JUnitProcessLauncher launcher = new JUnitProcessLauncher();
 		JUnitResult result = launcher.startNewJUnitProcess(testClasses, testClassDir);
 		return result;
 	}
-
 
 	private static JUnitResult runJUnitOnCurrentProcess(Class<?>[] testClasses) {
 		JUnitCore runner = new JUnitCore();
@@ -275,18 +274,16 @@ public class JUnitAnalyzer {
 		TestSuiteWriter suite = new TestSuiteWriter();
 		suite.insertTests(tests);
 
-		String name = Properties.TARGET_CLASS.substring(Properties.TARGET_CLASS
-				.lastIndexOf(".") + 1);
+		String name = Properties.TARGET_CLASS.substring(Properties.TARGET_CLASS.lastIndexOf(".") + 1);
 		name += "Test_" + NUM++; //postfix
 
 		try {
 			//now generate the JUnit test case
-			List<File> generated = suite.writeTestSuite(name,
-					dir.getAbsolutePath());
+			List<File> generated = suite.writeTestSuite(name, dir.getAbsolutePath());
 			for (File file : generated) {
 				if (!file.exists()) {
 					logger.error("Supposed to generate " + file
-							+ " but it does not exist");
+					        + " but it does not exist");
 					return null;
 				}
 			}
@@ -301,41 +298,43 @@ public class JUnitAnalyzer {
 			DiagnosticCollector<JavaFileObject> diagnostics = new DiagnosticCollector<JavaFileObject>();
 			Locale locale = Locale.getDefault();
 			Charset charset = Charset.forName("UTF-8");
-			StandardJavaFileManager fileManager = compiler.getStandardFileManager(diagnostics, locale, charset);
-			
+			StandardJavaFileManager fileManager = compiler.getStandardFileManager(diagnostics,
+			                                                                      locale,
+			                                                                      charset);
+
 			Iterable<? extends JavaFileObject> compilationUnits = fileManager.getJavaFileObjectsFromFiles(generated);
 
 			List<String> optionList;
 			if (Properties.CLIENT_ON_THREAD) {
 				optionList = new ArrayList<String>();
 				String evosuiteCP = ClassPathHandler.getInstance().getEvoSuiteClassPath();
-				
+
 				String targetProjectCP = ClassPathHandler.getInstance().getTargetProjectClasspath();
 				String classpath = evosuiteCP + File.separator + targetProjectCP;
 				optionList.addAll(Arrays.asList("-classpath", classpath));
 			} else {
 				optionList = null;
 			}
-			
-			CompilationTask task = compiler.getTask(null, fileManager, diagnostics, optionList, null, compilationUnits);
+
+			CompilationTask task = compiler.getTask(null, fileManager, diagnostics,
+			                                        optionList, null, compilationUnits);
 			boolean compiled = task.call();
 			fileManager.close();
 
 			if (!compiled) {
 				logger.error("Compilation failed on compilation units: "
-						+ compilationUnits);
+				        + compilationUnits);
 				for (Diagnostic<?> diagnostic : diagnostics.getDiagnostics()) {
-					if (diagnostic.getMessage(null).startsWith(
-							"error while writing")) {
+					if (diagnostic.getMessage(null).startsWith("error while writing")) {
 						logger.error("Error is due to file permissions, ignoring...");
 						return generated;
 					}
-					logger.error("Diagnostic: " + diagnostic.getMessage(null)
-							+ ": " + diagnostic.getLineNumber());
+					logger.error("Diagnostic: " + diagnostic.getMessage(null) + ": "
+					        + diagnostic.getLineNumber());
 				}
 				for (JavaFileObject sourceFile : compilationUnits) {
 					List<String> lines = FileUtils.readLines(new File(
-							sourceFile.toUri().getPath()));
+					        sourceFile.toUri().getPath()));
 					logger.error(compilationUnits.iterator().next().toString());
 					for (int i = 0; i < lines.size(); i++) {
 						logger.error((i + 1) + ": " + lines.get(i));
@@ -354,9 +353,8 @@ public class JUnitAnalyzer {
 
 	protected static File createNewTmpDir() {
 		File dir = null;
-		String dirName = FileUtils.getTempDirectoryPath() + File.separator
-				+ "EvoSuite_" + (dirCounter++) + "_"
-				+ +System.currentTimeMillis();
+		String dirName = FileUtils.getTempDirectoryPath() + File.separator + "EvoSuite_"
+		        + (dirCounter++) + "_" + +System.currentTimeMillis();
 
 		//first create a tmp folder
 		dir = new File(dirName);
@@ -367,7 +365,7 @@ public class JUnitAnalyzer {
 
 		if (!dir.exists()) {
 			logger.error("Weird behavior: we created folder, but Java cannot determine if it exists? Folder: "
-					+ dirName);
+			        + dirName);
 			return null;
 		}
 
@@ -492,12 +490,10 @@ public class JUnitAnalyzer {
 			JUnitResult result = runTests(testClasses, dir);
 
 			if (!result.wasSuccessful()) {
-				logger.error("" + result.getFailureCount()
-						+ " test cases failed");
+				logger.error("" + result.getFailureCount() + " test cases failed");
 				for (JUnitFailure failure : result.getFailures()) {
-					logger.error("Failure " + failure.getExceptionClassName()
-							+ ": " + failure.getMessage() + "\n"
-							+ failure.getTrace());
+					logger.error("Failure " + failure.getExceptionClassName() + ": "
+					        + failure.getMessage() + "\n" + failure.getTrace());
 				}
 				return false;
 			} else {
@@ -527,13 +523,13 @@ public class JUnitAnalyzer {
 		}
 
 		logger.debug("Successfully compiled and run test cases generated for "
-				+ Properties.TARGET_CLASS);
+		        + Properties.TARGET_CLASS);
 		return true;
 	}
 
 	/**
-	 * Given a list of files representing .java/.class classes, load them (it assumes
-	 * the classpath to be correctly set)
+	 * Given a list of files representing .java/.class classes, load them (it
+	 * assumes the classpath to be correctly set)
 	 * 
 	 * @param files
 	 * @return
@@ -568,9 +564,8 @@ public class JUnitAnalyzer {
 
 			if (name.endsWith(JAVA)) {
 				name = name.substring(0, name.length() - JAVA.length());
-				fileName = fileName.substring(0,
-						fileName.length() - JAVA.length())
-						+ ".class";
+				fileName = fileName.substring(0, fileName.length() - JAVA.length())
+				        + ".class";
 			} else {
 				assert name.endsWith(CLASS);
 				name = name.substring(0, name.length() - CLASS.length());
@@ -581,13 +576,11 @@ public class JUnitAnalyzer {
 			Class<?> testClass = null;
 			try {
 				logger.info("Loading class " + className);
-				testClass = ((InstrumentingClassLoader) TestGenerationContext
-						.getInstance().getClassLoaderForSUT())
-						.loadClassFromFile(className, fileName);
+				testClass = ((InstrumentingClassLoader) TestGenerationContext.getInstance().getClassLoaderForSUT()).loadClassFromFile(className,
+				                                                                                                                      fileName);
 			} catch (ClassNotFoundException e) {
-				logger.error("Failed to load test case " + className
-						+ " from file " + file.getAbsolutePath() + " , error "
-						+ e, e);
+				logger.error("Failed to load test case " + className + " from file "
+				        + file.getAbsolutePath() + " , error " + e, e);
 				return null;
 			}
 			classes.add(testClass);

@@ -117,6 +117,11 @@ public class Properties {
 	@Parameter(key = "reset_static_fields", group = "Test Creation", description = "Call static constructors only after each a static field was modified")
 	public static boolean RESET_STATIC_FIELDS = false;
 
+	/** Constant <code>RESET_STANDARD_STREAMS =false</code> */
+	@Parameter(key = "reset_standard_streams", group = "Test Creation", description = "Restore System.out, System.in and DebugGraphics.logStream after test execution")
+	public static boolean RESET_STANDARD_STREAMS = false;
+	
+	
 	/**
 	 * TODO: this option is off by default because still experimental and not
 	 * fully tested
@@ -647,6 +652,10 @@ public class Properties {
 	@Parameter(key = "html", group = "Output", description = "Create html reports")
 	public static boolean HTML = true;
 
+	/** Constant <code>COVERAGE_MATRIX=true</code> */
+    @Parameter(key = "coverage_matrix", group = "Output", description = "Create coverage matrix")
+    public static boolean COVERAGE_MATRIX = false;
+
 	/** Constant <code>JUNIT_TESTS=true</code> */
 	@Parameter(key = "junit_tests", group = "Output", description = "Create JUnit test suites")
 	public static boolean JUNIT_TESTS = true;
@@ -1094,6 +1103,8 @@ public class Properties {
 		WEAKMUTATION,
 		MUTATION,
 		STATEMENT,
+		RHO,
+		AMBIGUITY,
 		IBRANCH,
 		REGRESSION
 	}

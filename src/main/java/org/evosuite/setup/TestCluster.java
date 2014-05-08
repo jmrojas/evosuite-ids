@@ -961,8 +961,8 @@ public class TestCluster {
 	 */
 	public List<GenericAccessibleObject<?>> getTestCalls() {
 		// TODO: Check for generic methods
-		List<GenericAccessibleObject<?>> result = new ArrayList<GenericAccessibleObject<?>>(
-		        testMethods);
+		List<GenericAccessibleObject<?>> result = new ArrayList<GenericAccessibleObject<?>>();
+		//testMethods);
 		for (GenericAccessibleObject<?> ao : testMethods) {
 			if (ao.getOwnerClass().hasWildcardOrTypeVariables()) {
 				try {
@@ -990,7 +990,7 @@ public class TestCluster {
 		} catch (ConstructionFailedException e) {
 			// TODO
 		}
-		if(!generatorCache.containsKey(clazz))
+		if (!generatorCache.containsKey(clazz))
 			return false;
 
 		return !generatorCache.get(clazz).isEmpty();
