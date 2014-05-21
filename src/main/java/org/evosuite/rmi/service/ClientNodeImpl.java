@@ -247,6 +247,17 @@ public class ClientNodeImpl implements ClientNodeLocal, ClientNodeRemote {
 	public void stop(){
 		if(statisticsThread!=null){
 			statisticsThread.interrupt();
+			List<OutputVariable> vars = new ArrayList<OutputVariable>();
+			outputVariableQueue.drainTo(vars);
+			for(OutputVariable ov : vars) {
+				try {
+					masterNode.evosuite_collectStatistics(clientRmiIdentifier, ov.variable, ov.value);
+				} catch (RemoteException e) {
+					logger.error("Error when exporting statistics: "+ov.variable+"="+ov.value, e);
+					break;
+				}
+			}
+
 			try {
 				statisticsThread.join(3000);
 			} catch (InterruptedException e) {
@@ -398,6 +409,9 @@ public class ClientNodeImpl implements ClientNodeLocal, ClientNodeRemote {
 			@Override
 			public void run() {
 				changeState(ClientState.STARTED);
+				if (Properties.SANDBOX) {
+					Sandbox.initializeSecurityManagerForSUT();
+				}
 
 				try {
 					ClassStatisticsPrinter.printClassStatistics();

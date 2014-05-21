@@ -254,7 +254,7 @@ public class TestCluster {
 				        + " for " + clazz);
 
 				if (generatorClazz.canBeInstantiatedTo(clazz)) {
-					logger.debug("4. generator can be instantiated: " + generatorClazz);
+					logger.debug("4. generator " + generatorClazz + " can be instantiated to " + clazz);
 					GenericClass instantiatedGeneratorClazz = generatorClazz.getWithParametersFromSuperclass(clazz);
 					logger.debug("Instantiated type: " + instantiatedGeneratorClazz
 					        + " for " + generatorClazz + " and superclass " + clazz);
@@ -321,7 +321,7 @@ public class TestCluster {
 						}
 					}
 				} else {
-					logger.debug("4. generator can be instantiated: " + generatorClazz);
+					logger.debug("4. generator " + generatorClazz + " CANNOT be instantiated to " + clazz);
 				}
 			}
 			logger.debug("Found generators for " + clazz + ": " + targetGenerators.size());
@@ -646,6 +646,10 @@ public class TestCluster {
 			if (!generatorCache.containsKey(clazz)) {
 				cacheGenerators(clazz);
 			}
+			if(!hasGenerator(clazz)) {
+				throw new ConstructionFailedException("No generators of type " + clazz);
+			}
+				
 			all.addAll(generatorCache.get(clazz));
 
 			for (GenericAccessibleObject<?> call : all) {
@@ -663,6 +667,10 @@ public class TestCluster {
 						calls.add(call);
 					}
 				}
+			}
+			// This may happen e.g. for java.util.concurrent.ArrayBlockingQueue which has no default constructor
+			if(calls.isEmpty()) {
+				calls.addAll(all);
 			}
 		} else if (clazz.isAssignableTo(Number.class)) {
 			logger.debug("Found special case " + clazz);
@@ -703,7 +711,7 @@ public class TestCluster {
 	}
 
 	/**
-	 * FIXXME: This is a workaround for a bug where Integer is not contained in
+	 * FIXME: This is a workaround for a bug where Integer is not contained in
 	 * the generatorCache, but there is a key. No idea how it comes to place
 	 * 
 	 * @param clazz
@@ -764,7 +772,7 @@ public class TestCluster {
 	 * Determine the set of generators for an Object.class instance
 	 * 
 	 * @param target
-	 * @return
+	 * @return a collection of all cast classes stored in {@link CastClassManager}; cannot be <code>null</code>>.
 	 */
 	public Set<GenericAccessibleObject<?>> getObjectGenerators() {
 		// TODO: Use probabilities based on distance to SUT
@@ -815,6 +823,9 @@ public class TestCluster {
 			generator = Randomness.choice(generatorCache.get(clazz));
 		}
 
+		if (generator == null)
+			throw new ConstructionFailedException("No generators of type " + clazz);
+		
 		if (generator.hasTypeParameters()) {
 			generator = generator.getGenericInstantiation(clazz);
 		}
@@ -849,10 +860,11 @@ public class TestCluster {
 		// Collection, Map, Number
 		if (isSpecialCase(clazz)) {
 			generator = Randomness.choice(getGeneratorsForSpecialCase(clazz));
-			if (generator == null)
+			if (generator == null) {
+				logger.warn("No generator for special case class: " + clazz);
 				throw new ConstructionFailedException(
 				        "Have no generators for special case: " + clazz);
-
+			}
 		} else {
 			cacheGenerators(clazz);
 
@@ -885,14 +897,19 @@ public class TestCluster {
 	/**
 	 * Randomly select a generator for an Object.class instance
 	 * 
-	 * @param target
-	 * @return
+	 * @return a generator of type GenericAccessibleObject<?> or <code>null</code>
 	 * @throws ConstructionFailedException
 	 */
 	public GenericAccessibleObject<?> getRandomObjectGenerator()
 	        throws ConstructionFailedException {
 		logger.debug("Getting random object generator");
 		GenericAccessibleObject<?> generator = Randomness.choice(getObjectGenerators());
+		if (generator == null) {
+			// should NOT occur (from getObjectGenerators())
+			logger.warn("Random object generator is null");
+			throw new ConstructionFailedException("Random object generator is null");
+		}
+		
 		if (generator.getOwnerClass().hasWildcardOrTypeVariables()) {
 			logger.debug("Generator has wildcard or type: " + generator);
 			GenericClass concreteClass = generator.getOwnerClass().getGenericInstantiation();
@@ -903,7 +920,6 @@ public class TestCluster {
 
 			generator = generator.getGenericInstantiation();
 		}
-
 		return generator;
 
 	}
@@ -948,8 +964,8 @@ public class TestCluster {
 	 */
 	public List<GenericAccessibleObject<?>> getTestCalls() {
 		// TODO: Check for generic methods
-		List<GenericAccessibleObject<?>> result = new ArrayList<GenericAccessibleObject<?>>(
-		        testMethods);
+		List<GenericAccessibleObject<?>> result = new ArrayList<GenericAccessibleObject<?>>();
+		//testMethods);
 		for (GenericAccessibleObject<?> ao : testMethods) {
 			if (ao.getOwnerClass().hasWildcardOrTypeVariables()) {
 				try {
@@ -977,7 +993,7 @@ public class TestCluster {
 		} catch (ConstructionFailedException e) {
 			// TODO
 		}
-		if(!generatorCache.containsKey(clazz))
+		if (!generatorCache.containsKey(clazz))
 			return false;
 
 		return !generatorCache.get(clazz).isEmpty();

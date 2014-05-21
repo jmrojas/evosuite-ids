@@ -138,7 +138,7 @@
 					<plugin>
 					  <groupId>org.codehaus.mojo</groupId>
 					  <artifactId>findbugs-maven-plugin</artifactId>
-					  <version>2.5.2</version>
+					  <version>2.5.3</version>
 					  <configuration>
 					    <xmlOutput>true</xmlOutput>
 					    <excludeFilterFile>findbugs-exclude.xml</excludeFilterFile>
@@ -353,7 +353,7 @@
 			<!-- BSD -->
 			<groupId>com.thoughtworks.xstream</groupId>
 			<artifactId>xstream</artifactId>
-			<version>1.4.6</version>
+			<version>1.4.7</version>
 		</dependency>
 		<dependency>
 			<!-- Apache 2 -->
@@ -420,7 +420,7 @@
 			<plugin>
 				<groupId>org.codehaus.mojo</groupId>
 				<artifactId>appassembler-maven-plugin</artifactId>
-				<version>1.5</version>
+				<version>1.8</version>
 				<configuration>
 					<!-- Set the target configuration directory to be used in the bin scripts -->
 					<configurationDirectory>conf</configurationDirectory>
@@ -497,7 +497,7 @@
 			<plugin>
 				<groupId>org.apache.maven.plugins</groupId>
 				<artifactId>maven-release-plugin</artifactId>
-				<version>2.4.2</version>
+				<version>2.5</version>
 			</plugin>
 			<plugin>
 				<groupId>org.apache.maven.plugins</groupId>
@@ -552,7 +552,7 @@
 			<plugin>
 				<groupId>org.apache.maven.plugins</groupId>
 				<artifactId>maven-surefire-plugin</artifactId>
-				<version>2.16</version>
+				<version>2.17</version>
 				<configuration>
 					<skipTests>${skipTests}</skipTests>
 					<forkCount>1</forkCount>
@@ -560,6 +560,36 @@
 					<reportFormat>xml</reportFormat>
 				</configuration>
 			</plugin>
+			<plugin>
+			    <groupId>org.jacoco</groupId>
+		            <artifactId>jacoco-maven-plugin</artifactId>
+		            <version>0.7.1.201405082137</version>
+			    <executions>
+			      <execution>
+				<id>default-prepare-agent</id>
+				<goals>
+				  <goal>prepare-agent</goal>
+				</goals>
+			      </execution>
+			      <execution>
+				<id>default-report</id>
+				<phase>prepare-package</phase>
+				<goals>
+				  <goal>report</goal>
+				</goals>
+			      </execution>
+			      <execution>
+				<id>default-check</id>
+				<goals>
+				  <goal>check</goal>
+				</goals>
+				<configuration>
+					<rules>
+					</rules>
+				</configuration>
+			      </execution>
+			    </executions>
+		        </plugin>
 			<plugin>
 				<groupId>org.apache.maven.plugins</groupId>
 				<artifactId>maven-source-plugin</artifactId>
@@ -595,7 +625,7 @@
 			<plugin>
                 <groupId>org.codehaus.mojo</groupId>
                 <artifactId>jaxb2-maven-plugin</artifactId>
-                <version>1.5</version>
+                <version>1.6</version>
                 <executions>
                     <execution>
                         <id>xjc</id>
@@ -625,7 +655,7 @@
 							<plugin>
 								<groupId>org.codehaus.mojo</groupId>
 								<artifactId>findbugs-maven-plugin</artifactId>
-								<version>2.5.2</version>
+								<version>2.5.3</version>
 								<configuration>
 									<xmlOutput>true</xmlOutput>
 									<excludeFilterFile>findbugs-exclude.xml</excludeFilterFile>
@@ -644,14 +674,6 @@
 								<groupId>org.apache.maven.plugins</groupId>
 								<artifactId>maven-project-info-reports-plugin</artifactId>
 								<version>2.1.1</version>
-							</plugin>
-							<plugin>
-								<groupId>org.codehaus.mojo</groupId>
-								<artifactId>emma-maven-plugin</artifactId>
-								<version>1.0-alpha-3</version>
-								<configuration>
-									<skipTests>${skipTests}</skipTests>
-								</configuration>
 							</plugin>
 							<plugin>
 								<groupId>org.apache.maven.plugins</groupId>
