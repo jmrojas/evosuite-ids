@@ -47,10 +47,13 @@ public class TestFactory {
 	 */
 	private transient Set<GenericAccessibleObject<?>> currentRecursion = new HashSet<GenericAccessibleObject<?>>();
 
+	/** Singleton instance */
 	private static TestFactory instance = null;
 
+	/**
+	 * We keep track of calls already attempted to avoid infinite recursion
+	 */
 	public void reset() {
-		// MethodDescriptorReplacement.getInstance().reset();
 		currentRecursion.clear();
 	}
 
@@ -58,10 +61,6 @@ public class TestFactory {
 		if (instance == null)
 			instance = new TestFactory();
 		return instance;
-	}
-
-	public void resetRecursion() {
-		currentRecursion.clear();
 	}
 
 	/**
@@ -170,32 +169,27 @@ public class TestFactory {
 		int length = test.size();
 
 		if (!field.isStatic()) {
-			try {
-				callee = test.getRandomNonNullObject(field.getOwnerType(), position);
-				if (!TestClusterGenerator.canUse(field.getField(),
-				                                 callee.getVariableClass())) {
-					logger.debug("Cannot call field " + field + " with callee of type "
-					        + callee.getClassName());
-					throw new ConstructionFailedException(
-					        "Cannot apply field to this callee");
-				}
+			callee = createOrReuseVariable(test, field.getOwnerType(), position,
+					recursionDepth, null, false);
+			position += test.size() - length;
+			length = test.size();
 
-			} catch (ConstructionFailedException e) {
-				logger.debug("No callee of type " + field.getOwnerType() + " found");
-				callee = attemptGeneration(test, field.getOwnerType(), position,
-				                           recursionDepth + 1, false);
-				position += test.size() - length;
-				length = test.size();
-				
-				// TODO: Check if field is still accessible in subclass
-				if(!field.getOwnerClass().equals(callee.getGenericClass())) {
-					try {
+			if (!TestClusterGenerator.canUse(field.getField(),
+					callee.getVariableClass())) {
+				logger.debug("Cannot call field " + field + " with callee of type "
+						+ callee.getClassName());
+				throw new ConstructionFailedException(
+						"Cannot apply field to this callee");
+			}
+
+			// TODO: Check if field is still accessible in subclass
+			if(!field.getOwnerClass().equals(callee.getGenericClass())) {
+				try {
 					if(!TestClusterGenerator.canUse(callee.getVariableClass().getField(field.getName()))) {
 						throw new ConstructionFailedException("Cannot access field in subclass");
 					}
-					} catch(NoSuchFieldException fe) {
-						throw new ConstructionFailedException("Cannot access field in subclass");
-					}
+				} catch(NoSuchFieldException fe) {
+					throw new ConstructionFailedException("Cannot access field in subclass");
 				}
 			}
 		}
@@ -226,19 +220,11 @@ public class TestFactory {
 
 		int length = test.size();
 		VariableReference callee = null;
-		if (!field.isStatic()) { // TODO: Consider reuse
-			                     // probability here?
-			try {
-				// TODO: Would casting be an option here?
-				callee = test.getRandomNonNullObject(field.getOwnerType(), position);
-				logger.debug("Found callee of type " + field.getOwnerType());
-			} catch (ConstructionFailedException e) {
-				logger.debug("No callee of type " + field.getOwnerType() + " found");
-				callee = attemptGeneration(test, field.getOwnerType(), position,
-				                           recursionDepth, false);
-				position += test.size() - length;
-				length = test.size();
-			}
+		if (!field.isStatic()) { 
+			callee = createOrReuseVariable(test, field.getOwnerType(), position,
+					recursionDepth, null, false);
+			position += test.size() - length;
+			length = test.size();
 			if (!TestClusterGenerator.canUse(field.getField(), callee.getVariableClass())) {
 				logger.debug("Cannot call field " + field + " with callee of type "
 				        + callee.getClassName());
@@ -248,7 +234,7 @@ public class TestFactory {
 		}
 
 		VariableReference var = createOrReuseVariable(test, field.getFieldType(),
-		                                              position, recursionDepth, callee);
+		                                              position, recursionDepth, callee, true);
 		int newLength = test.size();
 		position += (newLength - length);
 
@@ -276,12 +262,15 @@ public class TestFactory {
 	public VariableReference addFieldFor(TestCase test, VariableReference callee,
 	        GenericField field, int position) throws ConstructionFailedException {
 		logger.debug("Adding field " + field + " for variable " + callee);
+		if(position <= callee.getStPosition())
+			throw new ConstructionFailedException("Cannot insert call on object before the object is defined");
+
 		currentRecursion.clear();
 
 		FieldReference fieldVar = new FieldReference(test, field, callee);
 		int length = test.size();
 		VariableReference value = createOrReuseVariable(test, fieldVar.getType(),
-		                                                position, 0, callee);
+		                                                position, 0, callee, true);
 
 		int newLength = test.size();
 		position += (newLength - length);
@@ -318,30 +307,20 @@ public class TestFactory {
 		VariableReference callee = null;
 		List<VariableReference> parameters = null;
 		try {
-			if (!method.isStatic()) { // TODO: Consider reuse
-				                      // probability here?
-				try {
-					// TODO: Would casting be an option here?
-					callee = test.getRandomNonNullNonPrimitiveObject(method.getOwnerType(),
-					                                                 position);
-					logger.debug("Found callee of type " + method.getOwnerType() + ": "
-					        + callee.getName());
-					if (!TestClusterGenerator.canUse(method.getMethod(),
-					                                 callee.getVariableClass())) {
-						logger.debug("Cannot call method " + method
-						        + " with callee of type " + callee.getClassName());
-						throw new ConstructionFailedException(
-						        "Cannot apply method to this callee");
-					}
-				} catch (ConstructionFailedException e) {
-					logger.debug("No callee of type " + method.getOwnerType() + " found");
-					Set<GenericAccessibleObject<?>> recursion = new HashSet<GenericAccessibleObject<?>>(
-					        currentRecursion);
-					callee = attemptGeneration(test, method.getOwnerType(), position,
-					                           recursionDepth, false);
-					currentRecursion = recursion;
-					position += test.size() - length;
-					length = test.size();
+			if (!method.isStatic()) {
+				callee = createOrReuseVariable(test, method.getOwnerType(), position,
+						recursionDepth, null, false);
+				position += test.size() - length;
+				length = test.size();
+
+				logger.debug("Found callee of type " + method.getOwnerType() + ": "
+						+ callee.getName());
+				if (!TestClusterGenerator.canUse(method.getMethod(),
+						callee.getVariableClass())) {
+					logger.debug("Cannot call method " + method
+							+ " with callee of type " + callee.getClassName());
+					throw new ConstructionFailedException(
+							"Cannot apply method to this callee");
 				}
 			}
 
@@ -378,6 +357,9 @@ public class TestFactory {
 	public VariableReference addMethodFor(TestCase test, VariableReference callee,
 	        GenericMethod method, int position) throws ConstructionFailedException {
 		logger.debug("Adding method " + method + " for " + callee);
+		if(position <= callee.getStPosition())
+			throw new ConstructionFailedException("Cannot insert call on object before the object is defined");
+		
 		currentRecursion.clear();
 		int length = test.size();
 		List<VariableReference> parameters = null;
@@ -387,8 +369,6 @@ public class TestFactory {
 
 		int newLength = test.size();
 		position += (newLength - length);
-		// VariableReference ret_val = new
-		// VariableReference(method.getGenericReturnType(), position);
 
 		StatementInterface st = new MethodStatement(test, method, callee, parameters);
 		VariableReference ret = test.addStatement(st, position);
@@ -630,7 +610,7 @@ public class TestFactory {
 		logger.debug("Chosen class for Object: "+choice);
 		if(choice.isString()) {
 			return createOrReuseVariable(test, String.class, position,
-                    recursionDepth, null);			
+                    recursionDepth, null, true);			
 		}
 		GenericAccessibleObject<?> o = TestCluster.getInstance().getRandomGenerator(choice);
 		// LoggingUtils.getEvoLogger().info("Generator for Object: " + o);
@@ -970,7 +950,7 @@ public class TestFactory {
 	 * @throws ConstructionFailedException
 	 */
 	private VariableReference createOrReuseVariable(TestCase test, Type parameterType,
-	        int position, int recursionDepth, VariableReference exclude)
+	        int position, int recursionDepth, VariableReference exclude, boolean allowNull)
 	        throws ConstructionFailedException {
 
 		if (Properties.SEED_TYPES && parameterType.equals(Object.class)) {
@@ -978,7 +958,6 @@ public class TestFactory {
 		}
 
 		double reuse = Randomness.nextDouble();
-		logger.debug("Reuse = "+reuse);
 
 		List<VariableReference> objects = test.getObjects(parameterType, position);
 		if (exclude != null) {
@@ -994,14 +973,13 @@ public class TestFactory {
 		}
 
 		GenericClass clazz = new GenericClass(parameterType);
-		if ((clazz.isPrimitive() || clazz.isWrapperType() || clazz.isEnum() || clazz.isClass() || clazz.isString())
-		        && !objects.isEmpty() && reuse <= Properties.PRIMITIVE_REUSE_PROBABILITY) {
+		boolean isPrimitiveOrSimilar = clazz.isPrimitive() || clazz.isWrapperType() || clazz.isEnum() || clazz.isClass() || clazz.isString(); 
+		if (isPrimitiveOrSimilar && !objects.isEmpty() && reuse <= Properties.PRIMITIVE_REUSE_PROBABILITY) {
 			logger.debug(" Looking for existing object of type " + parameterType);
 			VariableReference reference = Randomness.choice(objects);
 			return reference;
 
-		} else if (!clazz.isPrimitive() && !clazz.isWrapperType() && !clazz.isEnum() && !clazz.isClass() && !clazz.isString()
-		        && !objects.isEmpty() && ((reuse <= Properties.OBJECT_REUSE_PROBABILITY))) {
+		} else if (!isPrimitiveOrSimilar && !objects.isEmpty() && (reuse <= Properties.OBJECT_REUSE_PROBABILITY)) {
 
 			logger.debug(" Choosing from " + objects.size() + " existing objects");
 			VariableReference reference = Randomness.choice(objects);
@@ -1020,7 +998,7 @@ public class TestFactory {
 				logger.debug(" Generating new object of type " + parameterType);
 				VariableReference reference = attemptGeneration(test, parameterType,
 				                                                position, recursionDepth,
-				                                                true);
+				                                                allowNull);
 				return reference;
 			} else {
 				if (objects.isEmpty())
@@ -1386,6 +1364,7 @@ public class TestFactory {
 			GenericAccessibleObject<?> o = TestCluster.getInstance().getRandomTestCall();
 			if (o == null) {
 				logger.warn("Have no target methods to test");
+				return false;
 			} else if (o.isConstructor()) {
 				GenericConstructor c = (GenericConstructor) o;
 				logger.debug("Adding constructor call " + c.getName());
@@ -1446,6 +1425,7 @@ public class TestFactory {
 				}
 			} else {
 				logger.error("Got type other than method or constructor!");
+				return false;
 			}
 
 			return true;
@@ -1625,7 +1605,7 @@ public class TestFactory {
 			int previousLength = test.size();
 
 			VariableReference var = createOrReuseVariable(test, parameterType, position,
-			                                              recursionDepth, callee);
+			                                              recursionDepth, callee, true);
 			parameters.add(var);
 
 			int currentLength = test.size();

@@ -1026,7 +1026,7 @@ public class MSecurityManager extends SecurityManager {
 					|| library.equals("cmm") || library.equals("t2k") 
 					|| library.equals("jawt") || library.equals("sunec")  
 					|| library.equals("management") || library.equals("kcms")
-					|| library.equals("jaybird21") || library.equals("instrument")
+					|| library.startsWith("jaybird") || library.equals("instrument")
 					) {
 				return true;
 			}
@@ -1092,7 +1092,11 @@ public class MSecurityManager extends SecurityManager {
 		}
 
 		if(perm.getActions().contains("write") && !executingTestCase){
-			return false;  // just to be sure
+			if(org.evosuite.runtime.System.isSystemProperty(perm.getName())) {
+				return false;
+			} else {
+				return true;
+			}
 		}
 
 		return org.evosuite.runtime.System.handlePropertyPermission(perm);
