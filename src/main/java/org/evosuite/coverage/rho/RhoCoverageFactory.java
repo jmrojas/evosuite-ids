@@ -22,9 +22,8 @@ import java.io.File;
 import java.io.FileReader;
 import java.io.IOException;
 import java.util.ArrayList;
-import java.util.HashSet;
+import java.util.LinkedHashSet;
 import java.util.List;
-import java.util.Set;
 
 import org.evosuite.Properties;
 import org.evosuite.TestGenerationContext;
@@ -32,7 +31,6 @@ import org.evosuite.coverage.MethodNameMatcher;
 import org.evosuite.graphs.cfg.BytecodeInstruction;
 import org.evosuite.graphs.cfg.BytecodeInstructionPool;
 import org.evosuite.testsuite.AbstractFitnessFactory;
-import org.evosuite.utils.LoggingUtils;
 
 /**
  * <p>
@@ -67,7 +65,7 @@ public class RhoCoverageFactory extends
 	/**
 	 * 
 	 */
-	private static Set<Integer> lineNumbers = new HashSet<Integer>();
+	private static LinkedHashSet<Integer> lineNumbers = new LinkedHashSet<Integer>();
 
 	/**
 	 * 
@@ -79,20 +77,24 @@ public class RhoCoverageFactory extends
 		String targetClass = Properties.TARGET_CLASS;
 
 		final MethodNameMatcher matcher = new MethodNameMatcher();
-		for (String className : BytecodeInstructionPool.getInstance(TestGenerationContext.getClassLoader()).knownClasses()) {
+		//for (String className : BytecodeInstructionPool.getInstance(TestGenerationContext.getClassLoader()).knownClasses()) {
+		for (String className : BytecodeInstructionPool.getInstance(TestGenerationContext.getInstance().getClassLoaderForSUT()).knownClasses()) {
 			if (!(targetClass.equals("") || className.endsWith(targetClass)))
 				continue ;
-			for (String methodName : BytecodeInstructionPool.getInstance(TestGenerationContext.getClassLoader()).knownMethods(className)) {
+			//for (String methodName : BytecodeInstructionPool.getInstance(TestGenerationContext.getClassLoader()).knownMethods(className)) {
+			for (String methodName : BytecodeInstructionPool.getInstance(TestGenerationContext.getInstance().getClassLoaderForSUT()).knownMethods(className)) {
 				if (!matcher.methodMatches(methodName))
 					continue ;
-				for (BytecodeInstruction ins : BytecodeInstructionPool.getInstance(TestGenerationContext.getClassLoader()).getInstructionsIn(className,
-																																				methodName))
+				/*for (BytecodeInstruction ins : BytecodeInstructionPool.getInstance(TestGenerationContext.getClassLoader()).getInstructionsIn(className,
+																																				methodName))*/
+				for (BytecodeInstruction ins : BytecodeInstructionPool.getInstance(TestGenerationContext.getInstance().getClassLoaderForSUT()).getInstructionsIn(className,
+				                                                                                                                                                 methodName))
 					if (isUsable(ins))
 						goals.add(new RhoCoverageTestFitness(ins));
 			}
 		}
-		LoggingUtils.getEvoLogger().info("* Total number of coverage goals using Rho Fitness Function: "
-											+ goals.size());
+		/*LoggingUtils.getEvoLogger().info("* Total number of coverage goals using Rho Fitness Function: "
+											+ goals.size());*/
 
 		called = true;
 		loadCoverage();
@@ -186,13 +188,5 @@ public class RhoCoverageFactory extends
 	 */
 	public static int getNumberTestCases() {
 		return number_of_test_cases;
-	}
-
-	/**
-	 * 
-	 * @return
-	 */
-	public static int getNumberComponents() {
-		return goals.size();
 	}
 }
