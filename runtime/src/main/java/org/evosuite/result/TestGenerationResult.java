@@ -3,7 +3,7 @@ package org.evosuite.result;
 import java.io.Serializable;
 import java.util.Set;
 
-import org.evosuite.ga.GeneticAlgorithm;
+import org.evosuite.ga.metaheuristics.GeneticAlgorithm;
 import org.evosuite.testcase.TestCase;
 
 public interface TestGenerationResult extends Serializable {
@@ -26,7 +26,7 @@ public interface TestGenerationResult extends Serializable {
 	public String getClassUnderTest();
 	
 	/** Target coverage criterion used to create this test suite */
-	public String getTargetCriterion();
+	public String[] getTargetCriterion();
 	
 	/** Coverage level of the target criterion */
 	public double getTargetCoverage();

@@ -5,7 +5,7 @@ import java.util.LinkedHashSet;
 import java.util.Map;
 import java.util.Set;
 
-import org.evosuite.ga.GeneticAlgorithm;
+import org.evosuite.ga.metaheuristics.GeneticAlgorithm;
 import org.evosuite.testcase.TestCase;
 
 class TestGenerationResultImpl implements TestGenerationResult {
@@ -48,7 +48,8 @@ class TestGenerationResultImpl implements TestGenerationResult {
 	
 	private String targetClass = "";
 	
-	private String targetCriterion = "";
+	//private String targetCriterion = "";
+	private String[] targetCriterion;
 	
 	private double targetCoverage = 0.0;
 	
@@ -110,11 +111,11 @@ class TestGenerationResultImpl implements TestGenerationResult {
 	}
 	
 	@Override
-	public String getTargetCriterion() {
+	public String[] getTargetCriterion() {
 		return targetCriterion;
 	}
 	
-	public void setTargetCriterion(String criterion) {
+	public void setTargetCriterion(String[] criterion) {
 		this.targetCriterion = criterion;
 	}
 	

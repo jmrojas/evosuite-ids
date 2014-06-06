@@ -96,10 +96,10 @@ public class TestCaseMinimizer {
 	private static boolean isWorse(FitnessFunction<TestChromosome> fitness,
 	        TestChromosome oldChromosome, TestChromosome newChromosome) {
 		if (fitness.isMaximizationFunction()) {
-			if (oldChromosome.getFitness() > newChromosome.getFitness())
+			if (oldChromosome.getFitness(fitness) > newChromosome.getFitness(fitness))
 				return true;
 		} else {
-			if (newChromosome.getFitness() > oldChromosome.getFitness())
+			if (newChromosome.getFitness(fitness) > oldChromosome.getFitness(fitness))
 				return true;
 		}
 
@@ -183,7 +183,9 @@ public class TestCaseMinimizer {
 					logger.debug("Keeping original version");
 					c.test = copy.test;
 					c.copyCachedResults(copy);
-					c.setFitness(copy.getFitness());
+					//c.setFitness(copy.getFitness());
+					c.setFitnesses(copy.getFitnesses());
+			        c.setLastFitnesses(copy.getLastFitnesses());
 					c.setChanged(false);
 				}
 			}

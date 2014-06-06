@@ -264,7 +264,7 @@ public class Properties {
 	// ---------------------------------------------------------------
 	// Search algorithm
 	public enum Algorithm {
-		STANDARDGA, STEADYSTATEGA, ONEPLUSONEEA, MUPLUSLAMBDAGA, RANDOM
+		STANDARDGA, STEADYSTATEGA, ONEPLUSONEEA, MUPLUSLAMBDAGA, RANDOM, NSGAII
 	}
 
 	/** Constant <code>ALGORITHM</code> */
@@ -392,6 +392,11 @@ public class Properties {
 	@DoubleValue(min = 0.0, max = 1.0)
 	public static double CROSSOVER_RATE = 0.75;
 
+	/** Constant <code>MUTATION_RATE=0.75</code> */
+    @Parameter(key = "mutation_rate", group = "Search Algorithm", description = "Probability of mutation")
+    @DoubleValue(min = 0.0, max = 1.0)
+    public static double MUTATION_RATE = 0.75;
+
 	/** Constant <code>NUMBER_OF_MUTATIONS=1</code> */
 	@Parameter(key = "number_of_mutations", group = "Search Algorithm", description = "Number of single mutations applied on an individual when a mutation event occurs")
 	public static int NUMBER_OF_MUTATIONS = 1;
@@ -513,7 +518,7 @@ public class Properties {
 	public static TheReplacementFunction REPLACEMENT_FUNCTION = TheReplacementFunction.DEFAULT;
 
 	public enum SelectionFunction {
-		RANK, ROULETTEWHEEL, TOURNAMENT
+		RANK, ROULETTEWHEEL, TOURNAMENT, BINARY_TOURNAMENT
 	}
 
 	/** Constant <code>SELECTION_FUNCTION</code> */
@@ -1165,7 +1170,8 @@ public class Properties {
 
 	/** Constant <code>CRITERION</code> */
 	@Parameter(key = "criterion", group = "Runtime", description = "Coverage criterion")
-	public static Criterion CRITERION = Criterion.BRANCH;
+	//public static Criterion CRITERION = Criterion.BRANCH; // FIXME: remove me
+	public static Criterion[] CRITERION = new Criterion[] { /* empty */ };
 
 	public enum Strategy {
 		ONEBRANCH, EVOSUITE, RANDOM, RANDOM_FIXED, REGRESSION
@@ -1738,6 +1744,17 @@ public class Properties {
 		else if (f.getType().isArray()) {
 			if (f.getType().isAssignableFrom(String[].class)) {
 				setValue(key, value.split(":"));
+			}
+			else if(f.getType().getComponentType().equals(Criterion.class)) {
+			    String[] values = value.split(":");
+			    Criterion[] criteria = new Criterion[values.length];
+
+			    int pos = 0;
+			    for(String stringValue : values) {
+			        criteria[pos++] = Enum.valueOf(Criterion.class, stringValue);
+			    }
+
+			    f.set(this, criteria);
 			}
 		} else {
 			f.set(null, value);

@@ -18,7 +18,7 @@ import org.evosuite.TimeController;
 import org.evosuite.classpath.ClassPathHandler;
 import org.evosuite.coverage.ClassStatisticsPrinter;
 import org.evosuite.ga.Chromosome;
-import org.evosuite.ga.GeneticAlgorithm;
+import org.evosuite.ga.metaheuristics.GeneticAlgorithm;
 import org.evosuite.ga.stoppingconditions.RMIStoppingCondition;
 import org.evosuite.junit.CoverageAnalysis;
 import org.evosuite.result.TestGenerationResult;
@@ -116,22 +116,27 @@ public class ClientNodeImpl implements ClientNodeLocal, ClientNodeRemote {
 				if (Properties.SANDBOX) {
 					Sandbox.initializeSecurityManagerForSUT();
 				}
-				TestGenerationResult result;
+				//TestGenerationResult result; // FIXME: remove me
+				List<TestGenerationResult> results = new ArrayList<TestGenerationResult>();
 
 				try {
 					// Starting a new search
 					TestSuiteGenerator generator = new TestSuiteGenerator();
-					result = generator.generateTestSuite();
+					//result = generator.generateTestSuite(); // FIXME: remove me
+					results = generator.generateTestSuite();
 					GeneticAlgorithm<?> ga = generator.getEmployedGeneticAlgorithm();
 
-					masterNode.evosuite_collectTestGenerationResult(clientRmiIdentifier, result);
+					//masterNode.evosuite_collectTestGenerationResult(clientRmiIdentifier, result); // FIXME: remove me
+					masterNode.evosuite_collectTestGenerationResult(clientRmiIdentifier, results);
 				} catch (Throwable t) {
 					logger.error("Error when generating tests for: "
 							+ Properties.TARGET_CLASS + " with seed "
 							+ Randomness.getSeed() + ". Configuration id : "
 							+ Properties.CONFIGURATION_ID, t);
-					result = TestGenerationResultBuilder.buildErrorResult("Error when generating tests for: "
-							+ Properties.TARGET_CLASS+": "+t); 
+					//result = TestGenerationResultBuilder.buildErrorResult("Error when generating tests for: "
+					//		+ Properties.TARGET_CLASS+": "+t); // FIXME: remove me
+					results.add(TestGenerationResultBuilder.buildErrorResult("Error when generating tests for: "
+                            + Properties.TARGET_CLASS+": "+t));
 				}
 
 				changeState(ClientState.DONE);
