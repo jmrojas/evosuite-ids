@@ -54,8 +54,8 @@ import org.evosuite.contracts.NullPointerExceptionContract;
 import org.evosuite.contracts.ToStringReturnsNormallyContract;
 import org.evosuite.contracts.UndeclaredExceptionContract;
 import org.evosuite.ga.Chromosome;
-import org.evosuite.ga.GeneticAlgorithm;
-import org.evosuite.ga.SearchListener;
+import org.evosuite.ga.metaheuristics.GeneticAlgorithm;
+import org.evosuite.ga.metaheuristics.SearchListener;
 import org.evosuite.runtime.sandbox.PermissionStatistics;
 import org.evosuite.testcase.ExecutionResult;
 import org.evosuite.testcase.ExecutionTrace;
@@ -1523,7 +1523,7 @@ public abstract class ReportGenerator implements SearchListener, Serializable {
 		}
 
 		if (Properties.SAVE_ALL_DATA) {
-			if (Properties.CRITERION == Properties.Criterion.EXCEPTION) {
+		    if (ArrayUtil.contains(Properties.CRITERION, Properties.Criterion.EXCEPTION)) {
 				writeExceptionData(entry.getExceptionFilepath(),
 				                   entry.implicitExceptions, entry.explicitExceptions);
 			}

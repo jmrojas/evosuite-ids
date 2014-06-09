@@ -38,6 +38,7 @@ import org.evosuite.instrumentation.coverage.MutationInstrumentation;
 import org.evosuite.instrumentation.coverage.PrimePathInstrumentation;
 import org.evosuite.runtime.reset.ClassResetter;
 import org.evosuite.setup.DependencyAnalysis;
+import org.evosuite.utils.ArrayUtil;
 import org.objectweb.asm.AnnotationVisitor;
 import org.objectweb.asm.Label;
 import org.objectweb.asm.MethodVisitor;
@@ -159,19 +160,22 @@ public class CFGMethodAdapter extends MethodVisitor {
 
 		List<MethodInstrumentation> instrumentations = new ArrayList<MethodInstrumentation>();
 		if (DependencyAnalysis.shouldInstrument(className, methodName)) {
-			if (Properties.CRITERION == Criterion.LCSAJ) {
+		    if (ArrayUtil.contains(Properties.CRITERION, Criterion.LCSAJ)) {
 				instrumentations.add(new LCSAJsInstrumentation());
 				instrumentations.add(new BranchInstrumentation());
-			} else if (Properties.CRITERION == Criterion.DEFUSE
-			        || Properties.CRITERION == Criterion.ALLDEFS) {
+			}
+		    else if (ArrayUtil.contains(Properties.CRITERION, Criterion.DEFUSE)
+		            || ArrayUtil.contains(Properties.CRITERION, Criterion.ALLDEFS)) {
 				instrumentations.add(new BranchInstrumentation());
 				instrumentations.add(new DefUseInstrumentation());
-			} else if (Properties.CRITERION == Criterion.PATH) {
+			}
+		    else if (ArrayUtil.contains(Properties.CRITERION, Criterion.PATH)) {
 				instrumentations.add(new PrimePathInstrumentation());
 				instrumentations.add(new BranchInstrumentation());
-			} else if (Properties.CRITERION == Criterion.MUTATION
-			        || Properties.CRITERION == Criterion.WEAKMUTATION
-			        || Properties.CRITERION == Criterion.STRONGMUTATION) {
+			}
+		    else if (ArrayUtil.contains(Properties.CRITERION, Criterion.MUTATION)
+		            || ArrayUtil.contains(Properties.CRITERION, Criterion.WEAKMUTATION)
+		            || ArrayUtil.contains(Properties.CRITERION, Criterion.STRONGMUTATION)) {
 				instrumentations.add(new BranchInstrumentation());
 				instrumentations.add(new MutationInstrumentation());
 			} else {
@@ -239,8 +243,7 @@ public class CFGMethodAdapter extends MethodVisitor {
 					logger.info("Instrumenting method " + methodName + " in class "
 					        + className);
 					for (MethodInstrumentation instrumentation : instrumentations)
-						instrumentation.analyze(classLoader, mn, className, methodName,
-						                        access);
+						instrumentation.analyze(classLoader, mn, className, methodName, access);
 
 					handleBranchlessMethods();
 					String id = className + "." + methodName;

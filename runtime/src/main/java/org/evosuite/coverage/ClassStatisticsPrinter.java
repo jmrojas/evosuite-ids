@@ -3,14 +3,13 @@
  */
 package org.evosuite.coverage;
 
-import java.util.Arrays;
+import java.util.List;
 
 import org.evosuite.Properties;
 import org.evosuite.TestGenerationContext;
 import org.evosuite.TestSuiteGenerator;
-import org.evosuite.classpath.ClassPathHandler;
 import org.evosuite.runtime.sandbox.Sandbox;
-import org.evosuite.setup.DependencyAnalysis;
+import org.evosuite.utils.ArrayUtil;
 import org.evosuite.utils.LoggingUtils;
 
 /**
@@ -20,11 +19,13 @@ import org.evosuite.utils.LoggingUtils;
 public class ClassStatisticsPrinter {
 
 	private static void reinstrument(Properties.Criterion criterion) {
-		Properties.Criterion oldCriterion = Properties.CRITERION;
-		if (oldCriterion == criterion)
-			return;
+	    Properties.Criterion[] oldCriterion = Properties.CRITERION;
+	    if (ArrayUtil.contains(oldCriterion, criterion))
+	        return ;
 
-		Properties.CRITERION = criterion;
+	    Properties.CRITERION = new Properties.Criterion[1];
+        Properties.CRITERION[0] = criterion;
+
 		TestGenerationContext.getInstance().resetContext();
 		// Need to load class explicitly in case there are no test cases.
 		// If there are tests, then this is redundant
@@ -62,13 +63,16 @@ public class ClassStatisticsPrinter {
 			Sandbox.doneWithExecutingUnsafeCodeOnSameThread();
 			Sandbox.doneWithExecutingSUTCode();
 		}
+		Properties.Criterion[] backup = Properties.CRITERION;
 		for (Properties.Criterion criterion : criteria) {
 			reinstrument(criterion);
-			TestFitnessFactory<?> factory = TestSuiteGenerator.getFitnessFactory();
-			int numGoals = factory.getCoverageGoals().size();
+			List<TestFitnessFactory<?>> factories = TestSuiteGenerator.getFitnessFactory();
+			int numGoals = 0;
+			for (TestFitnessFactory<?> factory : factories)
+			    numGoals += factory.getCoverageGoals().size();
 			LoggingUtils.getEvoLogger().info("* Criterion " + criterion + ": " + numGoals);
+
+			Properties.CRITERION = backup;
 		}
-
 	}
-
 }

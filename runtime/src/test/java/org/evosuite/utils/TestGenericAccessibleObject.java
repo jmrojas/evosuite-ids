@@ -344,7 +344,8 @@ public class TestGenericAccessibleObject {
 
 		ClassLoader loader = new InstrumentingClassLoader();
 		Properties.TARGET_CLASS = targetClass.getCanonicalName();
-		Properties.CRITERION = Criterion.MUTATION;
+		Properties.CRITERION = new Criterion[1];
+		Properties.CRITERION[0] = Criterion.MUTATION;
 
 		DefaultTestCase testCopy = test.clone();
 		testCopy.changeClassLoader(loader);

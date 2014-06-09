@@ -40,7 +40,7 @@ import org.evosuite.coverage.dataflow.DefUseCoverageFactory;
 import org.evosuite.coverage.dataflow.DefUseCoverageTestFitness;
 import org.evosuite.coverage.dataflow.DefUsePool;
 import org.evosuite.ga.Chromosome;
-import org.evosuite.ga.GeneticAlgorithm;
+import org.evosuite.ga.metaheuristics.GeneticAlgorithm;
 import org.evosuite.ga.stoppingconditions.MaxFitnessEvaluationsStoppingCondition;
 import org.evosuite.ga.stoppingconditions.MaxStatementsStoppingCondition;
 import org.evosuite.ga.stoppingconditions.MaxTestsStoppingCondition;
@@ -53,6 +53,7 @@ import org.evosuite.testcase.TestCase;
 import org.evosuite.testcase.TestCaseExecutor;
 import org.evosuite.testcase.TestChromosome;
 import org.evosuite.testcase.TestFitnessFunction;
+import org.evosuite.utils.ArrayUtil;
 import org.evosuite.utils.ReportGenerator;
 import org.evosuite.utils.Utils;
 import org.objectweb.asm.Type;
@@ -392,7 +393,7 @@ public class SearchStatistics extends ReportGenerator implements Serializable {
 		Map<TestCase, Map<Integer, Boolean>> isExceptionExplicit = new HashMap<TestCase, Map<Integer, Boolean>>();
 
 		Set<DefUseCoverageTestFitness> coveredDUGoals = new HashSet<DefUseCoverageTestFitness>();
-		if (Properties.CRITERION == Properties.Criterion.DEFUSE
+		if (ArrayUtil.contains(Properties.CRITERION, Properties.Criterion.DEFUSE)
 		        || Properties.ANALYSIS_CRITERIA.toUpperCase().contains("DEFUSE")) {
 			for (DefUseCoverageTestFitness goal : DefUseCoverageFactory.getDUGoals()) {
 				if (goal.isInterMethodPair())
@@ -426,7 +427,7 @@ public class SearchStatistics extends ReportGenerator implements Serializable {
 			entry.coverage.addAll(getCoveredLines(trace, entry.className));
 			isExceptionExplicit.put(test.getTestCase(), result.explicitExceptions);
 
-			if (Properties.CRITERION == Properties.Criterion.DEFUSE
+			if (ArrayUtil.contains(Properties.CRITERION, Properties.Criterion.DEFUSE)
 			        || Properties.ANALYSIS_CRITERIA.toUpperCase().contains("DEFUSE")) {
 				for (DefUseCoverageTestFitness goal : DefUseCoverageFactory.getDUGoals()) {
 					if (coveredDUGoals.contains(goal))
@@ -740,9 +741,11 @@ public class SearchStatistics extends ReportGenerator implements Serializable {
 		entry.total_methods = Properties.TARGET_CLASS_PREFIX.isEmpty() ? CFGMethodAdapter.getNumMethodsMemberClasses(Properties.TARGET_CLASS)
 		        : CFGMethodAdapter.getNumMethodsPrefix(Properties.TARGET_CLASS_PREFIX);
 
-		entry.total_goals = TestSuiteGenerator.getFitnessFactory().getCoverageGoals().size();
+		List<? extends TestFitnessFunction> goals = TestSuiteGenerator.getFitnessFactory().get(0).getCoverageGoals(); // FIXME: since this class is classified as 'deprecate' we are just assuming one fitness function
+		entry.total_goals = goals.size();
 
-		for (TestFitnessFunction f : TestSuiteGenerator.getFitnessFactory().getCoverageGoals()) {
+		//for (TestFitnessFunction f : TestSuiteGenerator.getFitnessFactory().getCoverageGoals()) {
+		for (TestFitnessFunction f : goals) {
 			if (f instanceof BranchCoverageTestFitness) {
 				BranchCoverageTestFitness b = (BranchCoverageTestFitness) f;
 				if (b.getBranch() != null && b.getBranch().isInstrumented()) {

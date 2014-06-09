@@ -21,6 +21,7 @@ import org.evosuite.Properties;
 import org.evosuite.Properties.Criterion;
 import org.evosuite.classpath.ResourceList;
 import org.evosuite.setup.DependencyAnalysis;
+import org.evosuite.utils.ArrayUtil;
 import org.objectweb.asm.ClassVisitor;
 import org.objectweb.asm.MethodVisitor;
 import org.objectweb.asm.Opcodes;
@@ -37,9 +38,9 @@ public class ExecutionPathClassAdapter extends ClassVisitor {
 	private final String className;
 
 	private static boolean isMutation() {
-		return Properties.CRITERION == Criterion.MUTATION
-		        || Properties.CRITERION == Criterion.STRONGMUTATION
-		        || Properties.CRITERION == Criterion.WEAKMUTATION;
+	    return ArrayUtil.contains(Properties.CRITERION, Criterion.MUTATION)
+	            || ArrayUtil.contains(Properties.CRITERION, Criterion.STRONGMUTATION)
+	            || ArrayUtil.contains(Properties.CRITERION, Criterion.WEAKMUTATION);
 	}
 
 	@SuppressWarnings("unused")

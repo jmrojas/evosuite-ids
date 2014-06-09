@@ -24,6 +24,7 @@ import org.evosuite.setup.TestCluster;
 import org.evosuite.setup.TestClusterGenerator;
 import org.evosuite.testcase.ExecutionTracer;
 import org.evosuite.testcase.TestCaseExecutor;
+import org.evosuite.utils.ArrayUtil;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -135,7 +136,7 @@ public class TestGenerationContext {
 		ConstantPoolManager.getInstance().reset();
 		ObjectPoolManager.getInstance().reset();
 
-		if (Properties.CRITERION == Properties.Criterion.DEFUSE) {
+		if (ArrayUtil.contains(Properties.CRITERION, Properties.Criterion.DEFUSE)) {
 			try {
 				TestClusterGenerator clusterGenerator = new TestClusterGenerator();
 				clusterGenerator.generateCluster(Properties.TARGET_CLASS,

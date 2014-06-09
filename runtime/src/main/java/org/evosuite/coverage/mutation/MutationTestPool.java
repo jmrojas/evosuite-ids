@@ -30,10 +30,11 @@ import java.util.Set;
 import org.evosuite.Properties;
 import org.evosuite.Properties.Criterion;
 import org.evosuite.ga.Chromosome;
-import org.evosuite.ga.GeneticAlgorithm;
-import org.evosuite.ga.SearchListener;
+import org.evosuite.ga.metaheuristics.GeneticAlgorithm;
+import org.evosuite.ga.metaheuristics.SearchListener;
 import org.evosuite.testcase.TestChromosome;
 import org.evosuite.testsuite.TestSuiteChromosome;
+import org.evosuite.utils.ArrayUtil;
 import org.evosuite.utils.Randomness;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -60,7 +61,7 @@ public class MutationTestPool implements SearchListener {
 
 	static {
 		for (Mutation m : allMutants) {
-			if (Properties.CRITERION == Criterion.WEAKMUTATION)
+		    if (ArrayUtil.contains(Properties.CRITERION, Criterion.WEAKMUTATION))
 				allMutantFitnessFunctions.add(new WeakMutationTestFitness(m));
 			else {
 				allMutantFitnessFunctions.add(new StrongMutationTestFitness(m));

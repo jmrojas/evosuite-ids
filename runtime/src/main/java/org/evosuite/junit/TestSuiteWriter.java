@@ -64,6 +64,7 @@ import org.evosuite.testcase.TestCase;
 import org.evosuite.testcase.TestCaseExecutor;
 import org.evosuite.testcase.TestCodeVisitor;
 import org.evosuite.testcase.TestFitnessFunction;
+import org.evosuite.utils.ArrayUtil;
 import org.evosuite.utils.Utils;
 import org.objectweb.asm.ClassWriter;
 import org.objectweb.asm.Opcodes;
@@ -462,7 +463,7 @@ public class TestSuiteWriter implements Opcodes {
 			for (TestFitnessFunction goal : coveredGoals) {
 				builder.append("\n   * " + nr + " " + goal.toString());
 				// TODO only for debugging purposes
-				if (Properties.CRITERION == Criterion.DEFUSE
+				if (ArrayUtil.contains(Properties.CRITERION, Criterion.DEFUSE)
 				        && (goal instanceof DefUseCoverageTestFitness)) {
 					DefUseCoverageTestFitness duGoal = (DefUseCoverageTestFitness) goal;
 					if (duGoal.getCoveringTrace() != null) {

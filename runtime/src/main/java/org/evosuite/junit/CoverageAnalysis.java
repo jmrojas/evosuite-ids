@@ -14,7 +14,6 @@ import java.text.NumberFormat;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.BitSet;
-import java.util.Collection;
 import java.util.Collections;
 import java.util.Comparator;
 import java.util.Enumeration;
@@ -22,7 +21,6 @@ import java.util.HashSet;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Set;
-import java.util.regex.Pattern;
 import java.util.zip.ZipEntry;
 import java.util.zip.ZipException;
 import java.util.zip.ZipFile;
@@ -48,6 +46,7 @@ import org.evosuite.testcase.ExecutionResult;
 import org.evosuite.testcase.ExecutionTrace;
 import org.evosuite.testcase.TestChromosome;
 import org.evosuite.testcase.TestFitnessFunction;
+import org.evosuite.utils.ArrayUtil;
 import org.evosuite.utils.ExternalProcessUtilities;
 import org.evosuite.utils.LoggingUtils;
 import org.junit.Test;
@@ -106,8 +105,8 @@ public class CoverageAnalysis {
 
 		Class<?>[] classes =junitTests.toArray(new Class<?>[junitTests.size()]);
 		LoggingUtils.getEvoLogger().info("* Executing tests");
-		if(Properties.CRITERION == Criterion.MUTATION
-		                || Properties.CRITERION == Criterion.STRONGMUTATION) {
+		if (ArrayUtil.contains(Properties.CRITERION, Criterion.MUTATION)
+		                || ArrayUtil.contains(Properties.CRITERION, Criterion.STRONGMUTATION)) {
 			junitMutationAnalysis(classes);
 		}
 		else {
@@ -178,7 +177,7 @@ public class CoverageAnalysis {
         dummy.setChanged(false);
 
         int covered = 0;
-        List<? extends TestFitnessFunction> goals = TestSuiteGenerator.getFitnessFactory().getCoverageGoals();
+        List<? extends TestFitnessFunction> goals = TestSuiteGenerator.getFitnessFactory().get(0).getCoverageGoals(); // FIXME: can we assume that CoverageAnalysis class is only called with one fitness function?
 
         for (JUnitResult testResult : results) {
             executionResult.setTrace(testResult.getExecutionTrace());
@@ -464,7 +463,7 @@ public class CoverageAnalysis {
 		LoggingUtils.getEvoLogger().info("* Executed " + results.size() + " tests");
 
 		// Goals
-		List<? extends TestFitnessFunction> goals = TestSuiteGenerator.getFitnessFactory().getCoverageGoals();
+		List<? extends TestFitnessFunction> goals = TestSuiteGenerator.getFitnessFactory().get(0).getCoverageGoals(); // FIXME: can we assume that CoverageAnalysis class is only called with one fitness function?
 
         // A dummy Chromosome
         TestChromosome dummy = new TestChromosome();

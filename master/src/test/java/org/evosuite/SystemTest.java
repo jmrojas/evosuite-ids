@@ -24,8 +24,7 @@ import java.util.List;
 import org.evosuite.Properties.Criterion;
 import org.evosuite.Properties.StatisticsBackend;
 import org.evosuite.Properties.StoppingCondition;
-import org.evosuite.classpath.ClassPathHandler;
-import org.evosuite.ga.GeneticAlgorithm;
+import org.evosuite.ga.metaheuristics.GeneticAlgorithm;
 import org.evosuite.result.TestGenerationResult;
 import org.evosuite.runtime.reset.ResetManager;
 import org.evosuite.utils.Randomness;
@@ -81,7 +80,8 @@ public class SystemTest {
 		Properties.CLIENT_ON_THREAD = true;
 		Properties.SANDBOX = false;
 		Properties.ERROR_BRANCHES = false;
-		Properties.CRITERION = Criterion.BRANCH;
+		Properties.CRITERION = new Criterion[1];
+		Properties.CRITERION[0] = Criterion.BRANCH;
 
 		Properties.NEW_STATISTICS = true;
 		//Properties.OLD_STATISTICS = false;
@@ -174,8 +174,9 @@ public class SystemTest {
 	@SuppressWarnings("unchecked")
 	protected GeneticAlgorithm<?> getGAFromResult(Object result) {
 		assert(result instanceof List);
-		List<TestGenerationResult> results = (List<TestGenerationResult>)result;
+		List<List<TestGenerationResult>> results = (List<List<TestGenerationResult>>)result;
 		assert(results.size() == 1);
-		return results.iterator().next().getGeneticAlgorithm();
+		//return results.iterator().next().getGeneticAlgorithm();
+		return results.get(0).get(0).getGeneticAlgorithm();
 	}
 }
