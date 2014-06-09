@@ -20,7 +20,7 @@ package org.evosuite;
 import org.evosuite.EvoSuite;
 import org.evosuite.Properties;
 import org.evosuite.Properties.Criterion;
-import org.evosuite.ga.GeneticAlgorithm;
+import org.evosuite.ga.metaheuristics.GeneticAlgorithm;
 import org.evosuite.statistics.RuntimeVariable;
 import org.evosuite.testsuite.TestSuiteChromosome;
 import org.junit.After;
@@ -32,7 +32,7 @@ import com.examples.with.different.packagename.ImplicitExplicitException;
 
 public class TestImplicitExplicitExceptions  extends SystemTest {
 
-	private static final Criterion defaultCriterion = Properties.CRITERION;
+    private static final Criterion[] defaultCriterion = Properties.CRITERION;
 
 	@After
 	public void resetProperties() {
@@ -46,7 +46,7 @@ public class TestImplicitExplicitExceptions  extends SystemTest {
 		String targetClass = ImplicitExplicitException.class.getCanonicalName();
 		
 		Properties.TARGET_CLASS = targetClass;
-		Properties.CRITERION = Properties.Criterion.EXCEPTION;
+		Properties.CRITERION[0] = Properties.Criterion.EXCEPTION;
 		Properties.OUTPUT_VARIABLES = ""+
 				RuntimeVariable.Explicit_MethodExceptions + "," +
 				RuntimeVariable.Explicit_TypeExceptions + "," +

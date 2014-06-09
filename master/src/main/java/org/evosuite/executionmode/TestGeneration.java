@@ -42,9 +42,8 @@ public class TestGeneration {
 
 	private static Logger logger = LoggerFactory.getLogger(TestGeneration.class);
 	
-	public static List<TestGenerationResult> executeTestGeneration(Options options, List<String> javaOpts,
+	public static List<List<TestGenerationResult>> executeTestGeneration(Options options, List<String> javaOpts,
 			CommandLine line) {
-		
 		
 		Strategy strategy = getChosenStrategy(javaOpts, line);
 		
@@ -52,7 +51,7 @@ public class TestGeneration {
 			strategy = Strategy.EVOSUITE;
 		} 
 
-		List<TestGenerationResult> results = new ArrayList<TestGenerationResult>();
+		List<List<TestGenerationResult>> results = new ArrayList<List<TestGenerationResult>>();
 
 		String cp = ClassPathHandler.getInstance().getTargetProjectClasspath();
 		if(cp==null || cp.isEmpty()){
@@ -82,9 +81,9 @@ public class TestGeneration {
 	}
 
 
-	private static List<TestGenerationResult> generateTestsLegacy(Properties.Strategy strategy,
+	private static List<List<TestGenerationResult>> generateTestsLegacy(Properties.Strategy strategy,
 	        List<String> args) {
-		List<TestGenerationResult> results = new ArrayList<TestGenerationResult>();
+	    List<List<TestGenerationResult>> results = new ArrayList<List<TestGenerationResult>>();
 		
 		ClassPathHandler.getInstance().getTargetProjectClasspath();
 		LoggingUtils.getEvoLogger().info("* Using .task files in "
@@ -127,9 +126,9 @@ public class TestGeneration {
 		return strategy;
 	}
 	
-	private static List<TestGenerationResult> generateTestsPrefix(Properties.Strategy strategy, String prefix,
+	private static List<List<TestGenerationResult>> generateTestsPrefix(Properties.Strategy strategy, String prefix,
 	        List<String> args) {
-		List<TestGenerationResult> results = new ArrayList<TestGenerationResult>();
+	    List<List<TestGenerationResult>> results = new ArrayList<List<TestGenerationResult>>();
 		
 		String cp = ClassPathHandler.getInstance().getTargetProjectClasspath();
 		Set<String> classes = new HashSet<String>();
@@ -181,16 +180,16 @@ public class TestGeneration {
 		return false;
 	}
 	
-	private static List<TestGenerationResult> generateTests(Properties.Strategy strategy, String target,
+	private static List<List<TestGenerationResult>> generateTests(Properties.Strategy strategy, String target,
 	        List<String> args) {
 		
-		LoggingUtils.getEvoLogger().info("* Going to generate test cases for class: "+target);
+		LoggingUtils.getEvoLogger().info("Going to generate test cases for class: "+target);
 		
 		String classPath = ClassPathHandler.getInstance().getEvoSuiteClassPath();		
 		String cp = ClassPathHandler.getInstance().getTargetProjectClasspath();
 		
 		if (!findTargetClass(target)) {
-			return Arrays.asList(new TestGenerationResult[]{TestGenerationResultBuilder.buildErrorResult("Could not find target class") });
+		    return Arrays.asList(Arrays.asList(new TestGenerationResult[]{TestGenerationResultBuilder.buildErrorResult("Could not find target class") }));
 		}	
 
 		if (!classPath.isEmpty())
@@ -463,7 +462,7 @@ public class TestGeneration {
 		/*
 		 * FIXME: it is unclear what is the relation between TestGenerationResult and writeStatistics()
 		 */
-		List<TestGenerationResult> results = SearchStatistics.getInstance().getTestGenerationResults();
+		List<List<TestGenerationResult>> results = SearchStatistics.getInstance().getTestGenerationResults();
 		SearchStatistics.clearInstance();
 
 		handler.closeServer();
@@ -484,7 +483,7 @@ public class TestGeneration {
 		if(hasFailed){
 			logger.error("failed to write statistics data");
 			//note: cannot throw exception because would require refactoring of many SystemTests
-			return new ArrayList<TestGenerationResult>();
+			return new ArrayList<List<TestGenerationResult>>();
 		}
 		
 		return results;
@@ -576,9 +575,9 @@ public class TestGeneration {
 		return stringToBePrependedToBootclasspath;
 	}
 	
-	private static List<TestGenerationResult> generateTestsTarget(Properties.Strategy strategy, String target,
+	private static List<List<TestGenerationResult>> generateTestsTarget(Properties.Strategy strategy, String target,
 	        List<String> args) {
-		List<TestGenerationResult> results = new ArrayList<TestGenerationResult>();
+	    List<List<TestGenerationResult>> results = new ArrayList<List<TestGenerationResult>>();
 		String cp = ClassPathHandler.getInstance().getTargetProjectClasspath();
 		
 		Set<String> classes = ResourceList.getAllClasses(target, false);

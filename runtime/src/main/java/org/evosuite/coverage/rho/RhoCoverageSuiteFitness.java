@@ -21,7 +21,6 @@ import java.util.List;
 
 import org.evosuite.testcase.ExecutableChromosome;
 import org.evosuite.testcase.ExecutionResult;
-import org.evosuite.testcase.TestChromosome;
 import org.evosuite.testcase.TestFitnessFunction;
 import org.evosuite.testsuite.AbstractTestSuiteChromosome;
 import org.evosuite.testsuite.TestSuiteFitnessFunction;
@@ -50,21 +49,18 @@ public class RhoCoverageSuiteFitness extends TestSuiteFitnessFunction {
 
 		double n_ones = (double) RhoCoverageFactory.getNumberOnes();
 		for (ExecutionResult result : results) {
-			TestChromosome tc = new TestChromosome();
-			tc.setTestCase(result.test);
-
 			for (TestFitnessFunction goal : goals) {
-				if (goal.getFitness(tc, result) == 0.0)
+			    if (goal.isCovered(result))
 					n_ones++;
 			}
 		}
 
 		double n_tests = ((double) suite.size()) + ((double) RhoCoverageFactory.getNumberTestCases());
 
-		fitness = n_ones / n_tests / ((double) RhoCoverageFactory.getNumberComponents());
+		fitness = n_ones / n_tests / ((double) goals.size());
 		fitness = Math.abs(0.5 - fitness);
 
-		updateIndividual(suite, fitness);
+		updateIndividual(this, suite, fitness);
 		return fitness;
 	}
 

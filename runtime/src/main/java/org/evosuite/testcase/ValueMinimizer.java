@@ -51,7 +51,7 @@ public class ValueMinimizer extends TestVisitor {
 		public TestMinimization(TestFitnessFunction fitness, TestChromosome test) {
 			this.fitness = fitness;
 			this.individual = test;
-			this.lastFitness = test.getFitness();
+			this.lastFitness = test.getFitness(fitness);
 		}
 
 		/* (non-Javadoc)
@@ -63,10 +63,10 @@ public class ValueMinimizer extends TestVisitor {
 			double newFitness = fitness.getFitness(individual);
 			if (newFitness <= lastFitness) { // TODO: Maximize
 				lastFitness = newFitness;
-				individual.setFitness(lastFitness);
+				individual.setFitness(fitness, lastFitness);
 				return true;
 			} else {
-				individual.setFitness(lastFitness);
+				individual.setFitness(fitness, lastFitness);
 				return false;
 			}
 		}
@@ -92,7 +92,7 @@ public class ValueMinimizer extends TestVisitor {
 			this.suite = suite;
 			this.individual = suite.getTestChromosome(index);
 			this.testIndex = index;
-			this.lastFitness = suite.getFitness();
+			this.lastFitness = suite.getFitness(fitness);
 			this.lastCoverage = suite.getCoverage();
 		}
 
@@ -110,11 +110,11 @@ public class ValueMinimizer extends TestVisitor {
 				logger.debug("Fitness changed from " + lastFitness + " to " + newFitness);
 				lastFitness = newFitness;
 				lastCoverage = suite.getCoverage();
-				suite.setFitness(lastFitness);
+				suite.setFitness(fitness, lastFitness);
 				return true;
 			} else {
 				individual.setLastExecutionResult(lastResult);
-				suite.setFitness(lastFitness);
+				suite.setFitness(fitness, lastFitness);
 				suite.setCoverage(lastCoverage);
 				return false;
 			}

@@ -48,6 +48,7 @@ import org.evosuite.testcase.TestChromosome;
 import org.evosuite.testcase.VariableReference;
 //import org.evosuite.testsuite.SearchStatistics;
 import org.evosuite.testsuite.TestSuiteChromosome;
+import org.evosuite.utils.ArrayUtil;
 import org.evosuite.utils.LoggingUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -158,7 +159,7 @@ public abstract class MutationAssertionGenerator extends AssertionGenerator {
 
 
 
-	protected Criterion oldCriterion = Properties.CRITERION;
+	protected Criterion[] oldCriterion = Properties.CRITERION;
 	
 	/**
 	 * If we are not doing mutation testing anyway, then 
@@ -168,10 +169,10 @@ public abstract class MutationAssertionGenerator extends AssertionGenerator {
 	 */
 	protected void setupClassLoader(TestSuiteChromosome suite) {
 		oldCriterion = Properties.CRITERION;
-		if (oldCriterion != Criterion.MUTATION
-		        && oldCriterion != Criterion.WEAKMUTATION
-		        && oldCriterion != Criterion.STRONGMUTATION) {
-			Properties.CRITERION = Criterion.MUTATION;
+		if (!ArrayUtil.contains(oldCriterion, Criterion.MUTATION)
+		        && !ArrayUtil.contains(oldCriterion, Criterion.WEAKMUTATION)
+		        && !ArrayUtil.contains(oldCriterion, Criterion.STRONGMUTATION)) {
+		    Properties.CRITERION = new Criterion[] { Criterion.MUTATION };
 			Sandbox.goingToExecuteSUTCode();
 			Sandbox.goingToExecuteUnsafeCodeOnSameThread();
 			try {
