@@ -713,6 +713,15 @@ public class Properties {
 	@Parameter(key = "minimize", group = "Output", description = "Minimize test suite after generation")
 	public static boolean MINIMIZE = true;
 
+	/** Constant <code>MINIMIZE=true</code> */
+	@Parameter(key = "minimize_second_pass", group = "Output", description = "Minimize test suite after generation")
+	public static boolean MINIMIZE_SECOND_PASS = true;
+
+	/** Constant <code>MINIMIZE=true</code> */
+	@Parameter(key = "minimize_skip_coincidental", group = "Output", description = "Minimize test suite after generation")
+	public static boolean MINIMIZE_SKIP_COINCIDENTAL = true;
+
+	
 	/** Constant <code>COVERAGE=true</code> */
 	@Parameter(key = "coverage", group = "Output", description = "Minimize test suite after generation")
 	public static boolean COVERAGE = true;
