@@ -561,14 +561,14 @@ public class TestSuiteGenerator {
 		List<TestFitnessFunction> goals = new ArrayList<TestFitnessFunction>();
 		if(goalFactories.size() == 1) {
 			TestFitnessFactory<? extends TestFitnessFunction> factory = goalFactories.iterator().next();
-			LoggingUtils.getEvoLogger().info("* Total number of test goals: {}\n  - Goals: {}", factory.getCoverageGoals().size(), factory.getCoverageGoals());
+			LoggingUtils.getEvoLogger().info("* Total number of test goals: {}", factory.getCoverageGoals().size());
 			goals.addAll(factory.getCoverageGoals());
 		} else {
 			LoggingUtils.getEvoLogger().info("* Total number of test goals: ");
 			for (TestFitnessFactory<? extends TestFitnessFunction> goalFactory : goalFactories) {
 				goals.addAll(goalFactory.getCoverageGoals());
 				LoggingUtils.getEvoLogger().info("  - " + goalFactory.getClass().getSimpleName().replace("CoverageFactory", "")
-						+ " " + goalFactory.getCoverageGoals().size() + "\n    Goals: " + goalFactory.getCoverageGoals());
+						+ " " + goalFactory.getCoverageGoals().size());
 			}
 		}
 		ClientServices.getInstance().getClientNode().trackOutputVariable(RuntimeVariable.Total_Goals,
@@ -858,6 +858,8 @@ public class TestSuiteGenerator {
 			return new WeakMutationSuiteFitness();
 		case MUTATION:
 			return new StrongMutationSuiteFitness();
+		case ONLYMUTATION:
+			return new OnlyMutationSuiteFitness();
 		case DEFUSE:
 			return new DefUseCoverageSuiteFitness();
 		case BRANCH:
@@ -930,6 +932,8 @@ public class TestSuiteGenerator {
 			return new MutationFactory();
 		case WEAKMUTATION:
 			return new MutationFactory(false);
+		case ONLYMUTATION:
+			return new OnlyMutationFactory();
 		case DEFUSE:
 			return new DefUseCoverageFactory();
 		case BRANCH:
