@@ -1,7 +1,7 @@
 /**
  * 
  */
-package org.evosuite.coverage.ibranch;
+package org.evosuite.coverage.cbranch;
 
 import java.util.Map;
 import java.util.Map.Entry;
@@ -15,10 +15,10 @@ import org.evosuite.testcase.TestChromosome;
 import org.evosuite.testcase.TestFitnessFunction;
 
 /**
- * @author Gordon Fraser
+ * @author Gordon Fraser, mattia
  * 
  */
-public class IBranchTestFitness extends TestFitnessFunction {
+public class CBranchTestFitness extends TestFitnessFunction {
 
 	private static final long serialVersionUID = -1399396770125054561L;
 
@@ -26,7 +26,7 @@ public class IBranchTestFitness extends TestFitnessFunction {
 
 	private final CallContext context;
 
-	public IBranchTestFitness(BranchCoverageGoal branch, CallContext context) {
+	public CBranchTestFitness(BranchCoverageGoal branch, CallContext context) {
 		this.branchGoal = branch;
 		this.context = context;
 	}
@@ -104,8 +104,8 @@ public class IBranchTestFitness extends TestFitnessFunction {
 	 */
 	@Override
 	public int compareTo(TestFitnessFunction other) {
-		if (other instanceof IBranchTestFitness) {
-			IBranchTestFitness otherBranchFitness = (IBranchTestFitness) other;
+		if (other instanceof CBranchTestFitness) {
+			CBranchTestFitness otherBranchFitness = (CBranchTestFitness) other;
 			return branchGoal.compareTo(otherBranchFitness.branchGoal);
 		} 
 		else if (other instanceof BranchCoverageTestFitness) {
@@ -165,7 +165,7 @@ public class IBranchTestFitness extends TestFitnessFunction {
 			return false;
 		if (getClass() != obj.getClass())
 			return false;
-		IBranchTestFitness other = (IBranchTestFitness) obj;
+		CBranchTestFitness other = (CBranchTestFitness) obj;
 		if (branchGoal == null) {
 			if (other.branchGoal != null)
 				return false;
