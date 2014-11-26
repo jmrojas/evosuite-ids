@@ -36,6 +36,7 @@ public class CallGraph implements Iterable<CallGraphEntry> {
 	 */
 	private ReverseCallGraph graph = new ReverseCallGraph();
 
+	@SuppressWarnings("unused")
 	private static final Logger logger = LoggerFactory
 			.getLogger(CallGraph.class);
 
@@ -146,6 +147,26 @@ public class CallGraph implements Iterable<CallGraphEntry> {
 		else {
 			return new HashSet<>();
 		}
+	}
+	
+	/**
+	 * computes and returns the call contexts of the specific method
+	 * 
+	 * @param className
+	 * @param methodName
+	 * @return
+	 */
+	public Set<CallContext> getMethodEntryPoint(String className, String methodName) {
+		Set<CallContext> contexts = new HashSet<>();
+		List<Call> cont = new ArrayList<>();
+		cont.add(new Call(className, methodName));
+		CallContext context = new CallContext(cont);
+		if(publicMethods.contains(context)){
+			contexts.add(context);	
+		}else{
+			contexts.add(new CallContext());
+		}	
+		return contexts;
 	}
 
 	/**

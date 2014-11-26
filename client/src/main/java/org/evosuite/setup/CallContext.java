@@ -25,10 +25,6 @@ import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
 
-import org.evosuite.testcase.ExecutionTrace;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-
 /**
  * <p>
  * CallContext class.
@@ -52,7 +48,7 @@ public class CallContext implements Serializable {
 	 */
 	private static final long serialVersionUID = 8650619230188403356L;
 
-    private final List<Call> context = new ArrayList<Call>();
+    private final List<Call> context;
 
 	private final int hcode;
 
@@ -70,6 +66,7 @@ public class CallContext implements Serializable {
 	 */
 	public CallContext(StackTraceElement[] stackTrace) {
 		int startPos = stackTrace.length - 1;
+		List<Call> context = new ArrayList<Call>();
 		while (stackTrace[startPos].getClassName().startsWith("java")
 				|| stackTrace[startPos].getClassName().startsWith("sun")
 				|| stackTrace[startPos].getClassName().startsWith("org.evosuite")) {
@@ -84,16 +81,11 @@ public class CallContext implements Serializable {
 
 		for (int i = startPos; i >= endPos; i--) {
 			StackTraceElement element = stackTrace[i];
-			// LoggingUtils.getEvoLogger().info(element.toString());
+			
 			context.add(new Call(element.getClassName(), element.getMethodName()));
-		}
-
-		// for (StackTraceElement element : stackTrace) {
-		// if (!element.getClassName().startsWith("org.evosuite"))
-		// context.add(new Call(element.getClassName(),
-		// element.getMethodName()));
-		// }
-		hcode = context.hashCode();
+		} 
+		this.context=context;
+		hcode = this.context.hashCode();
 	}
 
 	/**
@@ -103,12 +95,22 @@ public class CallContext implements Serializable {
 	 * @param methodName
 	 */
 	public CallContext(String className, String methodName) {
+		List<Call> context = new ArrayList<Call>();
 		context.add(new Call(className, methodName));
-		hcode = context.hashCode();
+		this.context=context;
+		hcode = this.context.hashCode();
+	}
+	
+	public CallContext() {
+		List<Call> context = new ArrayList<Call>();
+		this.context=context;
+		hcode = this.context.hashCode();
 	}
 
-	public CallContext(Collection<Call> context) {
-		this.context.addAll(context);
+	public CallContext(Collection<Call> contextt) {
+		List<Call> context = new ArrayList<Call>();
+		context.addAll(contextt);
+		this.context=context;
 		hcode = this.context.hashCode();
 	}
 
@@ -199,20 +201,10 @@ public class CallContext implements Serializable {
 
 		return false;
 	}
-
-	private static final Logger logger = LoggerFactory.getLogger(ExecutionTrace.class);
-
+	//A empty context matches with everything.
 	public boolean matches(CallContext other) {
-		if (other.hcode == hcode)
+		if (context.isEmpty()||other.context.isEmpty()|| other.hcode == hcode)
 			return true;
-		// for (int i = 0; i < context.size(); i++) {
-		// Call call1 = context.get(i);
-		// Call call2 = other.context.get(i);
-		// if (!call1.matches(call2)) {
-		// return false;
-		// }
-		// }
-
 		return false;
 	}
 
