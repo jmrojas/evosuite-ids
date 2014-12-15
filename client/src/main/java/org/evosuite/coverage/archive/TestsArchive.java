@@ -1,0 +1,49 @@
+package org.evosuite.coverage.archive;
+
+import java.io.Serializable;
+import java.util.Collection;
+import java.util.HashSet;
+import java.util.Set;
+
+import org.evosuite.testcase.TestCase;
+import org.evosuite.testcase.TestChromosome;
+import org.evosuite.testcase.TestFitnessFunction;
+import org.evosuite.testsuite.TestSuiteChromosome;
+
+/**
+ * This class incrementally builds a TestSuiteChromosome with passed test cases.
+ * It means to be an archive of tests that covered goals during the evolution.
+ * @author mattia
+ */
+public class TestsArchive implements Serializable {
+	private static final long serialVersionUID = 6665770735812413289L;
+
+	private final TestSuiteChromosome bestChromo;
+	//necessary to avoid having a billion of redundant test cases
+	private final Set<Integer> coveredGoals;
+	
+	public TestsArchive() {
+		bestChromo = new TestSuiteChromosome();
+		coveredGoals = new HashSet<>();
+	}
+
+	public void putTest(TestFitnessFunction goal, TestCase test) {
+		if (!coveredGoals.contains(goal.hashCode())) {
+			coveredGoals.add(goal.hashCode());
+			bestChromo.addTest(test);
+		}
+	}
+
+	public void registerAllTests(Collection<TestChromosome> tests) {
+		bestChromo.addTests(tests);
+	} 
+	
+	/**
+	 * return the chromosome with the tests of the archive
+	 * @return
+	 */
+	public  TestSuiteChromosome getBestChromosome() {
+		return bestChromo;
+	}
+
+}
