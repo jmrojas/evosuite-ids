@@ -160,8 +160,15 @@ public class VirtualNetwork {
 
 	//------------------------------------------
 
-	
-	public void reset(){		
+
+    public void init(){
+        reset(); //just to be sure
+
+        initNetworkInterfaces();
+        MockURL.initStaticState();
+    }
+
+	public void reset(){
 		dns = new DNS();
 
 		incomingConnections.clear();
@@ -169,22 +176,51 @@ public class VirtualNetwork {
 		remoteCurrentServers.clear();
 		networkInterfaces.clear();
         remoteFiles.clear();
-        sentUdpPackets.clear();
         udpPacketsToSUT.clear();
-
-		//TODO most likely it ll need different handling, as needed after the search
+        sentUdpPackets.clear();
         localListeningPorts.clear();
 		openedTcpConnections.clear();
 		remoteContactedPorts.clear();
         remoteAccessedFiles.clear();
 	}
 
-	public void init(){
-		reset(); //just to be sure
+    // -------  observers ----------------------
 
-		initNetworkInterfaces();
-		MockURL.initStaticState();
-	}
+    public Set<String> getViewOfRemoteAccessedFiles(){
+        return Collections.unmodifiableSet(remoteAccessedFiles);
+    }
+
+    public Set<NativeTcp> getViewOfOpenedTcpConnections(){
+        return  Collections.unmodifiableSet(openedTcpConnections);
+    }
+
+    public Set<EndPointInfo> getViewOfLocalListeningPorts(){
+        return Collections.unmodifiableSet(localListeningPorts);
+    }
+
+    public Set<EndPointInfo> getViewOfRemoteContactedPorts() {return Collections.unmodifiableSet(remoteContactedPorts);}
+
+    public Map<EndPointInfo, Integer> getCopyOfSentUDP(){
+        //as AtomicInteger is modifiable, we cannot return a view. we need a copy
+        Map<EndPointInfo, Integer> map = new LinkedHashMap<>();
+        for(EndPointInfo info : sentUdpPackets.keySet()){
+            map.put(info,sentUdpPackets.get(info).get());
+        }
+        return map;
+    }
+
+    /**
+     * Get a copy of all available interfaces
+     * @return
+     */
+    public List<NetworkInterfaceState> getAllNetworkInterfaceStates(){
+        return new ArrayList<>(networkInterfaces);
+    }
+
+
+
+    //------------------------------------------
+
 
     /**
      * Create a new remote file that can be accessed by the given URL
@@ -294,6 +330,15 @@ public class VirtualNetwork {
 		return remotePortIndex.getAndIncrement();
 	}
 
+    /**
+     * Create new port on local host
+     *
+     * @return a integer representing a port number on local host
+     */
+    public int getNewLocalEphemeralPort(){
+        return remotePortIndex.getAndIncrement(); //Note: could use a new variable, but doesn't really matter
+    }
+
 	/**
 	 * 
 	 * @param name
@@ -306,14 +351,6 @@ public class VirtualNetwork {
 			}
 		}
 		return null; 
-	}
-
-	/**
-	 * Get a copy of all available interfaces
-	 * @return
-	 */
-	public List<NetworkInterfaceState> getAllNetworkInterfaceStates(){
-		return new ArrayList<NetworkInterfaceState>(networkInterfaces); 
 	}
 
 	/**
@@ -360,7 +397,8 @@ public class VirtualNetwork {
 	 * @return  {@code null} if the test case has not set up it an incoming TCP connection
 	 */
 	public synchronized NativeTcp pullTcpConnection(String localAddress, int localPort){
-		EndPointInfo local = new EndPointInfo(localAddress,localPort,ConnectionType.TCP);
+
+        EndPointInfo local = new EndPointInfo(localAddress,localPort,ConnectionType.TCP);
 		Queue<NativeTcp> queue = incomingConnections.get(local);
 		if(queue == null || queue.isEmpty()){
 			return null;
@@ -378,7 +416,7 @@ public class VirtualNetwork {
 	 * @param addr
 	 * @return {@code false} if it was not possible to open the listening port
 	 */
-    public synchronized boolean  openTcpServer(String addr, int port){
+    public synchronized boolean  openTcpServer(String addr, int port) throws IllegalArgumentException{
         return openServer(addr,port,ConnectionType.TCP);
     }
 
@@ -387,12 +425,17 @@ public class VirtualNetwork {
      * @param addr
      * @return {@code false} if it was not possible to open the listening port
      */
-    public synchronized boolean  openUdpServer(String addr, int port){
+    public synchronized boolean  openUdpServer(String addr, int port) throws IllegalArgumentException{
         return openServer(addr,port,ConnectionType.UDP);
     }
 
 
-    private boolean openServer(String addr, int port, ConnectionType type){
+    private boolean openServer(String addr, int port, ConnectionType type) throws IllegalArgumentException{
+
+        if(port == 0){
+            throw new IllegalArgumentException("Cannot try to bind to wildcard port 0");
+        }
+
         EndPointInfo info = new EndPointInfo(addr,port,type);
 
         if(localListeningPorts.contains(info)){
@@ -412,22 +455,7 @@ public class VirtualNetwork {
         return true;
     }
 
-    public Set<String> getViewOfRemoteAccessedFiles(){
-        return Collections.unmodifiableSet(remoteAccessedFiles);
-    }
 
-	public Set<NativeTcp> getViewOfOpenedTcpConnections(){
-		return  Collections.unmodifiableSet(openedTcpConnections);
-	}
-
-    public Map<EndPointInfo, Integer> getCopyOfSentUDP(){
-        //as AtomicInteger is modifiable, we cannot return a view. we need a copy
-        Map<EndPointInfo, Integer> map = new LinkedHashMap<>();
-        for(EndPointInfo info : sentUdpPackets.keySet()){
-            map.put(info,sentUdpPackets.get(info).get());
-        }
-        return map;
-    }
 
 	/**
 	 *  Register a remote server that can reply to SUT's connection requests
@@ -496,7 +524,7 @@ public class VirtualNetwork {
 
 			NetworkInterfaceState wifi = new NetworkInterfaceState(
 					"Evo_en0", 5, new byte[]{0, 42, 0, 42, 0, 42}, 
-					1500, false, MockInetAddress.getByName("142.42.42.42"));
+					1500, false, MockInetAddress.getByName("192.168.1.42"));
 			networkInterfaces.add(wifi);
 		} catch(Exception e){
 			//this should never happen
