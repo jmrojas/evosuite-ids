@@ -1253,7 +1253,7 @@ public class Properties {
 	
 	
 	/** Constant <code>CRITERION</code> */
-	@Parameter(key = "criterion", group = "Runtime", description = "Coverage criterion")
+	@Parameter(key = "criterion", group = "Runtime", description = "Coverage criterion. Can define more than one criterion by using a ':' separated list")
 	public static Criterion[] CRITERION = new Criterion[] { Criterion.BRANCH };
 
 	public enum Strategy {
@@ -1334,7 +1334,7 @@ public class Properties {
 	/**
 	 * Initialize properties from property file or command line parameters
 	 */
-	private void initializeProperties() {
+	private void initializeProperties() throws IllegalStateException{
 		for (String parameter : parameterMap.keySet()) {
 			try {
 				String property = System.getProperty(parameter);
@@ -1343,18 +1343,10 @@ public class Properties {
 				}
 				if (property != null) {
 					setValue(parameter, property);
-					// System.out.println("Loading property " + parameter + "="
-					// + property);
 				}
-			} catch (NoSuchParameterException e) {
-				logger.info("- No such parameter: " + parameter);
-			} catch (IllegalArgumentException e) {
-				logger.info("- Error setting parameter \"" + parameter + "\": "
-						+ e);
-			} catch (IllegalAccessException e) {
-				logger.info("- Error setting parameter \"" + parameter + "\": "
-						+ e);
-			}
+			} catch (Exception e) {
+                throw new IllegalStateException("Wrong parameter settings for '" + parameter + "': " + e.getMessage());
+            }
 		}
 		if (POPULATION_LIMIT == PopulationLimit.STATEMENTS) {
 			if (MAX_LENGTH < POPULATION) {

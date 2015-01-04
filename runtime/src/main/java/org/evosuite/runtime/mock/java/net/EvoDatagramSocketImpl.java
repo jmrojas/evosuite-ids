@@ -1,6 +1,7 @@
 package org.evosuite.runtime.mock.java.net;
 
 import org.evosuite.runtime.mock.java.io.MockIOException;
+import org.evosuite.runtime.mock.java.lang.MockNullPointerException;
 import org.evosuite.runtime.vnet.VirtualNetwork;
 
 import java.io.IOException;
@@ -47,6 +48,11 @@ public class EvoDatagramSocketImpl extends DatagramSocketImpl{
 
     @Override
     public void bind(int lport, InetAddress laddr) throws SocketException {
+
+        if(lport == 0){
+            lport = VirtualNetwork.getInstance().getNewLocalEphemeralPort();
+        }
+
         localPort = lport;
         localHost = laddr.getHostAddress();
         VirtualNetwork.getInstance().openUdpServer(localHost,localPort);
@@ -54,6 +60,9 @@ public class EvoDatagramSocketImpl extends DatagramSocketImpl{
 
     @Override
     public void send(DatagramPacket p) throws IOException {
+        if(p.getData()==null || p.getAddress()==null){
+            throw new MockNullPointerException("null buffer || null address");
+        }
         VirtualNetwork.getInstance().sentPacketBySUT(p);
     }
 

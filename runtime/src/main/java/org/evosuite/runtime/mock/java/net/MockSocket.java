@@ -10,19 +10,13 @@ import java.net.Inet6Address;
 import java.net.InetAddress;
 import java.net.InetSocketAddress;
 import java.net.Proxy;
-import java.net.ServerSocket;
 import java.net.Socket;
 import java.net.SocketAddress;
 import java.net.SocketException;
-import java.net.SocketImpl;
 import java.net.SocketImplFactory;
 import java.net.SocketOptions;
-import java.net.SocketTimeoutException;
 import java.net.UnknownHostException;
 import java.nio.channels.SocketChannel;
-import java.security.AccessController;
-import java.security.PrivilegedAction;
-import java.security.PrivilegedExceptionAction;
 
 public class MockSocket extends Socket implements OverrideMock {
 	
@@ -36,8 +30,6 @@ public class MockSocket extends Socket implements OverrideMock {
 	private boolean shutOut = false;
 
 	MockSocketImpl impl;
-
-	private boolean oldImpl = false;
 
 
 	//-------- constructors  ---------------------------
@@ -86,45 +78,45 @@ public class MockSocket extends Socket implements OverrideMock {
 
 
 	public MockSocket(String host, int port)throws UnknownHostException, IOException {
-		this(host != null ? new InetSocketAddress(host, port) :
-			new InetSocketAddress(InetAddress.getByName(null), port),
+		this(host != null ? new MockInetSocketAddress(host, port) :
+			new MockInetSocketAddress(MockInetAddress.getByName(null), port),
 			(SocketAddress) null, true);
 	}
 
 
 	public MockSocket(InetAddress address, int port) throws IOException {
-		this(address != null ? new InetSocketAddress(address, port) : null,
+		this(address != null ? new MockInetSocketAddress(address, port) : null,
 				(SocketAddress) null, true);
 	}
 
 
 	public MockSocket(String host, int port, InetAddress localAddr,
 			int localPort) throws IOException {
-		this(host != null ? new InetSocketAddress(host, port) :
-			new InetSocketAddress(InetAddress.getByName(null), port),
-			new InetSocketAddress(localAddr, localPort), true);
+		this(host != null ? new MockInetSocketAddress(host, port) :
+			new MockInetSocketAddress(InetAddress.getByName(null), port),
+			new MockInetSocketAddress(localAddr, localPort), true);
 	}
 
 
 	public MockSocket(InetAddress address, int port, InetAddress localAddr,
 			int localPort) throws IOException {
-		this(address != null ? new InetSocketAddress(address, port) : null,
-				new InetSocketAddress(localAddr, localPort), true);
+		this(address != null ? new MockInetSocketAddress(address, port) : null,
+				new MockInetSocketAddress(localAddr, localPort), true);
 	}
 
 
 
 	public MockSocket(String host, int port, boolean stream) throws IOException {
-		this(host != null ? new InetSocketAddress(host, port) :
-			new InetSocketAddress(InetAddress.getByName(null), port),
+		this(host != null ? new MockInetSocketAddress(host, port) :
+			new MockInetSocketAddress(InetAddress.getByName(null), port),
 			(SocketAddress) null, stream);
 	}
 
 
 
 	public MockSocket(InetAddress host, int port, boolean stream) throws IOException {
-		this(host != null ? new InetSocketAddress(host, port) : null,
-				new InetSocketAddress(0), stream);
+		this(host != null ? new MockInetSocketAddress(host, port) : null,
+				new MockInetSocketAddress(0), stream);
 	}
 
 	private MockSocket(SocketAddress address, SocketAddress localAddr,
@@ -217,7 +209,7 @@ public class MockSocket extends Socket implements OverrideMock {
 		if (isClosed())
 			throw new SocketException("Socket is closed");
 
-		if (!oldImpl && isConnected())
+		if (isConnected())
 			throw new SocketException("already connected");
 
 		if (!(endpoint instanceof InetSocketAddress))
@@ -225,21 +217,14 @@ public class MockSocket extends Socket implements OverrideMock {
 
 		InetSocketAddress epoint = (InetSocketAddress) endpoint;
 		InetAddress addr = epoint.getAddress();
-		int port = epoint.getPort();
 		checkAddress(addr, "connect");
 
 		if (!created)
 			createImpl(true);
-		if (!oldImpl)
-			impl.connect(epoint, timeout);
-		else if (timeout == 0) {
-			if (epoint.isUnresolved())
-				impl.connect(addr.getHostName(), port);
-			else
-				impl.connect(addr, port);
-		} else
-			throw new UnsupportedOperationException("SocketImpl.connect(addr, timeout)");
-		connected = true;
+
+        impl.connect(epoint, timeout);
+
+        connected = true;
 		/*
 		 * If the socket was not bound before the connect, it is now because
 		 * the kernel will have picked an ephemeral port & a local address
@@ -252,7 +237,7 @@ public class MockSocket extends Socket implements OverrideMock {
 	public void bind(SocketAddress bindpoint) throws IOException {
 		if (isClosed())
 			throw new SocketException("Socket is closed");
-		if (!oldImpl && isBound())
+		if (isBound())
 			throw new SocketException("Already bound");
 
 		if (bindpoint != null && (!(bindpoint instanceof InetSocketAddress)))
@@ -261,7 +246,7 @@ public class MockSocket extends Socket implements OverrideMock {
 		if (epoint != null && epoint.isUnresolved())
 			throw new SocketException("Unresolved address");
 		if (epoint == null) {
-			epoint = new InetSocketAddress(0);
+			epoint = new MockInetSocketAddress(0);
 		}
 		InetAddress addr = epoint.getAddress();
 		int port = epoint.getPort();
@@ -298,18 +283,18 @@ public class MockSocket extends Socket implements OverrideMock {
 	public InetAddress getLocalAddress() {
 
 		if (!isBound())
-			return NetReflectionUtil.anyLocalAddress();
+			return MockInetAddress.anyLocalAddress();
 
 		InetAddress in = null;
 		try {
 			in = (InetAddress) getImpl().getOption(SocketOptions.SO_BINDADDR);
 			if (in.isAnyLocalAddress()) {
-				in = NetReflectionUtil.anyLocalAddress();
+				in = MockInetAddress.anyLocalAddress();
 			}
 		} catch (SecurityException e) {
 			in = InetAddress.getLoopbackAddress();
 		} catch (Exception e) {			
-			in = NetReflectionUtil.anyLocalAddress(); // "0.0.0.0"
+			in = MockInetAddress.anyLocalAddress();
 		}
 		return in;
 	}
@@ -625,14 +610,12 @@ public class MockSocket extends Socket implements OverrideMock {
 	
 	@Override
 	public boolean isConnected() {
-		// Before 1.3 Sockets were always connected during creation
-		return connected || oldImpl;
+		return connected;
 	}
 
 	@Override
 	public boolean isBound() {
-		// Before 1.3 Sockets were always bound during creation
-		return bound || oldImpl;
+		return bound;
 	}
 
 	@Override
