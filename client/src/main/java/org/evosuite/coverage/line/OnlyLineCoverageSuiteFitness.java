@@ -1,4 +1,4 @@
-package org.evosuite.coverage.line.archive;
+package org.evosuite.coverage.line;
 
 import java.util.HashMap;
 import java.util.HashSet;
@@ -8,8 +8,6 @@ import java.util.Set;
 
 import org.evosuite.Properties;
 import org.evosuite.coverage.archive.TestsArchive;
-import org.evosuite.coverage.line.LineCoverageFactory;
-import org.evosuite.coverage.line.LineCoverageTestFitness;
 import org.evosuite.instrumentation.LinePool;
 import org.evosuite.testcase.ExecutableChromosome;
 import org.evosuite.testcase.TestFitnessFunction;
@@ -20,12 +18,10 @@ import org.evosuite.testsuite.TestSuiteFitnessFunction;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-public class ArchiveOnlyLineCoverageSuiteFitness extends TestSuiteFitnessFunction {
+public class OnlyLineCoverageSuiteFitness extends TestSuiteFitnessFunction {
 
 	
 	private static final long serialVersionUID = -6369027784777941998L;
-
-	private final TestsArchive testArchive;
 
 	private final static Logger logger = LoggerFactory.getLogger(TestSuiteFitnessFunction.class);
 
@@ -36,12 +32,7 @@ public class ArchiveOnlyLineCoverageSuiteFitness extends TestSuiteFitnessFunctio
 
 	public final Set<Integer> toRemoveLines = new HashSet<Integer>();
 
-	public ArchiveOnlyLineCoverageSuiteFitness() {
-		this(TestsArchive.instance);
-	}
-	
-	public ArchiveOnlyLineCoverageSuiteFitness(TestsArchive bestChromoBuilder) {
-		this.testArchive = bestChromoBuilder;
+	public OnlyLineCoverageSuiteFitness() {
 		@SuppressWarnings("unused")
 		String prefix = Properties.TARGET_CLASS_PREFIX;
 
@@ -54,7 +45,8 @@ public class ArchiveOnlyLineCoverageSuiteFitness extends TestSuiteFitnessFunctio
 		List<LineCoverageTestFitness> goals = new LineCoverageFactory().getCoverageGoals();
 		for (LineCoverageTestFitness goal : goals) {
 			linesCoverageMap.put(goal.getLine(), goal);
-			testArchive.addGoalToCover(this, goal);
+			if(Properties.TEST_ARCHIVE)
+				TestsArchive.instance.addGoalToCover(this, goal);
 		}
 	}
 	
@@ -68,6 +60,8 @@ public class ArchiveOnlyLineCoverageSuiteFitness extends TestSuiteFitnessFunctio
 
 	@Override
 	public boolean updateCoveredGoals() {
+		if(!Properties.TEST_ARCHIVE)
+			return false;
 		
 		for (Integer line : toRemoveLines) {
 			boolean removed = lines.remove(line);
@@ -81,7 +75,7 @@ public class ArchiveOnlyLineCoverageSuiteFitness extends TestSuiteFitnessFunctio
 		}
 
 		toRemoveLines.clear();
-		logger.info("Current state of archive: "+testArchive.toString());
+		logger.info("Current state of archive: "+TestsArchive.instance.toString());
 		
 		return true;
 	}
@@ -107,8 +101,10 @@ public class ArchiveOnlyLineCoverageSuiteFitness extends TestSuiteFitnessFunctio
 						continue;
 					
 					result.test.addCoveredGoal(linesCoverageMap.get(line));
-					toRemoveLines.add(line);
-					testArchive.putTest(this, linesCoverageMap.get(line), result.test);
+					if(Properties.TEST_ARCHIVE) {
+						toRemoveLines.add(line);
+						TestsArchive.instance.putTest(this, linesCoverageMap.get(line), result.test);
+					}
 				}
 			}
 		}
@@ -203,9 +199,11 @@ public class ArchiveOnlyLineCoverageSuiteFitness extends TestSuiteFitnessFunctio
 	}
 
     public TestSuiteChromosome getBestStoredIndividual(){
+		if(!Properties.TEST_ARCHIVE)
+			return null;
         // TODO: There's a design problem here because
         //       other fitness functions use the same archive
-        return testArchive.getReducedChromosome();
+        return TestsArchive.instance.getReducedChromosome();
         //return testArchive.getBestChromosome();
     }
 
