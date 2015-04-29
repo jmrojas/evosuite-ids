@@ -15,11 +15,11 @@
  * You should have received a copy of the GNU Public License along with
  * EvoSuite. If not, see <http://www.gnu.org/licenses/>.
  */
-package org.evosuite.ga;
+package org.evosuite.coverage.ibranch;
 
+import org.evosuite.ga.SecondaryObjective;
 import org.evosuite.testcase.ExecutableChromosome;
 import org.evosuite.testsuite.AbstractTestSuiteChromosome;
-import org.evosuite.testsuite.TestSuiteFitnessFunction;
 
 /**
  * <p>
@@ -32,11 +32,11 @@ public class IBranchSecondaryObjective extends
 		SecondaryObjective<AbstractTestSuiteChromosome<? extends ExecutableChromosome>> {
 
 	//Ibranch fitness
-	private TestSuiteFitnessFunction ff;
+	private IBranchSuiteFitness ff;
 	private static final long serialVersionUID = 7211557650429998223L;
 
-	public IBranchSecondaryObjective(TestSuiteFitnessFunction fitness) {
-		ff = fitness;
+	public IBranchSecondaryObjective() {
+		ff = new IBranchSuiteFitness();
 	}
 	 
 	@Override
@@ -44,14 +44,13 @@ public class IBranchSecondaryObjective extends
 			AbstractTestSuiteChromosome<? extends ExecutableChromosome> chromosome1,
 			AbstractTestSuiteChromosome<? extends ExecutableChromosome> chromosome2) {
 				
-		if (!chromosome1.hasExecutedFitness(ff) || chromosome1.isChanged())
-			ff.getFitness(chromosome1);
-		if (!chromosome2.hasExecutedFitness(ff) || chromosome2.isChanged())
-			ff.getFitness(chromosome2);
-
-		logger.debug("Comparing sizes: " + chromosome1.getFitness(ff) + " vs "
-				+ chromosome2.getFitness(ff));
-		int i = (int) Math.signum(chromosome1.getFitness(ff) - chromosome2.getFitness(ff));
+		double fitness1 = ff.getFitness(chromosome1, false);
+		double fitness2 = ff.getFitness(chromosome2, false);
+		int i = (int) Math.signum(fitness1 - fitness2);
+//		if (!chromosome1.hasExecutedFitness(ff) || chromosome1.isChanged())
+//			ff.getFitness(chromosome1);
+//		if (!chromosome2.hasExecutedFitness(ff) || chromosome2.isChanged())
+//			ff.getFitness(chromosome2);
 		ff.updateCoveredGoals();
 		return i; 
 	}

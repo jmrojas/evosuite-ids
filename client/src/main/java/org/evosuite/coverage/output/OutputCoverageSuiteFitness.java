@@ -47,14 +47,7 @@ public class OutputCoverageSuiteFitness extends TestSuiteFitnessFunction {
     // Each test gets a set of distinct covered goals, these are mapped by goal string
     private final Map<String, TestFitnessFunction> outputCoverageMap = new HashMap<String, TestFitnessFunction>();
 
-
-    /**
-     * <p>
-     * Constructor for OutputCoverageSuiteFitness.
-     * </p>
-     */
-    public OutputCoverageSuiteFitness() {
-
+    public OutputCoverageSuiteFitness() {    	
         // Add observer
         TestCaseExecutor executor = TestCaseExecutor.getInstance();
         OutputObserver observer = new OutputObserver();
@@ -73,6 +66,9 @@ public class OutputCoverageSuiteFitness extends TestSuiteFitnessFunction {
         List<OutputCoverageTestFitness> goals = new OutputCoverageFactory().getCoverageGoals();
         for (OutputCoverageTestFitness goal : goals) {
             outputCoverageMap.put(goal.toString(), goal);
+			// if(Properties.TEST_ARCHIVE)
+			//	testsArchive.addGoalToCover(this, goal);
+
         }
     }
 
@@ -133,7 +129,7 @@ public class OutputCoverageSuiteFitness extends TestSuiteFitnessFunction {
         for (String strGoal : strGoals) {
             if (outputCoverageMap.containsKey(strGoal)) {
                 setOfCoveredGoals.add(strGoal);
-                result.test.addCoveredGoal(outputCoverageMap.get(strGoal));
+                result.test.addCoveredGoal(outputCoverageMap.get(strGoal));    				
             }
         }
     }
