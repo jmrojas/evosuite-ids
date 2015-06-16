@@ -1,5 +1,7 @@
 package org.evosuite.runtime.instrumentation;
 
+import java.util.List;
+
 import org.evosuite.runtime.RuntimeSettings;
 import org.evosuite.runtime.util.ComputeClassWriter;
 import org.objectweb.asm.ClassReader;
@@ -70,6 +72,15 @@ public class RuntimeInstrumentation {
                 "org.apache.xerces.dom3", "de.unisl.cs.st.bugex", "edu.uta.cse.dsc", "org.mozilla.javascript.gen.c",
                 "corina.cross.Single",  // I really don't know what is wrong with this class, but we need to exclude it
                 "org.slf4j",
+                /**
+                 * FIXME:
+                 * JavaEE libraries should be shaded, and not being here in blacklist, as many side-effects.
+                 * If there is need of having any blacklisted library which is also an EvoSuite
+                 * dependency, then we MUST modify classloader to always load the version of the SUT
+                 * (currently it seems we delegate to parent classloader, which gives EvoSuite's version?)
+                 *
+                 * */
+                //"org.hibernate","org.hsqldb","org.jboss", // used in the generated JUnit files to test JavaEE applications relying on database
                 "org.apache.commons.discovery.tools.DiscoverSingleton",
                 "org.apache.commons.discovery.resource.ClassLoaders",
                 "org.apache.commons.discovery.resource.classes.DiscoverClasses",
@@ -123,10 +134,25 @@ public class RuntimeInstrumentation {
 
         int readFlags = ClassReader.SKIP_FRAMES;
         reader.accept(cn, readFlags);
+        
+        // Check if the class was already instrumented by a different 
+        // EvoSuite classloader
+        List<ClassNode> interfaces = cn.interfaces;
+        boolean isInstrumented = false;
+        for(ClassNode iface : interfaces) {
+        	if(iface.name.equals(InstrumentedClass.class.getCanonicalName())) {
+        		isInstrumented = true;
+        		break;
+        	}
+        		
+        }
         cv = new JSRInlinerClassVisitor(cv);
 
         try {
-            cn.accept(cv);
+        	if(!isInstrumented)
+        		cn.accept(cv);
+        	else
+        		cn.accept(writer); // Apply no transformation if this is already instrumented by EvoSuite
         } catch (Throwable ex) {
            logger.error("Error while instrumenting class "+className+": "+ex.getMessage(),ex);
         }

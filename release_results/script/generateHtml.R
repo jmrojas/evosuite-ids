@@ -1,15 +1,17 @@
 source("util.R")
 
-VERSION = "0_1_2"
+VERSION = "0_2_0"
 
 GENERATED_FILES = paste("../generated_files","/",VERSION,sep="")
 SELECTION_FILE = paste("../generated_files","/","selection.txt",sep="")
+PROBLEM_FILE = paste(GENERATED_FILES,"/","problems.txt",sep="")
 CS_FILE = "sf110.txt"
 
 DATA_DIR = paste("../data","/",VERSION,sep="")
 
 ALL_ZIP_FILE = paste(DATA_DIR,"/","compressedData_all.zip",sep="")
 SELECTION_ZIP_FILE = paste(DATA_DIR,"/","compressedData_selection.zip",sep="")
+PROBLEM_ZIP_FILE = paste(DATA_DIR,"/","compressedData_problems.zip",sep="")
 
 
 FIGURE_CLASSES = "barplotClasses.jpeg"
@@ -26,12 +28,27 @@ processDataSelection <- function(){
 	return(dt)
 }
 
+processDataProblem <- function(){
+	dt = processData(DATA_DIR,PROBLEM_FILE,PROBLEM_ZIP_FILE)
+	return(dt)
+}
+
+
+createProblemFile <- function(){
+	dt <- read.table(gzfile(ALL_ZIP_FILE),header=T)
+	zeroCoverageClasses(dt,PROBLEM_FILE)
+}
+
 htmlAll <- function(){
 	html(ALL_ZIP_FILE)
 }
 
 htmlSelection <- function(){
 	html(SELECTION_ZIP_FILE)
+}
+
+htmlProblems <- function(){
+	html(PROBLEM_ZIP_FILE)
 }
 
 
@@ -48,6 +65,13 @@ html <- function(zipFile){
 	projects = length(unique(dt$group_id))
 	version = gsub("_",".",VERSION)
 	budget = unique(dt$search_budget) / 60
+
+	line = formatC(100 * mean(dt$LineCoverage),digits=1,format="f")
+	branch = formatC(100 * mean(dt$BranchCoverage),digits=1,format="f")
+	mutation = formatC(100 * mean(dt$WeakMutationScore),digits=1,format="f")
+	output = formatC(100 * mean(dt$OutputCoverage),digits=1,format="f")
+	exception = formatC(mean(dt$Implicit_MethodExceptions),digits=1,format="f")
+	tests = formatC(mean(dt$Size),digits=1,format="f")
 
 	PAGE = paste(GENERATED_FILES,"/results.html",sep="")
 	unlink(PAGE)
@@ -70,6 +94,15 @@ html <- function(zipFile){
 	cat("			<img src='",FIGURE_CLASSES,"' alt='Coverage per class' />\n", sep="")
 	cat("			<img src='",FIGURE_PROJECTS,"' alt='Coverage per project' /> \n", sep="")
 	cat("		</div> \n")
+	cat("		<p>Average values for the different testing results: </p> \n")
+	cat("		<ul> \n")
+	cat("		<li>","Line:       ",line,"%</li> \n",sep="")
+	cat("		<li>","Branch:     ",branch,"%</li> \n",sep="")
+	cat("		<li>","Mutation:   ",mutation,"%</li> \n",sep="")
+	cat("		<li>","Output:     ",output,"%</li> \n",sep="")
+	cat("		<li>","Exceptions: ",exception,"</li> \n",sep="")
+	cat("		<li>","# of Tests: ",tests,"</li> \n",sep="")
+	cat("		</ul> \n")
 	cat("		<p>In detail results: </p> \n")
 	table(dt)
 	cat("	</body>\n")
@@ -95,7 +128,7 @@ table <- function(dt){
 		cat("					<div data-role='collapsible'>\n", sep="")
 		cat("						<h4> ",projName," (",length(projClasses)," classes): average ",projCov,"% line coverage</h4>\n", sep="")
 		cat("						<table data-role='table'  class='ui-responsive table-stripe'> \n")
-		cat("							<thead><tr><th>Class Name</th><th>Line</th><th>Branch</th><th>Mutation</th><th>Output</th><th>Exception</th><th># Tests</th></tr></thead> \n")
+		cat("							<thead><tr><th>Class Name</th><th>Line</th><th>Branch</th><th>Mutation</th><th>Output</th><th>Exceptions</th><th># Tests</th></tr></thead> \n")
 		cat("							<tbody> \n")
 		for(class in projClasses){
 			line = formatC(100 * mean(dt$LineCoverage[dt$group_id==p & dt$TARGET_CLASS==class]),digits=1,format="f")

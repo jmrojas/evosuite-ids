@@ -368,7 +368,7 @@ public class Properties {
 	public static boolean DSE_KEEP_ALL_TESTS = false;
 
 	public enum SolverType {
-		EVOSUITE_SOLVER, Z3_SOLVER, Z3_STR_SOLVER, CVC4_SOLVER;
+		EVOSUITE_SOLVER, Z3_SOLVER, Z3_STR2_SOLVER, CVC4_SOLVER;
 	}
 
 	@Parameter(key = "dse_solver", group = "DSE", description = "Specify which constraint solver to use. Note: external solver will need to be installed and cofigured separately")
@@ -377,8 +377,8 @@ public class Properties {
 	@Parameter(key = "z3_path", group = "DSE", description = "Indicates the path to the Z3 solver")
 	public static String Z3_PATH = null;
 
-	@Parameter(key = "z3_str_path", group = "DSE", description = "Indicates the path to the Z3-Str solver")
-	public static String Z3_STR_PATH = null;
+	@Parameter(key = "z3_str2_path", group = "DSE", description = "Indicates the path to the Z3-Str2 solver")
+	public static String Z3_STR2_PATH = null;
 
 	@Parameter(key = "cvc4_path", group = "DSE", description = "Indicates the path to the CVC4 solver")
 	public static String CVC4_PATH = null;
@@ -628,23 +628,31 @@ public class Properties {
 	/** Constant <code>MINIMIZATION_TIMEOUT=600</code> */
 	@Parameter(key = "minimization_timeout", group = "Search Algorithm", description = "Seconds allowed for minimization at the end")
 	@IntValue(min = 0)
-	public static int MINIMIZATION_TIMEOUT = 120;
+	public static int MINIMIZATION_TIMEOUT = 60;
 
     @Parameter(key = "assertion_timeout", group = "Search Algorithm", description = "Seconds allowed for assertion generation at the end")
     @IntValue(min = 0)
-    public static int ASSERTION_TIMEOUT = 120;
+    public static int ASSERTION_TIMEOUT = 60;
 
-    @Parameter(key = "junit_check_timeout", group = "Search Algorithm", description = "Seconds allowed for checking the generated JUnit files (e.g., compilation and stability)")
-    @IntValue(min = 0)
-    public static int JUNIT_CHECK_TIMEOUT = 120;
+	@Parameter(key = "junit_check_timeout", group = "Search Algorithm", description = "Seconds allowed for checking the generated JUnit files (e.g., compilation and stability)")
+	@IntValue(min = 0)
+	public static int JUNIT_CHECK_TIMEOUT = 60;
 
-    @Parameter(key = "carving_timeout", group = "Search Algorithm", description = "Seconds allowed for carving JUnit tests")
+	@Parameter(key = "write_junit_timeout", group = "Search Algorithm", description = "Seconds allowed to write on disk the generated JUnit files")
+	@IntValue(min = 0)
+	public static int WRITE_JUNIT_TIMEOUT = 60; //Note: we need it, as we currently first run the tests before we write them
+
+	@Parameter(key = "carving_timeout", group = "Search Algorithm", description = "Seconds allowed for carving JUnit tests")
 	@IntValue(min = 0)
 	public static int CARVING_TIMEOUT = 120;
 
 	@Parameter(key = "initialization_timeout", group = "Search Algorithm", description = "Seconds allowed for initializing the search")
 	@IntValue(min = 0)
 	public static int INITIALIZATION_TIMEOUT = 120;
+
+	@Parameter(key = "extra_timeout", group = "Search Algorithm", description = "Extra seconds allowed for the search")
+	@IntValue(min = 0)
+	public static int EXTRA_TIMEOUT = 60;
 
 	@Parameter(key = "track_boolean_branches", group = "Search Algorithm", description = "Track branches that have a distance of either 0 or 1")
 	public static boolean TRACK_BOOLEAN_BRANCHES = false;
@@ -655,10 +663,6 @@ public class Properties {
 	@Parameter(key = "branch_comparison_types", group = "Search Algorithm", description = "Track branch comparison types based on the bytecode")
 	public static boolean BRANCH_COMPARISON_TYPES = false;
 
-	/** Constant <code>EXTRA_TIMEOUT=120</code> */
-	@Parameter(key = "extra_timeout", group = "Search Algorithm", description = "Extra seconds allowed for the search")
-	@IntValue(min = 0)
-	public static int EXTRA_TIMEOUT = 120;
 
 	@Parameter(key = "analysis_criteria", group = "Output", description = "List of criteria which should be measured on the completed test suite")
 	public static String ANALYSIS_CRITERIA = "";
@@ -682,13 +686,46 @@ public class Properties {
 	public static int CTG_MIN_TIME_PER_JOB = 1;
 
 	@Parameter(key = "ctg_folder", group = "Continuous Test Generation", description = "Where generated files will be stored")
-	public static String CTG_FOLDER = ".evosuite";
+	public static String CTG_DIR = ".evosuite";
 
-	@Parameter(key = "ctg_tmp_folder", group = "Continuous Test Generation", description = "Temporary directory")
-	public static String CTG_TMP_FOLDER = "tmp";
+	@Parameter(key = "ctg_bests_folder", group = "Continuous Test Generation", description = "Folder where all the best test suites generated so far in all CTG runs are stored")
+	public static String CTG_BESTS_DIR = CTG_DIR + File.separator + "evosuite-tests";
 
-	@Parameter(key = "ctg_history_file", group = "Continuous Test Generation", description = "File with the history of every class")
-	public static String CTG_HISTORY_FILE = "";
+	@Parameter(key = "ctg_generation_dir_prefix", group = "Continuous Test Generation", description = "")
+	public static String CTG_GENERATION_DIR_PREFIX = null;
+
+	@Parameter(key = "ctg_delete_old_tmp_folders", group = "Continuous Test Generation", description = "If true, delete all the tmp folders before starting a new CTG run")
+	public static boolean CTG_DELETE_OLD_TMP_FOLDERS = true;
+
+	@Parameter(key = "ctg_tmp_logs_dir_name", group = "Continuous Test Generation", description = "")
+	public static String CTG_TMP_LOGS_DIR_NAME = "logs";
+
+	@Parameter(key = "ctg_tmp_pools_dir_name", group = "Continuous Test Generation", description = "")
+	public static String CTG_TMP_POOLS_DIR_NAME = "pools";
+
+	@Parameter(key = "ctg_tmp_reports_dir_name", group = "Continuous Test Generation", description = "")
+	public static String CTG_TMP_REPORTS_DIR_NAME = "reports";
+
+	@Parameter(key = "ctg_tmp_tests_dir_name", group = "Continuous Test Generation", description = "")
+	public static String CTG_TMP_TESTS_DIR_NAME = "tests";
+
+	@Parameter(key = "ctg_seeds_file_in", group = "Continuous Test Generation", description = "If specified, load serialized tests from that file")
+	public static String CTG_SEEDS_FILE_IN = null;
+
+	@Parameter(key = "ctg_seeds_file_out", group = "Continuous Test Generation", description = "If specified, save serialized tests to that file")
+	public static String CTG_SEEDS_FILE_OUT = null;
+
+	@Parameter(key = "ctg_seeds_dir_name", group = "Continuous Test Generation", description = "Name of seed folder where the serialized tests are stored")
+	public static String CTG_SEEDS_DIR_NAME = "seeds";
+
+	@Parameter(key = "ctg_seeds_ext", group = "Continuous Test Generation", description = "File extension for serialized test files")
+	public static String CTG_SEEDS_EXT = "seed";
+
+	@Parameter(key = "ctg_project_info", group = "Continuous Test Generation", description = "XML file which stores stats about all CTG executions")
+	public static String CTG_PROJECT_INFO = CTG_DIR + File.separator + "project_info.xml";
+
+	@Parameter(key = "ctg_history_file", group = "Continuous Test Generation", description = "File with the list of new(A)/modified(M)/deleted(D) files")
+	public static String CTG_HISTORY_FILE = null;
 
 	@Parameter(key = "ctg_selected_cuts", group = "Continuous Test Generation", description = "Comma ',' separated list of CUTs to use in CTG. If none specified, then test all classes")
 	public static String CTG_SELECTED_CUTS = null;
@@ -1101,7 +1138,7 @@ public class Properties {
 	public static int SEED_MUTATIONS = 2;
 
 	/** Constant <code>SEED_DIR=""</code> */
-	@Parameter(key = "seed_dir", group = "Output", description = "Directory name to save best chromosomes")
+	@Parameter(key = "seed_dir", group = "Output", description = "Directory name where the best chromosomes are saved")
 	public static String SEED_DIR = "evosuite-seeds";
 
 	/** Constant <code>CONCOLIC_MUTATION=0.0</code> */
@@ -1159,9 +1196,12 @@ public class Properties {
 
 	// ---------------------------------------------------------------
 	// Test Execution
-	/** Constant <code>TIMEOUT=5000</code> */
-	@Parameter(key = "timeout", group = "Test Execution", description = "Milliseconds allowed per test")
-	public static int TIMEOUT = 5000;
+	@Parameter(key = "timeout", group = "Test Execution", description = "Milliseconds allowed to execute the body of a test")
+	public static int TIMEOUT = 3000;
+
+	@Parameter(key = "timeout_reset", group = "Test Execution", description = "Milliseconds allowed to execute the static reset of a test")
+	public static int TIMEOUT_RESET = 2000;
+
 
 	@Parameter(key = "concolic_timeout", group = "Test Execution", description = "Milliseconds allowed per test during concolic execution")
 	public static int CONCOLIC_TIMEOUT = 15000;
@@ -1350,6 +1390,10 @@ public class Properties {
 	/** Constant <code>MIN_FREE_MEM=50 * 1000 * 1000</code> */
 	@Parameter(key = "min_free_mem", group = "Runtime", description = "Minimum amount of available memory")
 	public static int MIN_FREE_MEM = 50 * 1000 * 1000;
+
+
+	@Parameter(key = "max_perm_size", group = "Runtime", description = "MaxPermSize (in MB) for the client process")
+	public static int MAX_PERM_SIZE = 256;
 
 	/** Constant <code>CLIENT_ON_THREAD=false</code> */
 	@Parameter(key = "client_on_thread", group = "Runtime", description = "Run client process on same JVM of master in separate thread. To be used only for debugging purposes")
@@ -2083,6 +2127,10 @@ public class Properties {
 	public static Class<?> getTargetClass() {
 		return getTargetClass(true);
 	}
+	
+	public static boolean hasTargetClassBeenLoaded() {
+		return TARGET_CLASS_INSTANCE != null;
+	}
 
 	/**
 	 * Get class object of class under test
@@ -2090,6 +2138,7 @@ public class Properties {
 	 * @return a {@link java.lang.Class} object.
 	 */
 	public static Class<?> getTargetClass(boolean initialise) {
+
 		if (TARGET_CLASS_INSTANCE != null
 				&& TARGET_CLASS_INSTANCE.getCanonicalName()
 						.equals(TARGET_CLASS))
@@ -2112,30 +2161,10 @@ public class Properties {
 			setClassPrefix();
 
 		} catch (ClassNotFoundException e) {
-			LoggingUtils.getEvoLogger().info(
-					"* Could not find class under test: "
-							+ Properties.TARGET_CLASS + ": " + e);
-			for (StackTraceElement s : e.getStackTrace()) {
-				LoggingUtils.getEvoLogger().info("   " + s.toString());
-			}
-			Throwable cause = e.getCause();
-			while (cause != null) {
-				LoggingUtils.getEvoLogger().info("Caused by: " + cause);
-				for (StackTraceElement s : cause.getStackTrace()) {
-					LoggingUtils.getEvoLogger().info("   " + s.toString());
-				}
-				cause = cause.getCause();
-			}
-			/*
-			 * FIXME: Why this sleep???
-			 */
-			try {
-				Thread.sleep(100);
-			} catch (InterruptedException e1) {
-				logger.debug(e1.getMessage());
-			}
-		} finally {
+			LoggingUtils.getEvoLogger().warn(
+					"* Could not find class under test " + Properties.TARGET_CLASS + ": " + e);
 		}
+
 		return TARGET_CLASS_INSTANCE;
 	}
 
