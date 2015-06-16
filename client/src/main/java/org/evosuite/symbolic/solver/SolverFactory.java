@@ -4,7 +4,7 @@ import org.evosuite.Properties;
 import org.evosuite.symbolic.solver.cvc4.CVC4Solver;
 import org.evosuite.symbolic.solver.search.EvoSuiteSolver;
 import org.evosuite.symbolic.solver.z3.Z3Solver;
-import org.evosuite.symbolic.solver.z3str.Z3StrSolver;
+import org.evosuite.symbolic.solver.z3str2.Z3Str2Solver;
 
 public class SolverFactory {
 
@@ -17,11 +17,11 @@ public class SolverFactory {
 	public Solver buildNewSolver() {
 		switch (Properties.DSE_SOLVER) {
 		case Z3_SOLVER:
-			return new Z3Solver();
-		case Z3_STR_SOLVER:
-			return new Z3StrSolver();
+			return new Z3Solver(true);
+		case Z3_STR2_SOLVER:
+			return new Z3Str2Solver(true);
 		case CVC4_SOLVER:
-			return new CVC4Solver();
+			return new CVC4Solver(true);
 		case EVOSUITE_SOLVER:
 		default:
 			return new EvoSuiteSolver();

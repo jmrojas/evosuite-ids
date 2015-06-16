@@ -27,8 +27,6 @@ import org.evosuite.result.TestGenerationResultBuilder;
 import org.evosuite.rmi.ClientServices;
 import org.evosuite.rmi.service.MasterNodeRemote;
 import org.evosuite.runtime.RuntimeSettings;
-import org.evosuite.runtime.agent.AgentLoader;
-import org.evosuite.runtime.agent.ToolsJarLocator;
 import org.evosuite.runtime.instrumentation.MethodCallReplacementCache;
 import org.evosuite.runtime.mock.MockFramework;
 import org.evosuite.runtime.sandbox.MSecurityManager;
@@ -38,7 +36,6 @@ import org.evosuite.utils.Randomness;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import java.io.IOException;
 
 /**
  * <p>
@@ -126,6 +123,7 @@ public class ClientProcess {
         RuntimeSettings.maxNumberOfIterationsPerLoop = Properties.MAX_LOOP_ITERATIONS;
         RuntimeSettings.useVNET = Properties.VIRTUAL_NET;
         RuntimeSettings.useSeparateClassLoader = Properties.USE_SEPARATE_CLASSLOADER;
+		RuntimeSettings.className = Properties.TARGET_CLASS;
         MethodCallReplacementCache.resetSingleton();
     }
 

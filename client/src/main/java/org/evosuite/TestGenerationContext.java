@@ -9,6 +9,7 @@ import org.evosuite.coverage.archive.TestsArchive;
 import org.evosuite.coverage.branch.BranchPool;
 import org.evosuite.coverage.dataflow.DefUsePool;
 import org.evosuite.coverage.mutation.MutationPool;
+import org.evosuite.coverage.mutation.MutationTimeoutStoppingCondition;
 import org.evosuite.ga.stoppingconditions.GlobalTimeStoppingCondition;
 import org.evosuite.ga.stoppingconditions.MaxStatementsStoppingCondition;
 import org.evosuite.graphs.GraphPool;
@@ -135,6 +136,7 @@ public class TestGenerationContext {
 
 		MaxStatementsStoppingCondition.setNumExecutedStatements(0);
 		GlobalTimeStoppingCondition.forceReset();
+		MutationTimeoutStoppingCondition.resetStatic();
 
 		// Forget the old SUT
 		Properties.resetTargetClass();
@@ -148,10 +150,11 @@ public class TestGenerationContext {
 		ObjectPoolManager.getInstance().reset();
 		CarvingManager.getInstance().clear();
 
+		// TODO: Why are we doing this?
 		if (Properties.INSTRUMENT_CONTEXT
 				|| ArrayUtil.contains(Properties.CRITERION, Properties.Criterion.DEFUSE)
-				|| ArrayUtil.contains(Properties.CRITERION, Properties.Criterion.IBRANCH)
-				|| ArrayUtil.contains(Properties.CRITERION, Properties.Criterion.CBRANCH)) {
+				|| ArrayUtil.contains(Properties.CRITERION, Properties.Criterion.IBRANCH)) {
+//				|| ArrayUtil.contains(Properties.CRITERION, Properties.Criterion.CBRANCH)) {
 			try {
 				TestClusterGenerator clusterGenerator = new TestClusterGenerator();
 				clusterGenerator.generateCluster(Properties.TARGET_CLASS,
