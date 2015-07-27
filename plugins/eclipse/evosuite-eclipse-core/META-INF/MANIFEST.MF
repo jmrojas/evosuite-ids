@@ -1,0 +1,22 @@
+Manifest-Version: 1.0
+Bundle-ManifestVersion: 2
+Bundle-Name: Evosuite Eclipse plugin - Core
+Bundle-SymbolicName: org.evosuite.plugins.eclipse.core
+Bundle-Version: 0.1.0.qualifier
+Bundle-ClassPath: evosuite.jar
+Bundle-RequiredExecutionEnvironment: JavaSE-1.7
+Export-Package: org.evosuite,
+ org.evosuite.annotations,
+ org.evosuite.classpath,
+ org.evosuite.coverage,
+ org.evosuite.ga,
+ org.evosuite.ga.metaheuristics,
+ org.evosuite.junit,
+ org.evosuite.result,
+ org.evosuite.rmi,
+ org.evosuite.rmi.service,
+ org.evosuite.setup,
+ org.evosuite.testcase,
+ org.evosuite.testcase.execution,
+ org.evosuite.testcase.factories,
+ org.evosuite.utils
