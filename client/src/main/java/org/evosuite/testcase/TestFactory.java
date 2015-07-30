@@ -1016,7 +1016,8 @@ public class TestFactory {
 	public VariableReference createObject(TestCase test, Type type, int position,
 	        int recursionDepth) throws ConstructionFailedException {
 		GenericClass clazz = new GenericClass(type);
-		GenericAccessibleObject<?> o = TestCluster.getInstance().getRandomGenerator(clazz, currentRecursion);
+
+		GenericAccessibleObject<?> o = TestCluster.getInstance().getRandomGenerator(clazz, currentRecursion, test);
 		currentRecursion.add(o);
 
 		if (o == null) {
@@ -1780,7 +1781,7 @@ public class TestFactory {
 		} else {
 			logger.debug("Getting calls for object " + var.toString());
 			try {
-				GenericAccessibleObject<?> call = TestCluster.getInstance().getRandomCallFor(var.getGenericClass());
+				GenericAccessibleObject<?> call = TestCluster.getInstance().getRandomCallFor(var.getGenericClass(), test, position);
 				logger.debug("Chosen call " + call);
 				return addCallFor(test, var, call, position);
 			} catch (ConstructionFailedException e) {
