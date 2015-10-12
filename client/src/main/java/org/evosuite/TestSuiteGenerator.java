@@ -208,7 +208,7 @@ public class TestSuiteGenerator {
 				TestSuiteMinimizer minimizer = new TestSuiteMinimizer(getFitnessFactories());
 	
 				LoggingUtils.getEvoLogger().info("* Minimizing test suite");
-			    minimizer.minimize(testSuite, true);
+				minimizer.minimize(testSuite, true);
 			}
 		} else {
 		    ClientServices.getInstance().getClientNode().trackOutputVariable(RuntimeVariable.Result_Size, testSuite.size());
@@ -500,15 +500,17 @@ public class TestSuiteGenerator {
 			if (!RegressionSearchListener.statsID.equals("")) {
 				File evosuiterTestDir = new File("evosuiter-stats");
 
+				boolean madeDir = false;
 				if (!evosuiterTestDir.exists() || !evosuiterTestDir.isDirectory()) {
-					evosuiterTestDir.mkdirs();
+					madeDir = evosuiterTestDir.mkdirs();
 				}
+				if(madeDir){
+					String regressionTestName = "T" + RegressionSearchListener.statsID + "Test";
+					
+					LoggingUtils.getEvoLogger().info("* Writing JUnit test case '" + (regressionTestName) + "' to " + evosuiterTestDir);
 
-				String regressionTestName = "T" + RegressionSearchListener.statsID + "Test";
-				
-				LoggingUtils.getEvoLogger().info("* Writing JUnit test case '" + (regressionTestName) + "' to " + evosuiterTestDir);
-
-				suite.writeTestSuite(regressionTestName, evosuiterTestDir.getName(), false);
+					suite.writeTestSuite(regressionTestName, evosuiterTestDir.getName(), false);
+				}
 			}
 		}
 		return TestGenerationResultBuilder.buildSuccessResult();
