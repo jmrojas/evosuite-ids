@@ -17,26 +17,20 @@
  * You should have received a copy of the GNU Lesser Public License along
  * with EvoSuite. If not, see <http://www.gnu.org/licenses/>.
  */
-/**
- * 
- */
 package com.examples.with.different.packagename;
 
 /**
- * @author Gordon Fraser
+ * @author jmrojas
  * 
  */
-public class FactoryExample {
+public class ExampleNullAssertion {
 
-	public boolean setMe = false;
-
-	public byte testByte(byte x, byte y) {
-		return (byte) (x + y);
+	public Short foo( short v ) {
+		if ( v < 0 ) {
+			return null;
+		} else {
+			return Short.valueOf( v );
+		}
 	}
-
-	public void testInt(int x) { };
-
-	public static void testStatic() {
-		// no-op
-	}
+	
 }

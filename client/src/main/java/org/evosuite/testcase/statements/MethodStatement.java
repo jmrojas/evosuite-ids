@@ -66,8 +66,6 @@ public class MethodStatement extends EntityWithParametersStatement {
 	 *            a {@link java.lang.reflect.Method} object.
 	 * @param callee
 	 *            a {@link org.evosuite.testcase.variable.VariableReference} object.
-	 * @param type
-	 *            a {@link java.lang.reflect.Type} object.
 	 * @param parameters
 	 *            a {@link java.util.List} object.
 	 */
@@ -338,6 +336,7 @@ public class MethodStatement extends EntityWithParametersStatement {
 			m.setRetval(newRetVal);
 
 		}
+		m.getReturnValue().setType(retval.getType()); // Actual type may have changed, e.g. subtype
 
 		// m.assertions = copyAssertions(newTestCase, offset);
 
@@ -653,8 +652,7 @@ public class MethodStatement extends EntityWithParametersStatement {
 	 * Go through parameters of method call and apply local search
 	 * 
 	 * @param test
-	 * @param statement
-	 * @param objective
+	 * @param factory
 	 */
 	@Override
 	public boolean mutate(TestCase test, TestFactory factory) {
