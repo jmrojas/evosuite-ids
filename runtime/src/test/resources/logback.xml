@@ -1,0 +1,17 @@
+
+
+<!-- During test execution, we do not want to have debug/info that would flood the logging -->
+
+<configuration>
+
+    <contextName>ContextForTests</contextName>
+
+    <root level="WARN">
+        <appender  class="ch.qos.logback.core.ConsoleAppender">
+            <target>System.out</target>
+            <encoder>
+                <pattern>%-5level %logger - %msg%n</pattern>
+            </encoder>
+        </appender>
+    </root>
+</configuration>
