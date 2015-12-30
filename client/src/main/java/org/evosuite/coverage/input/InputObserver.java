@@ -85,7 +85,6 @@ public class InputObserver extends ExecutionObserver {
                 } catch (CodeUnderTestException e) {
                     e.printStackTrace();
                 }
-
                 argObjects.add(parObject);
             }
             assert parRefs.size() == argObjects.size();

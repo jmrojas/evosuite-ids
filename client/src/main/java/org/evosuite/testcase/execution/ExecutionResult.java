@@ -479,5 +479,5 @@ public class ExecutionResult implements Cloneable {
 
 	public void setArgumentsValues(Map<EntityWithParametersStatement, List<Object>> argumentsValues) {
 		this.argumentsValues = argumentsValues;
-	}	
+	}
 }

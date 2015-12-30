@@ -977,7 +977,15 @@ public class Properties {
 
 	/** Constant <code>COVERED_GOALS_FILE="covered.goals"</code> */
 	@Parameter(key = "covered_goals_file", group = "Output", description = "File with relation of tests and covered goals")
-	public static String COVERED_GOALS_FILE = REPORT_DIR + File.separator + "covered.goals";
+	public static String COVERED_GOALS_FILE = "covered.goals";
+
+	/** Constant <code>WRITE_COVERED_GOALS_FILE=false</code> */
+	@Parameter(key = "write_test_names_file", group = "Output", description = "Write test names file")
+	public static boolean WRITE_TEST_NAMES_FILE = false;
+
+	/** Constant <code>COVERED_GOALS_FILE="covered.goals"</code> */
+	@Parameter(key = "TEST_NAMES_FILE", group = "Output", description = "File with relation of tests names")
+	public static String TEST_NAMES_FILE = "test.names";
 
 	/** Constant <code>ASSERTIONS=false</code> */
 	@Parameter(key = "assertions", group = "Output", description = "Create assertions")
@@ -1383,8 +1391,26 @@ public class Properties {
             //these are basic criteria that should be always on by default
             Criterion.LINE, Criterion.BRANCH, Criterion.EXCEPTION, Criterion.WEAKMUTATION, Criterion.OUTPUT, Criterion.METHOD, Criterion.METHODNOEXCEPTION, Criterion.CBRANCH  };
 
+	/** Generate readable test names */
+	public static Boolean TEST_NAMING = true;
 
-    /** Cache target class */
+	public enum VariableNamingStrategy {
+		DEFAULT, DUMMY, DECLARATIONS, EXPLANATORY, NATURALIZE
+	}
+
+	/** Constant <code>VARIABLE_NAMING_STRATEGY</code> */
+	@Parameter(key = "variable_naming_strategy", group = "Output", description = "What variable naming strategy to use")
+	public static VariableNamingStrategy VARIABLE_NAMING_STRATEGY = VariableNamingStrategy.DEFAULT;
+
+	public enum TestNamingStrategy {
+		NUMBERED, COVERAGE
+	}
+
+	@Parameter(key = "test_naming_strategy", group = "Output", description = "What strategy to use to derive names for tests")
+	public static TestNamingStrategy TEST_NAMING_STRATEGY = TestNamingStrategy.COVERAGE;
+
+
+	/** Cache target class */
 	private static Class<?> TARGET_CLASS_INSTANCE = null;
 	
 	/** Cache target regression class */
@@ -2440,4 +2466,11 @@ public class Properties {
 		return isRegression;
 	}
 
+	public static String getTestNamesFile() {
+		return Properties.REPORT_DIR + File.separator + Properties.TEST_NAMES_FILE;
+	}
+
+	public static String getCoveredGoalsFile() {
+		return Properties.REPORT_DIR + File.separator + Properties.COVERED_GOALS_FILE;
+	}
 }

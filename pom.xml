@@ -784,6 +784,18 @@
                                         <shadedPattern>org.evosuite.shaded.org.objenesis</shadedPattern>
                                     </relocation>
                                 </relocations>
+                                <!-- ERMIRA -->
+                                <filters>
+                                  <filter>
+                                    <artifact>*:*</artifact>
+                                    <excludes>
+                                      <exclude>META-INF/*.SF</exclude>
+                                      <exclude>META-INF/*.DSA</exclude>
+                                      <exclude>META-INF/*.RSA</exclude>
+                                    </excludes>
+                                  </filter>
+                                </filters>
+                                <!-- END ERMIRA -->
                             </configuration>
                         </execution>
                     </executions>
