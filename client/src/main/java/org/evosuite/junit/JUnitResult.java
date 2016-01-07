@@ -20,8 +20,18 @@
 package org.evosuite.junit;
 
 import java.util.ArrayList;
+import java.util.LinkedHashSet;
 import java.util.List;
+import java.util.Set;
 
+import org.evosuite.coverage.exception.ExceptionCoverageTestFitness;
+import org.evosuite.coverage.io.input.InputCoverageGoal;
+import org.evosuite.coverage.io.output.OutputCoverageGoal;
+import org.evosuite.coverage.method.MethodCoverageTestFitness;
+import org.evosuite.coverage.method.MethodNoExceptionCoverageTestFitness;
+import org.evosuite.testcase.DefaultTestCase;
+import org.evosuite.testcase.TestCase;
+import org.evosuite.testcase.TestFitnessFunction;
 import org.evosuite.testcase.execution.ExecutionTrace;
 
 /**
@@ -57,6 +67,7 @@ public class JUnitResult {
      */
     private ExecutionTrace executionTrace;
 
+
     /**
      * 
      */
@@ -77,6 +88,28 @@ public class JUnitResult {
      */
     private Class<?> junitClass;
 
+    private Set<InputCoverageGoal> inputGoals = new LinkedHashSet<>();
+
+    private Set<OutputCoverageGoal> outputGoals = new LinkedHashSet<>();
+
+    private Set<MethodCoverageTestFitness> methodGoals = new LinkedHashSet<>();
+
+    private Set<MethodNoExceptionCoverageTestFitness> methodNoExceptionGoals = new LinkedHashSet<>();
+
+    private Set<ExceptionCoverageTestFitness> exceptionGoals = new LinkedHashSet<>();
+
+    private TestCase dummyTest = new DefaultTestCase() {
+        private Object dummy = new Object();
+        @Override
+        public int hashCode() {
+            return dummy.hashCode();
+        }
+
+        @Override
+        public boolean equals(Object obj) {
+            return dummy.equals(obj);
+        }
+    };
     /**
      * 
      */
@@ -234,6 +267,46 @@ public class JUnitResult {
     	return this.junitClass;
     }
 
+    public Set<OutputCoverageGoal> getOutputGoals() {
+        return outputGoals;
+    }
+
+    public void addOutputGoals(Set<OutputCoverageGoal> outputGoals) {
+        this.outputGoals.addAll(outputGoals);
+    }
+
+    public Set<InputCoverageGoal> getInputGoals() {
+        return inputGoals;
+    }
+
+    public void addInputGoals(Set<InputCoverageGoal> inputGoals) {
+        this.inputGoals.addAll(inputGoals);
+    }
+
+    public Set<MethodCoverageTestFitness> getMethodCoverageGoals() {
+        return methodGoals;
+    }
+
+    public void addMethodGoals(Set<MethodCoverageTestFitness> methodGoals) {
+        this.methodGoals.addAll(methodGoals);
+    }
+
+    public Set<MethodNoExceptionCoverageTestFitness> getMethodNoExceptionCoverageGoals() {
+        return methodNoExceptionGoals;
+    }
+
+    public void addMethodNoExceptionGoals(Set<MethodNoExceptionCoverageTestFitness> methodNoExceptionGoals) {
+        this.methodNoExceptionGoals.addAll(methodNoExceptionGoals);
+    }
+
+    public Set<ExceptionCoverageTestFitness> getExceptionCoverageGoals() {
+        return exceptionGoals;
+    }
+
+    public void addExceptionGoals(Set<ExceptionCoverageTestFitness> exceptionGoals) {
+        this.exceptionGoals.addAll(exceptionGoals);
+    }
+
     /**
      * 
      */
@@ -274,4 +347,12 @@ public class JUnitResult {
 			return false;
 		return true;
 	}
+
+    public void addCoveredGoalToDummyTest(TestFitnessFunction goal) {
+        dummyTest.addCoveredGoal(goal);
+    }
+
+    public TestCase getDummyTest() {
+        return dummyTest;
+    }
 }

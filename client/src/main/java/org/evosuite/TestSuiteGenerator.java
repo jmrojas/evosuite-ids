@@ -202,7 +202,7 @@ public class TestSuiteGenerator {
 				TestSuiteMinimizer minimizer = new TestSuiteMinimizer(getFitnessFactories());
 
 				LoggingUtils.getEvoLogger().info("* Minimizing test suite");
-			    minimizer.minimize(testSuite, true);
+				minimizer.minimize(testSuite, true);
 
 				double after = testSuite.getFitness();
 				if(after > before + 0.01d) { //assume minimization
@@ -318,7 +318,6 @@ public class TestSuiteGenerator {
         }
 
         ClientServices.getInstance().getClientNode().changeState(ClientState.JUNIT_CHECK);
-
 
         // Store this value; if this option is true then the JUnit check
         // would not succeed, as the JUnit classloader wouldn't find the class
@@ -493,8 +492,9 @@ public class TestSuiteGenerator {
 			String testDir = Properties.TEST_DIR;
 
 			LoggingUtils.getEvoLogger().info("* Writing JUnit test case '" + (name + suffix) + "' to " + testDir);
-			suiteWriter.writeTestSuite(name + suffix, testDir);
 
+			suiteWriter.writeTestSuite(name + suffix, testDir);
+			
 			// If in regression mode, create a separate copy of the tests 
 			if (!RegressionSearchListener.statsID.equals("")) {
 				File evosuiterTestDir = new File("evosuiter-stats");
@@ -507,7 +507,7 @@ public class TestSuiteGenerator {
 					String regressionTestName = "T" + RegressionSearchListener.statsID + "Test";
 					
 					LoggingUtils.getEvoLogger().info("* Writing JUnit test case '" + (regressionTestName) + "' to " + evosuiterTestDir);
-	
+
 					suiteWriter.writeTestSuite(regressionTestName, evosuiterTestDir.getName());
 				}
 			}

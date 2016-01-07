@@ -28,19 +28,10 @@ import java.io.FileInputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.PrintStream;
+import java.lang.reflect.Method;
 import java.lang.reflect.Modifier;
 import java.text.NumberFormat;
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.BitSet;
-import java.util.Collections;
-import java.util.Comparator;
-import java.util.Enumeration;
-import java.util.HashSet;
-import java.util.Iterator;
-import java.util.LinkedHashSet;
-import java.util.List;
-import java.util.Set;
+import java.util.*;
 import java.util.zip.ZipEntry;
 import java.util.zip.ZipException;
 import java.util.zip.ZipFile;
@@ -57,10 +48,19 @@ import org.evosuite.classpath.ResourceList;
 import org.evosuite.coverage.CoverageCriteriaAnalyzer;
 import org.evosuite.coverage.FitnessFunctions;
 import org.evosuite.coverage.TestFitnessFactory;
+import org.evosuite.coverage.exception.ExceptionCoverageTestFitness;
+import org.evosuite.coverage.io.input.InputCoverageGoal;
+import org.evosuite.coverage.io.output.OutputCoverageGoal;
+import org.evosuite.coverage.method.MethodCoverageTestFitness;
+import org.evosuite.coverage.method.MethodNoExceptionCoverageTestFitness;
 import org.evosuite.coverage.mutation.Mutation;
 import org.evosuite.coverage.mutation.MutationObserver;
 import org.evosuite.coverage.mutation.MutationPool;
+import org.evosuite.coverage.mutation.StrongMutationTestFitness;
 import org.evosuite.ga.FitnessFunction;
+import org.evosuite.idNaming.CoverageGoalTestNameGenerationStrategy;
+import org.evosuite.idNaming.NumberedTestNameGenerationStrategy;
+import org.evosuite.idNaming.TestNameGenerationStrategy;
 import org.evosuite.rmi.ClientServices;
 import org.evosuite.runtime.EvoRunner;
 import org.evosuite.runtime.sandbox.Sandbox;
@@ -75,6 +75,7 @@ import org.evosuite.testcase.execution.ExecutionTracer;
 import org.evosuite.testcase.factories.JUnitTestCarvedChromosomeFactory;
 import org.evosuite.testsuite.TestSuiteChromosome;
 import org.evosuite.utils.ExternalProcessUtilities;
+import org.evosuite.utils.FileIOUtils;
 import org.evosuite.utils.LoggingUtils;
 import org.junit.Test;
 import org.junit.runners.model.FrameworkMethod;
@@ -82,6 +83,8 @@ import org.junit.runners.model.TestClass;
 import org.objectweb.asm.ClassReader;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+
+import javax.persistence.criteria.CriteriaBuilder;
 
 /**
  * <p>
@@ -106,15 +109,19 @@ public class CoverageAnalysis {
 
 	private final static Logger logger = LoggerFactory.getLogger(CoverageAnalysis.class);
 
-	private static int totalGoals = 0;
-	private static int totalCoveredGoals = 0;
-	private static Set<String> targetClasses = new LinkedHashSet<String>();
+	private int totalGoals = 0;
+	private int totalCoveredGoals = 0;
+	private Set<String> targetClasses = new LinkedHashSet<String>();
+
+    private Map<String, String> testNameMap = new LinkedHashMap<>();
+    private Map<String, Set<TestFitnessFunction>> testCoverageMap = new LinkedHashMap<>();
+
 
 	/**
 	 * Identify all JUnit tests starting with the given name prefix, instrument
 	 * and run tests
 	 */
-	public static void analyzeCoverage() {
+	public void analyzeCoverage() {
 		Sandbox.goingToExecuteSUTCode();
         TestGenerationContext.getInstance().goingToExecuteSUTCode();
 		Sandbox.goingToExecuteUnsafeCodeOnSameThread();
@@ -166,6 +173,9 @@ public class CoverageAnalysis {
 
 				List<JUnitResult> results = executeTests(tests);
 				printReport(results);
+                if(Properties.WRITE_TEST_NAMES_FILE) {
+                    writeTestNamesFiles(results);
+                }
 			} finally {
 				EvoRunner.useAgent = true;
 			}
@@ -210,15 +220,26 @@ public class CoverageAnalysis {
 	    TestChromosome dummy = new TestChromosome();
         dummy.setChanged(false);
 
-        // Execution result of a dummy Test Case
-        ExecutionResult executionResult = new ExecutionResult(dummy.getTestCase());
-
 		Set<TestFitnessFunction> coveredGoals = new HashSet<TestFitnessFunction>();
 
 		List<JUnitResult> results = executeTests(testClass);
 		for (JUnitResult testResult : results) {
+			// Execution result of a dummy Test Case
+			ExecutionResult executionResult = new ExecutionResult(dummy.getTestCase());
+
 		    executionResult.setTrace(testResult.getExecutionTrace());
-            dummy.setLastExecutionResult(executionResult);
+
+            // As we cannot apply a regular Input/OutputObserver, we need to simulate this
+			Map<Integer, Set<InputCoverageGoal>> inputGoals = new LinkedHashMap<>();
+			inputGoals.put(0, testResult.getInputGoals());
+			executionResult.setInputGoals(inputGoals);
+
+            // As we cannot apply a regular Input/OutputObserver, we need to simulate this
+			Map<Integer, Set<OutputCoverageGoal>> outputGoals = new LinkedHashMap<>();
+			outputGoals.put(0, testResult.getOutputGoals());
+			executionResult.setOutputGoals(outputGoals);
+
+			dummy.setLastExecutionResult(executionResult);
 
             for(TestFitnessFunction goal : allGoals) {
             	if(coveredGoals.contains(goal))
@@ -226,12 +247,16 @@ public class CoverageAnalysis {
             	else if (goal.isCovered(dummy))
                     coveredGoals.add(goal);
             }
+
+            // Method coverage requires an actual test, so we side-step this by setting the called methods directly
+            coveredGoals.addAll(testResult.getMethodCoverageGoals());
+            coveredGoals.addAll(testResult.getMethodNoExceptionCoverageGoals());
 		}
 
 		return coveredGoals;
 	}
 
-	private static List<Class<?>> getTestClassesFromClasspath() {
+	private List<Class<?>> getTestClassesFromClasspath() {
 		List<Class<?>> classes = new ArrayList<Class<?>>();
 		for(String prefix : Properties.JUNIT.split(":")) {
 			
@@ -264,7 +289,7 @@ public class CoverageAnalysis {
 		return classes;
 	}
 
-	private static List<Class<?>> getTestClasses() {
+	private List<Class<?>> getTestClasses() {
 		List<Class<?>> testClasses = new ArrayList<Class<?>>();
 		
 		logger.debug("JUNIT: "+Properties.JUNIT);
@@ -305,7 +330,7 @@ public class CoverageAnalysis {
 	 *             if any.
 	 * @return a {@link java.util.List} object.
 	 */
-	private static List<Class<?>> getTestClasses(File directory) {
+	private List<Class<?>> getTestClasses(File directory) {
 
 		List<Class<?>> testClasses = new ArrayList<Class<?>>();
 
@@ -392,7 +417,7 @@ public class CoverageAnalysis {
 	 *            a {@link java.io.File} object.
 	 * @return a {@link java.util.List} object.
 	 */
-	private static List<Class<?>> getTestClassesJar(File file) {
+	private List<Class<?>> getTestClassesJar(File file) {
 
 		List<Class<?>> testClasses = new ArrayList<Class<?>>();
 
@@ -468,7 +493,8 @@ public class CoverageAnalysis {
 		return testClasses;
 	}
 
-	private static void analyzeCoverageCriterion(List<JUnitResult> results, Properties.Criterion criterion) {
+    // FIXME: This is an unacceptable mess.
+	private void analyzeCoverageCriterion(List<JUnitResult> results, Properties.Criterion criterion) {
 
 		logger.info("analysing coverage of " + criterion);
 
@@ -480,7 +506,13 @@ public class CoverageAnalysis {
 
 		if (criterion == Criterion.MUTATION
 				|| criterion == Criterion.STRONGMUTATION) {
-			goals = MutationPool.getMutants();
+            goals = MutationPool.getMutants();
+        } else if(criterion == Criterion.EXCEPTION) {
+            Set<ExceptionCoverageTestFitness> exceptionGoals = new LinkedHashSet<>();
+            for(JUnitResult result : results) {
+                exceptionGoals.addAll(result.getExceptionCoverageGoals());
+            }
+            goals = new ArrayList<>(exceptionGoals);
 		} else {
 			goals = factory.getCoverageGoals();
 		}
@@ -490,8 +522,6 @@ public class CoverageAnalysis {
         TestChromosome dummy = new TestChromosome();
         dummy.setChanged(false);
 
-        // Execution result of a dummy Test Case
-        ExecutionResult executionResult = new ExecutionResult(dummy.getTestCase());
 
         // coverage matrix (each row represents the coverage of each test case
         // and each column represents the coverage of each component (e.g., line)
@@ -502,45 +532,102 @@ public class CoverageAnalysis {
         for (int index_test = 0; index_test < results.size(); index_test++) {
         	JUnitResult tR = results.get(index_test);
 
-        	ExecutionTrace trace = tR.getExecutionTrace();
+            // Execution result of a dummy Test Case
+            ExecutionResult executionResult = new ExecutionResult(dummy.getTestCase());
+
+            ExecutionTrace trace = tR.getExecutionTrace();
             executionResult.setTrace(trace);
             dummy.getTestCase().clearCoveredGoals();
             dummy.setLastExecutionResult(executionResult);
 
             if (criterion == Criterion.MUTATION
             		|| criterion ==  Criterion.STRONGMUTATION) {
-            	for (Integer mutationID : trace.getTouchedMutants()) {
-            		Mutation mutation = MutationPool.getMutant(mutationID);
+                for (Integer mutationID : trace.getTouchedMutants()) {
+                    Mutation mutation = MutationPool.getMutant(mutationID);
 
-            		if (goals.contains(mutation)) {
-            			MutationObserver.activateMutation(mutationID);
-            			List<JUnitResult> mutationResults = executeTests(tR.getJUnitClass());
-            			MutationObserver.deactivateMutation();
+                    if (goals.contains(mutation)) {
+                        MutationObserver.activateMutation(mutationID);
+                        List<JUnitResult> mutationResults = executeTests(tR.getJUnitClass());
+                        MutationObserver.deactivateMutation();
 
-            			for (JUnitResult mR : mutationResults) {
-            				if (mR.getFailureCount() != tR.getFailureCount()) {
-            					logger.info("Mutation killed: " + mutationID);
-            					covered.set(mutation.getId());
+                        for (JUnitResult mR : mutationResults) {
+                            // TODO: What about errors?
+                            if (mR.getFailureCount() != tR.getFailureCount()) {
+                                logger.info("Mutation killed: " + mutationID);
+                                StrongMutationTestFitness mutationGoal = new StrongMutationTestFitness(mutation);
+                                tR.addCoveredGoalToDummyTest(mutationGoal);
+                                covered.set(mutation.getId());
                                 coverage_matrix[index_test][mutationID.intValue()] = true;
                                 break;
-            				}
-            			}
-            		}
-            	}
+                            }
+                        }
+                    }
+                }
+            } else if(criterion == Criterion.METHOD) {
+                Set<MethodCoverageTestFitness> coveredMethodGoals = tR.getMethodCoverageGoals();
+                for (int index_component = 0; index_component < goals.size(); index_component++) {
+                    TestFitnessFunction goal = (TestFitnessFunction) goals.get(index_component);
+                    if(coveredMethodGoals.contains(goal)) {
+                        tR.addCoveredGoalToDummyTest(goal);
+                        covered.set(index_component);
+                        coverage_matrix[index_test][index_component] = true;
+                    }
+                    else {
+                        coverage_matrix[index_test][index_component] = false;
+                    }
+                }
+
+            } else if(criterion == Criterion.METHODNOEXCEPTION) {
+                Set<MethodNoExceptionCoverageTestFitness> coveredMethodGoals = tR.getMethodNoExceptionCoverageGoals();
+                for (int index_component = 0; index_component < goals.size(); index_component++) {
+                    TestFitnessFunction goal = (TestFitnessFunction) goals.get(index_component);
+                    if(coveredMethodGoals.contains(goal)) {
+                        tR.addCoveredGoalToDummyTest(goal);
+                        covered.set(index_component);
+                        coverage_matrix[index_test][index_component] = true;
+                    }
+                    else {
+                        coverage_matrix[index_test][index_component] = false;
+                    }
+                }
+            } else if(criterion == Criterion.EXCEPTION) {
+                Set<ExceptionCoverageTestFitness> coveredExceptionGoals = tR.getExceptionCoverageGoals();
+                for (int index_component = 0; index_component < goals.size(); index_component++) {
+                    TestFitnessFunction goal = (TestFitnessFunction) goals.get(index_component);
+                    if(coveredExceptionGoals.contains(goal)) {
+                        tR.addCoveredGoalToDummyTest(goal);
+                        covered.set(index_component);
+                        coverage_matrix[index_test][index_component] = true;
+                    } else {
+                        coverage_matrix[index_test][index_component] = false;
+                    }
+                }
             } else {
+                if(criterion == Criterion.INPUT) {
+                    Map<Integer, Set<InputCoverageGoal>> goalMap = new LinkedHashMap<>();
+                    goalMap.put(0, tR.getInputGoals());
+                    executionResult.setInputGoals(goalMap);
+                } else if(criterion == Criterion.OUTPUT) {
+                    Map<Integer, Set<OutputCoverageGoal>> goalMap = new LinkedHashMap<>();
+                    goalMap.put(0, tR.getOutputGoals());
+                    executionResult.setOutputGoals(goalMap);
+                }
 	            for (int index_component = 0; index_component < goals.size(); index_component++) {
 	            	TestFitnessFunction goal = (TestFitnessFunction) goals.get(index_component);
 
+                    logger.info("Checking goal: "+goal);
 	                if (goal.isCovered(dummy)) {
+                        logger.info("Is covered");
+                        tR.addCoveredGoalToDummyTest(goal);
 	                	covered.set(index_component);
 	                	coverage_matrix[index_test][index_component] = true;
 	                }
 	                else {
+                        logger.info("Is not covered");
 	                	coverage_matrix[index_test][index_component] = false;
 	                }
 	            }
             }
-
             coverage_matrix[index_test][goals.size()] = tR.wasSuccessful();
         }
         totalCoveredGoals += covered.cardinality();
@@ -575,7 +662,7 @@ public class CoverageAnalysis {
         }
 	}
 
-	private static void printReport(List<JUnitResult> results) {
+	private void printReport(List<JUnitResult> results) {
 
 		Iterator<String> it = targetClasses.iterator();
 		Criterion[] criterion = Properties.CRITERION;
@@ -730,7 +817,8 @@ public class CoverageAnalysis {
 			        + Properties.PROCESS_COMMUNICATION_PORT);
 		}
 
-		analyzeCoverage();
+        CoverageAnalysis analysis = new CoverageAnalysis();
+		analysis.analyzeCoverage();
 		/*
 		 * for now, we ignore the instruction (originally was meant to support several client in parallel and
 		 * restarts, but that will be done in RMI)
@@ -740,9 +828,61 @@ public class CoverageAnalysis {
 	}
 
 	// just for testing
-	protected static void reset() {
-		totalGoals = 0;
-		totalCoveredGoals = 0;
-		targetClasses.clear();
-	}
+//	protected static void reset() {
+//		totalGoals = 0;
+//		totalCoveredGoals = 0;
+//		targetClasses.clear();
+//	}
+
+    public void writeTestNamesFiles(List<JUnitResult> results) {
+        List<org.evosuite.testcase.TestCase> dummyTests = new ArrayList<>();
+        List<ExecutionResult> executionResults = new ArrayList<>();
+        for(JUnitResult result : results) {
+            // Execution result of a dummy Test Case
+            ExecutionResult executionResult = new ExecutionResult(result.getDummyTest());
+
+            ExecutionTrace trace = result.getExecutionTrace();
+            executionResult.setTrace(trace);
+
+            dummyTests.add(result.getDummyTest());
+            executionResults.add(executionResult);
+        }
+
+        TestNameGenerationStrategy strategy;
+        if(Properties.TEST_NAMING_STRATEGY == Properties.TestNamingStrategy.COVERAGE) {
+            strategy = new CoverageGoalTestNameGenerationStrategy(dummyTests, executionResults);
+        } else if (Properties.TEST_NAMING_STRATEGY == Properties.TestNamingStrategy.NUMBERED) {
+            strategy = new NumberedTestNameGenerationStrategy(dummyTests, executionResults);
+        } else {
+            throw new RuntimeException("Unsupported naming strategy: "+Properties.TEST_NAMING_STRATEGY);
+        }
+
+        StringBuilder nameMappingBuilder = new StringBuilder();
+        StringBuilder goalMappingBuilder = new StringBuilder();
+        String newLine = System.getProperty("line.separator");
+        for(JUnitResult result : results) {
+            String origName = result.getName();
+            String generatedName = strategy.getName(result.getDummyTest());
+            nameMappingBuilder.append(generatedName);
+            nameMappingBuilder.append(",");
+            nameMappingBuilder.append(origName);
+            nameMappingBuilder.append(",");
+            nameMappingBuilder.append(result.getDummyTest().getCoveredGoals().size());
+            nameMappingBuilder.append(newLine);
+
+            for(TestFitnessFunction goal : result.getDummyTest().getCoveredGoals()) {
+                goalMappingBuilder.append(origName);
+                goalMappingBuilder.append(",");
+                goalMappingBuilder.append(goal.toString());
+                goalMappingBuilder.append(newLine);
+            }
+        }
+
+        File file = new File(Properties.getCoveredGoalsFile());
+        FileIOUtils.writeFile(goalMappingBuilder.toString(), file);
+
+        file = new File(Properties.getTestNamesFile());
+        FileIOUtils.writeFile(nameMappingBuilder.toString(), file);
+    }
+
 }
