@@ -22,12 +22,17 @@
  */
 package org.evosuite.junit;
 
+import org.evosuite.Properties;
+import org.evosuite.coverage.method.JUnitObserver;
 import org.evosuite.testcase.execution.ExecutionTracer;
 import org.evosuite.utils.LoggingUtils;
 import org.junit.runner.Description;
 import org.junit.runner.Result;
 import org.junit.runner.notification.Failure;
 import org.junit.runner.notification.RunListener;
+
+import java.util.Arrays;
+import java.util.List;
 
 /**
  * <p>
@@ -53,12 +58,22 @@ public class JUnitRunListener extends RunListener {
 	 */
 	private long start;
 
+	/** Determine if we need to collect data on method calls, e.g. for output coverage */
+	private boolean requiresMethodObserver = false;
+
 	/**
 	 * 
-	 * @param jr
+	 * @param jR
 	 */
 	public JUnitRunListener(JUnitRunner jR) {
 		this.junitRunner = jR;
+		List<Properties.Criterion> criteria = Arrays.asList(Properties.CRITERION);
+		if(criteria.contains(Properties.Criterion.INPUT) ||
+				criteria.contains(Properties.Criterion.OUTPUT) ||
+				criteria.contains(Properties.Criterion.METHOD) ||
+				criteria.contains(Properties.Criterion.METHODNOEXCEPTION) ||
+                criteria.contains(Properties.Criterion.EXCEPTION))
+			requiresMethodObserver = true;
 	}
 
 	/**
@@ -74,7 +89,7 @@ public class JUnitRunListener extends RunListener {
 	 */
 	@Override
 	public void testRunFinished(Result result) {
-		LoggingUtils.getEvoLogger().info("* Number of test cases to executed: " + result.getRunCount());
+		LoggingUtils.getEvoLogger().info("* Number of test cases executed: " + result.getRunCount());
 	}
 
 	/**
@@ -87,6 +102,9 @@ public class JUnitRunListener extends RunListener {
 		this.start = System.nanoTime();
 
 		this.testResult = new JUnitResult(description.getClassName() + "#" + description.getMethodName(), this.junitRunner.getJUnitClass());
+		if(requiresMethodObserver) {
+			JUnitObserver.getInstance().setEnabled(true);
+		}
 	}
 
 	/**
@@ -95,11 +113,19 @@ public class JUnitRunListener extends RunListener {
 	@Override
 	public void testFinished(Description description) {
 		LoggingUtils.getEvoLogger().info("* Finished: " + "ClassName: " + description.getClassName() + ", MethodName: " + description.getMethodName());
-
 		this.testResult.setRuntime(System.nanoTime() - this.start);
 		this.testResult.setExecutionTrace(ExecutionTracer.getExecutionTracer().getTrace());
 		this.testResult.incrementRunCount();
 		ExecutionTracer.getExecutionTracer().clear();
+		if(requiresMethodObserver) {
+			JUnitObserver.getInstance().setEnabled(false);
+            this.testResult.addInputGoals(JUnitObserver.getInstance().getInputCoverageGoals());
+            this.testResult.addOutputGoals(JUnitObserver.getInstance().getOutputCoverageGoals());
+            this.testResult.addMethodGoals(JUnitObserver.getInstance().getCoveredMethodGoals());
+            this.testResult.addMethodNoExceptionGoals(JUnitObserver.getInstance().getCoveredMethodNoExceptionGoals());
+			this.testResult.addExceptionGoals(JUnitObserver.getInstance().getExceptionGoals());
+			JUnitObserver.getInstance().reset();
+		}
 
 		this.junitRunner.addResult(this.testResult);
 	}
@@ -113,7 +139,6 @@ public class JUnitRunListener extends RunListener {
 		for (StackTraceElement s : failure.getException().getStackTrace()) {
 			LoggingUtils.getEvoLogger().info("   " + s.toString());
 		}
-
 		this.testResult.setSuccessful(false);
 		this.testResult.setTrace(failure.getTrace());
 		this.testResult.incrementFailureCount();

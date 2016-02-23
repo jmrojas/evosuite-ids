@@ -108,7 +108,7 @@ public class DefaultTestCase implements TestCase, Serializable {
 		Iterator<Statement> iterator = statements.iterator();
 		while (iterator.hasNext()) {
 			Statement statement = iterator.next();
-			logger.trace("Visiting statement " + statement.getCode());
+			logger.trace("Visiting statement " + statement.getPosition());
 			visitor.visitStatement(statement);
 		}
 	}
@@ -146,6 +146,10 @@ public class DefaultTestCase implements TestCase, Serializable {
 	public void addCoveredGoal(TestFitnessFunction goal) {
 		coveredGoals.add(goal);
 		// TODO: somehow adds the same goal more than once (fitnessfunction.equals()?)
+	}
+
+	public void addCoveredGoals(List<TestFitnessFunction> goals) {
+        coveredGoals.addAll(goals);
 	}
 
 	@Override

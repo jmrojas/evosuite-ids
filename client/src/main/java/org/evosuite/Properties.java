@@ -116,7 +116,7 @@ public class Properties {
 	public static boolean STRING_REPLACEMENT = true;
 
 	/** Constant <code>RESET_STATIC_FIELDS =false</code> */
-	@Parameter(key = "reset_static_fields", group = "Test Creation", description = "Call static constructors only after each static field was modified")
+	@Parameter(key = "reset_static_fields", group = "Test Creation", description = "Call static constructors only after each a static field was modified")
 	public static boolean RESET_STATIC_FIELDS = true;
 
 	@Parameter(key = "reset_static_field_gets", group = "Test Creation", description = "Call static constructors also after each static field was read")
@@ -226,7 +226,7 @@ public class Properties {
 	@Parameter(key = "max_array", group = "Test Creation", description = "Maximum length of randomly generated arrays")
 	public static int MAX_ARRAY = 10;
 
-    /** Constant <code>MAX_ATTEMPTS=1000</code> */
+	/** Constant <code>MAX_ATTEMPTS=1000</code> */
 	@Parameter(key = "max_attempts", group = "Test Creation", description = "Number of attempts when generating an object before giving up")
 	public static int MAX_ATTEMPTS = 1000;
 
@@ -718,7 +718,7 @@ public class Properties {
 	public static int CTG_CORES = 1;
 
 	@Parameter(key = "ctg_time", group = "Continuous Test Generation", description = "How many minutes in total CTG will run")
-	public static int CTG_TIME = 3;
+	public static int CTG_TIME = 1;
 
 	@Parameter(key = "ctg_time_per_class", group = "Continuous Test Generation", description = "How many minutes to allocate for each class. If this parameter is set, then ctg_time is going to be ignored. This parameter is mainly meant for debugging purposes.")
 	public static Integer CTG_TIME_PER_CLASS = null;
@@ -1006,7 +1006,15 @@ public class Properties {
 
 	/** Constant <code>COVERED_GOALS_FILE="covered.goals"</code> */
 	@Parameter(key = "covered_goals_file", group = "Output", description = "File with relation of tests and covered goals")
-	public static String COVERED_GOALS_FILE = REPORT_DIR + File.separator + "covered.goals";
+	public static String COVERED_GOALS_FILE = "covered.goals";
+
+	/** Constant <code>WRITE_TEST_NAMES_FILE=false</code> */
+	@Parameter(key = "write_test_names_file", group = "Output", description = "Write test names file")
+	public static boolean WRITE_TEST_NAMES_FILE = false;
+
+	/** Constant <code>TEST_NAMES_FILE="test.names"</code> */
+	@Parameter(key = "test_names_file", group = "Output", description = "File with relation of tests names")
+	public static String TEST_NAMES_FILE = "test.names";
 
 	/** Constant <code>ASSERTIONS=false</code> */
 	@Parameter(key = "assertions", group = "Output", description = "Create assertions")
@@ -1425,8 +1433,25 @@ public class Properties {
             //these are basic criteria that should be always on by default
             Criterion.LINE, Criterion.BRANCH, Criterion.EXCEPTION, Criterion.WEAKMUTATION, Criterion.OUTPUT, Criterion.METHOD, Criterion.METHODNOEXCEPTION, Criterion.CBRANCH  };
 
+	public enum VariableNamingStrategy {
+		DEFAULT, DUMMY, DECLARATIONS, EXPLANATORY, NATURALIZE
+	}
 
-    /** Cache target class */
+	/** Constant <code>VARIABLE_NAMING_STRATEGY</code> */
+	@Parameter(key = "variable_naming_strategy", group = "Output", description = "What variable naming strategy to use")
+	public static VariableNamingStrategy VARIABLE_NAMING_STRATEGY = VariableNamingStrategy.DEFAULT;
+
+	@Parameter(key = "variable_naming_training_data_dir", group = "Output", description = "Where to look for java files to train Naturalize model")
+	public static String VARIABLE_NAMING_TRAINING_DATA_DIR = null;
+
+	public enum TestNamingStrategy {
+		NUMBERED, COVERAGE
+	}
+
+	@Parameter(key = "test_naming_strategy", group = "Output", description = "What strategy to use to derive names for tests")
+	public static TestNamingStrategy TEST_NAMING_STRATEGY = TestNamingStrategy.COVERAGE;
+
+	/** Cache target class */
 	private static Class<?> TARGET_CLASS_INSTANCE = null;
 	
 	/** Cache target regression class */
@@ -2482,4 +2507,11 @@ public class Properties {
 		return isRegression;
 	}
 
+	public static String getTestNamesFile() {
+		return Properties.REPORT_DIR + File.separator + Properties.TEST_NAMES_FILE;
+	}
+
+	public static String getCoveredGoalsFile() {
+		return Properties.REPORT_DIR + File.separator + Properties.COVERED_GOALS_FILE;
+	}
 }
